@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { motion } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CheckCircle, Users, Clock } from "lucide-react";
@@ -21,7 +22,10 @@ const ProjectCard = ({ project }: { project: ProjectData }) => {
   const percentFunded = Math.min(Math.round((project.raised / project.goal) * 100), 100);
 
   return (
-    <div className="group flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
+    <motion.div 
+      whileHover={{ y: -10, transition: { duration: 0.3, ease: "easeOut" } }}
+      className="group flex flex-col h-full overflow-hidden rounded-2xl border border-border/50 bg-card shadow-sm transition-all duration-300 hover:shadow-2xl hover:border-primary/20"
+    >
       <div className="relative aspect-[16/10] overflow-hidden bg-muted">
         <img
           src={project.image}
@@ -82,7 +86,7 @@ const ProjectCard = ({ project }: { project: ProjectData }) => {
           </Button>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 };
 

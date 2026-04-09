@@ -1,3 +1,5 @@
+import { motion } from "framer-motion";
+
 interface SahmiLogoProps {
   size?: "sm" | "md" | "lg";
   variant?: "full" | "icon";
@@ -11,8 +13,13 @@ const SahmiLogo = ({ size = "md", variant = "full", className = "" }: SahmiLogoP
   const iconSize = iconSizes[size];
 
   return (
-    <div className={`flex items-center gap-2.5 ${className}`} aria-label="Sahmi Palestine Connect">
-      {/* ===== SVG LOGO ICON ===== */}
+    <motion.div 
+      className={`flex items-center gap-3 ${className}`} 
+      aria-label="Sahmi Palestine Connect"
+      whileHover={{ scale: 1.05 }}
+      whileTap={{ scale: 0.95 }}
+    >
+      {/* SVG Icon */}
       <svg
         width={iconSize}
         height={iconSize}
@@ -20,106 +27,72 @@ const SahmiLogo = ({ size = "md", variant = "full", className = "" }: SahmiLogoP
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
         aria-hidden="true"
+        className="drop-shadow-sm"
       >
         <defs>
-          {/* Main gradient: emerald → royal blue */}
-          <linearGradient id="sahmi-bg" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="#0d7377" />
-            <stop offset="100%" stopColor="#2855c8" />
+          <linearGradient id="sahmi-grad-premium" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stopColor="#F59E0B" />
+            <stop offset="100%" stopColor="#8B5CF6" />
           </linearGradient>
+          <filter id="sahmi-glow" x="-20%" y="-20%" width="140%" height="140%">
+            <feGaussianBlur stdDeviation="2" result="blur" />
+            <feComposite in="SourceGraphic" in2="blur" operator="over" />
+          </filter>
         </defs>
 
-        {/* Rounded background square */}
-        <rect x="1" y="1" width="46" height="46" rx="12" fill="url(#sahmi-bg)" />
+        {/* Background rounded square with glass effect */}
+        <rect x="2" y="2" width="44" height="44" rx="14" fill="url(#sahmi-grad-premium)" />
+        <rect x="2.5" y="2.5" width="43" height="43" rx="13.5" stroke="white" strokeOpacity="0.2" strokeWidth="1" />
 
-        {/* ══════════════════════════════
-            OPEN HAND — outstretched palm
-            offering upward (giving / hope)
-        ══════════════════════════════ */}
+        {/* Network dots — top-left cluster (minimalist) */}
+        <circle cx="10" cy="10" r="2" fill="white" fillOpacity="0.4" />
+        <circle cx="18" cy="8" r="1.5" fill="white" fillOpacity="0.2" />
+        <line x1="10" y1="10" x2="18" y2="8" stroke="white" strokeWidth="0.5" strokeOpacity="0.1" />
 
-        {/* Four fingers — pointing up, slightly fanned */}
-        {/* Index finger */}
-        <rect x="11" y="23" width="4.5" height="12" rx="2.2" fill="white" fillOpacity="0.93" />
-        {/* Middle finger (tallest) */}
-        <rect x="16.5" y="20" width="4.5" height="15" rx="2.2" fill="white" fillOpacity="0.93" />
-        {/* Ring finger */}
-        <rect x="22" y="22" width="4.5" height="13" rx="2.2" fill="white" fillOpacity="0.93" />
-        {/* Pinky */}
-        <rect x="27.5" y="25" width="4" height="10" rx="2" fill="white" fillOpacity="0.85" />
-
-        {/* Palm base (connects all fingers) */}
-        <rect x="11" y="33" width="20.5" height="7" rx="3" fill="white" fillOpacity="0.93" />
-
-        {/* Thumb (angled left) */}
+        {/* Olive branch stylized — more minimalist and elegant */}
         <path
-          d="M11 36 Q9 34 8.5 31 Q8.5 28 10 28 Q11.5 28 12 30 L12 36Z"
-          fill="white"
-          fillOpacity="0.85"
-        />
-
-        {/* Subtle finger separation shading */}
-        <line x1="15.5" y1="25" x2="15.5" y2="34" stroke="url(#sahmi-bg)" strokeWidth="0.5" strokeOpacity="0.3" />
-        <line x1="21" y1="24" x2="21" y2="34" stroke="url(#sahmi-bg)" strokeWidth="0.5" strokeOpacity="0.3" />
-        <line x1="26.5" y1="26" x2="26.5" y2="34" stroke="url(#sahmi-bg)" strokeWidth="0.5" strokeOpacity="0.3" />
-
-        {/* ══════════════════════════════
-            OLIVE BRANCH — held above hand
-            symbol of peace + Palestine
-        ══════════════════════════════ */}
-
-        {/* Branch stem — rises from middle fingertip */}
-        <path
-          d="M18.5 20 Q19 14 20 9"
+          d="M14 34 Q20 28 26 22 Q30 18 34 14"
           stroke="white"
-          strokeWidth="1.8"
+          strokeWidth="2.5"
           strokeLinecap="round"
           fill="none"
           strokeOpacity="0.95"
         />
+        {/* Leaf petals simplified */}
+        <path d="M20 28 Q16 22 22 20 Q24 23 20 28Z" fill="white" fillOpacity="0.9" />
+        <path d="M26 22 Q22 16 28 14 Q30 18 26 22Z" fill="white" fillOpacity="0.9" />
 
-        {/* Leaf left-lower */}
-        <path d="M19 17 Q14 16 14 12 Q19 12 19 17Z" fill="white" fillOpacity="0.88" />
-        {/* Leaf right-lower */}
-        <path d="M19.5 15 Q24 13 25 9 Q21 9 19.5 15Z" fill="white" fillOpacity="0.88" />
-        {/* Leaf left-upper (small) */}
-        <path d="M19.5 12 Q15.5 10.5 16 7 Q20 8 19.5 12Z" fill="white" fillOpacity="0.68" />
-        {/* Bud at tip */}
-        <circle cx="20" cy="8.5" r="1.8" fill="white" fillOpacity="0.92" />
+        {/* The 'Sahm' (Arrow) — sharper fintech look */}
+        <path
+          d="M34 14 L28 14 M34 14 L34 20 M34 14 L40 8"
+          stroke="white"
+          strokeWidth="3"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeOpacity="1"
+          fill="none"
+        />
 
-        {/* ══════════════════════════════
-            NETWORK DOTS — community nodes
-            connected by dashed lines
-        ══════════════════════════════ */}
+        {/* Bottom-right network dots */}
+        <circle cx="38" cy="38" r="2" fill="white" fillOpacity="0.4" />
+        <circle cx="30" cy="40" r="1.5" fill="white" fillOpacity="0.2" />
+        <line x1="38" y1="38" x2="30" y2="40" stroke="white" strokeWidth="0.5" strokeOpacity="0.1" />
 
-        {/* Node A — top right (primary node, "active") */}
-        <circle cx="38" cy="10" r="3.2" fill="white" fillOpacity="0.88" />
-        {/* Pulse ring around node A */}
-        <circle cx="38" cy="10" r="5.8" stroke="white" strokeWidth="0.7" strokeOpacity="0.25" fill="none" />
-
-        {/* Node B — right-middle */}
-        <circle cx="41" cy="22" r="2.4" fill="white" fillOpacity="0.72" />
-
-        {/* Node C — right-lower */}
-        <circle cx="37" cy="33" r="2" fill="white" fillOpacity="0.56" />
-
-        {/* Dashed connection: A → B */}
-        <line x1="38" y1="13" x2="41" y2="20" stroke="white" strokeWidth="1.1" strokeOpacity="0.42" strokeDasharray="2 1.8" />
-        {/* Dashed connection: B → C */}
-        <line x1="41" y1="24" x2="37" y2="31" stroke="white" strokeWidth="1.1" strokeOpacity="0.38" strokeDasharray="2 1.8" />
-
-        {/* Branch bud → Node A (branch feeds the community network) */}
-        <line x1="22" y1="9" x2="34.8" y2="10" stroke="white" strokeWidth="0.9" strokeOpacity="0.28" strokeDasharray="1.5 2" />
-        {/* Palm → Node C (hand giving to community) */}
-        <line x1="31.5" y1="33" x2="35" y2="33" stroke="white" strokeWidth="0.9" strokeOpacity="0.28" strokeDasharray="1.5 2" />
+        {/* Pulse center dot */}
+        <circle cx="24" cy="24" r="1.5" fill="white" fillOpacity="0.6">
+          <animate attributeName="r" values="1.5;2.5;1.5" dur="3s" repeatCount="indefinite" />
+          <animate attributeName="opacity" values="0.6;0.3;0.6" dur="3s" repeatCount="indefinite" />
+        </circle>
       </svg>
 
-      {/* ===== LOGO TEXT ===== */}
+      {/* Text */}
       {variant === "full" && (
         <div className="flex flex-col leading-none">
           <span
-            className={`font-bold tracking-tight ${textSizes[size]}`}
+            className={`font-extrabold tracking-[-0.03em] ${textSizes[size]}`}
             style={{
-              background: "linear-gradient(135deg, hsl(174 78% 26%), hsl(224 76% 48%))",
+              fontFamily: "'IBM Plex Sans', sans-serif",
+              background: "linear-gradient(135deg, #F59E0B, #8B5CF6)",
               WebkitBackgroundClip: "text",
               WebkitTextFillColor: "transparent",
               backgroundClip: "text",
@@ -127,15 +100,12 @@ const SahmiLogo = ({ size = "md", variant = "full", className = "" }: SahmiLogoP
           >
             Sahmi
           </span>
-          <span
-            className={`${subSizes[size]} font-medium tracking-widest uppercase`}
-            style={{ color: "hsl(215 16% 47%)" }}
-          >
+          <span className={`${subSizes[size]} font-bold text-muted-foreground tracking-[0.2em] uppercase opacity-70 mt-0.5`}>
             Palestine Connect
           </span>
         </div>
       )}
-    </div>
+    </motion.div>
   );
 };
 
