@@ -60,18 +60,6 @@ const steps = [
     hoverTextClass: "group-hover:text-primary-foreground",
   },
   {
-    icon: Users,
-    title: "Get Support",
-    description: "Supporters back projects they believe in. Track your funding progress in real-time.",
-    bgClass: "bg-secondary/5",
-    borderClass: "border-secondary/20",
-    hoverBorderClass: "hover:border-secondary/50",
-    textClass: "text-secondary",
-    iconBgClass: "bg-secondary/10",
-    hoverBgClass: "group-hover:bg-secondary",
-    hoverTextClass: "group-hover:text-secondary-foreground",
-  },
-  {
     icon: TrendingUp,
     title: "Create Impact",
     description: "Bring your funded idea to life. Keep your supportive community updated as you grow.",
@@ -82,6 +70,18 @@ const steps = [
     iconBgClass: "bg-accent/10",
     hoverBgClass: "group-hover:bg-accent",
     hoverTextClass: "group-hover:text-accent-foreground",
+  },
+  {
+    icon: Users,
+    title: "Get Support",
+    description: "Supporters back projects they believe in. Track your funding progress in real-time.",
+    bgClass: "bg-secondary/5",
+    borderClass: "border-secondary/20",
+    hoverBorderClass: "hover:border-secondary/50",
+    textClass: "text-secondary",
+    iconBgClass: "bg-secondary/10",
+    hoverBgClass: "group-hover:bg-secondary",
+    hoverTextClass: "group-hover:text-secondary-foreground",
   },
 ];
 
@@ -295,10 +295,10 @@ const HomePage = () => {
               <div className={`mx-auto mb-8 flex h-20 w-20 items-center justify-center rounded-3xl ${steps[1].iconBgClass} ${steps[1].textClass} transition-colors ${steps[1].hoverBgClass} ${steps[1].hoverTextClass}`}>
                 {(() => { const Icon = steps[1].icon; return <Icon className="h-10 w-10" />; })()}
               </div>
-              <div className={`mb-4 text-sm font-bold uppercase tracking-widest ${steps[1].textClass}`}>Step 02</div>
+              <div className={`mb-4 text-sm font-bold uppercase tracking-widest ${steps[1].textClass}`}>Step 03</div>
               <h3 className="mb-6 text-3xl font-bold text-foreground">{steps[1].title}</h3>
               <p className="text-lg text-muted-foreground leading-relaxed">{steps[1].description}</p>
-              <div className="absolute inset-0 bg-gradient-to-b from-secondary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+              <div className="absolute inset-0 bg-gradient-to-b from-accent/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
             </motion.div>
 
             {/* Step 3 - Large Card */}
@@ -310,13 +310,13 @@ const HomePage = () => {
                 <div className={`flex h-16 w-16 items-center justify-center rounded-2xl ${steps[2].iconBgClass} ${steps[2].textClass} transition-colors ${steps[2].hoverBgClass} ${steps[2].hoverTextClass}`}>
                   {(() => { const Icon = steps[2].icon; return <Icon className="h-8 w-8" />; })()}
                 </div>
-                <div className={`text-sm font-bold uppercase tracking-widest ${steps[2].textClass}`}>Step 03</div>
+                <div className={`text-sm font-bold uppercase tracking-widest ${steps[2].textClass}`}>Step 02</div>
               </div>
               <div className="mt-8">
                 <h3 className="mb-4 text-3xl font-bold text-foreground">{steps[2].title}</h3>
                 <p className="text-lg text-muted-foreground leading-relaxed max-w-xl">{steps[2].description}</p>
               </div>
-              <div className="absolute -top-12 -left-12 h-64 w-64 bg-accent/10 rounded-full blur-3xl group-hover:bg-accent/20 transition-colors duration-500" />
+              <div className="absolute -top-12 -left-12 h-64 w-64 bg-secondary/10 rounded-full blur-3xl group-hover:bg-secondary/20 transition-colors duration-500" />
             </motion.div>
           </motion.div>
         </div>

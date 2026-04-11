@@ -13,21 +13,21 @@ const steps = [
     ],
   },
   {
-    icon: Shield,
-    title: "2. Project Review",
-    items: [
-      "Our team verifies your identity and reviews your project",
-      "We check the business plan and funding allocation",
-      "Approved projects are listed on the platform within 2-3 business days",
-    ],
-  },
-  {
     icon: Users,
-    title: "3. Receive Support",
+    title: "2. Receive Support",
     items: [
       "Supporters discover your project and contribute",
       "Share your project with your network to gain traction",
       "Track funding progress in real-time on your dashboard",
+    ],
+  },
+  {
+    icon: Shield,
+    title: "3. Project Review",
+    items: [
+      "Our team verifies your identity and reviews your project",
+      "We check the business plan and funding allocation",
+      "Approved projects are listed on the platform within 2-3 business days",
     ],
   },
   {
