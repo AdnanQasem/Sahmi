@@ -20,7 +20,51 @@ const getErrorMessage = (error: unknown, fallback = "Something went wrong.") => 
   }
 
   const data = error.response?.data as any;
-  return data?.error?.message ?? data?.message ?? data?.detail ?? fallback;
+  if (typeof data?.message === "string") {
+    return data.message;
+  }
+  if (typeof data?.detail === "string") {
+    return data.detail;
+  }
+  if (typeof data?.error === "string") {
+    return data.error;
+  }
+  if (typeof data?.error?.message === "string") {
+    return data.error.message;
+  }
+  if (data?.error && typeof data.error === "object") {
+    const first = Object.values(data.error)[0];
+    if (Array.isArray(first) && first[0]) {
+      return String(first[0]);
+    }
+    if (typeof first === "string") {
+      return first;
+    }
+  }
+  return fallback;
+};
+
+const getFieldErrors = (error: unknown): Record<string, string> => {
+  if (!axios.isAxiosError(error)) {
+    return {};
+  }
+
+  const data = error.response?.data as any;
+  const source = data?.error && typeof data.error === "object" ? data.error : data;
+  if (!source || typeof source !== "object") {
+    return {};
+  }
+
+  return Object.entries(source).reduce<Record<string, string>>((acc, [field, value]) => {
+    if (Array.isArray(value)) {
+      acc[field] = value.map(String).join(" ");
+    } else if (typeof value === "string") {
+      acc[field] = value;
+    } else if (value && typeof value === "object") {
+      acc[field] = Object.values(value).flat().map(String).join(" ");
+    }
+    return acc;
+  }, {});
 };
 
 const api = axios.create({
@@ -85,4 +129,4 @@ api.interceptors.response.use(
 );
 
 export default api;
-export { getErrorMessage };
+export { getErrorMessage, getFieldErrors };

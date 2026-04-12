@@ -6,8 +6,13 @@ export interface User {
   email: string;
   full_name: string;
   user_type: "investor" | "entrepreneur" | "admin";
+  phone_number?: string;
+  country?: string;
+  city?: string;
+  business_name?: string;
   profile_picture?: string;
   is_verified?: boolean;
+  is_kyc_verified?: boolean;
 }
 
 export interface AuthResponse {
@@ -28,7 +33,7 @@ const authService = {
     return user;
   },
 
-  register: async (userData: any): Promise<any> => {
+  register: async (userData: any): Promise<User> => {
     return await api.post("auth/register/", userData);
   },
 

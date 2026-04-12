@@ -1,7 +1,11 @@
 import { Link } from "react-router-dom";
 import SahmiLogo from "@/components/SahmiLogo";
+import { useAuth } from "@/hooks/useAuth";
 
 const Footer = () => {
+  const { user } = useAuth();
+  const canCreateProject = !user || user.user_type === "entrepreneur" || user.user_type === "admin";
+
   return (
     <footer className="border-t border-border bg-card">
       <div className="container py-12">
@@ -19,7 +23,9 @@ const Footer = () => {
             <h4 className="mb-3 text-sm font-semibold text-foreground">Platform</h4>
             <div className="flex flex-col gap-2">
               <Link to="/projects" className="text-sm text-muted-foreground hover:text-primary">Explore Projects</Link>
-              <Link to="/start-project" className="text-sm text-muted-foreground hover:text-primary">Start a Project</Link>
+              {canCreateProject && (
+                <Link to="/start-project" className="text-sm text-muted-foreground hover:text-primary">Start a Project</Link>
+              )}
               <Link to="/how-it-works" className="text-sm text-muted-foreground hover:text-primary">How It Works</Link>
               <Link to="/about" className="text-sm text-muted-foreground hover:text-primary">About</Link>
             </div>

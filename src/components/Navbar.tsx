@@ -3,6 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Menu, X } from "lucide-react";
 import SahmiLogo from "@/components/SahmiLogo";
+import { useAuth } from "@/hooks/useAuth";
 
 const navLinks = [
   { href: "/", label: "Home" },
@@ -15,6 +16,8 @@ const navLinks = [
 const Navbar = () => {
   const [open, setOpen] = useState(false);
   const location = useLocation();
+  const { isAuthenticated, logout, user } = useAuth();
+  const canCreateProject = user?.user_type === "entrepreneur" || user?.user_type === "admin";
 
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-card/80 backdrop-blur-lg">
@@ -41,12 +44,30 @@ const Navbar = () => {
         </nav>
 
         <div className="hidden items-center gap-3 md:flex">
-          <Button variant="ghost" size="sm" asChild>
-            <Link to="/login">Log In</Link>
-          </Button>
-          <Button size="sm" asChild>
-            <Link to="/register">Sign Up</Link>
-          </Button>
+          {isAuthenticated ? (
+            <>
+              <Link to="/dashboard" className="max-w-32 truncate text-sm font-medium text-muted-foreground transition-colors hover:text-primary">
+                {user?.full_name || user?.email}
+              </Link>
+              <Button variant="ghost" size="sm" onClick={logout}>
+                Log Out
+              </Button>
+              {canCreateProject && (
+                <Button size="sm" asChild>
+                  <Link to="/start-project">Start Project</Link>
+                </Button>
+              )}
+            </>
+          ) : (
+            <>
+              <Button variant="ghost" size="sm" asChild>
+                <Link to="/login">Log In</Link>
+              </Button>
+              <Button size="sm" asChild>
+                <Link to="/register">Sign Up</Link>
+              </Button>
+            </>
+          )}
         </div>
 
         {/* Mobile toggle */}
@@ -78,12 +99,34 @@ const Navbar = () => {
               </Link>
             ))}
             <div className="mt-3 flex flex-col gap-2 border-t border-border pt-3">
-              <Button variant="outline" size="sm" asChild>
-                <Link to="/login" onClick={() => setOpen(false)}>Log In</Link>
-              </Button>
-              <Button size="sm" asChild>
-                <Link to="/register" onClick={() => setOpen(false)}>Sign Up</Link>
-              </Button>
+              {isAuthenticated ? (
+                <>
+                  <Link
+                    to="/dashboard"
+                    onClick={() => setOpen(false)}
+                    className="rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-primary"
+                  >
+                    {user?.full_name || user?.email}
+                  </Link>
+                  <Button variant="outline" size="sm" onClick={() => { logout(); setOpen(false); }}>
+                    Log Out
+                  </Button>
+                  {canCreateProject && (
+                    <Button size="sm" asChild>
+                      <Link to="/start-project" onClick={() => setOpen(false)}>Start Project</Link>
+                    </Button>
+                  )}
+                </>
+              ) : (
+                <>
+                  <Button variant="outline" size="sm" asChild>
+                    <Link to="/login" onClick={() => setOpen(false)}>Log In</Link>
+                  </Button>
+                  <Button size="sm" asChild>
+                    <Link to="/register" onClick={() => setOpen(false)}>Sign Up</Link>
+                  </Button>
+                </>
+              )}
             </div>
           </nav>
         </div>

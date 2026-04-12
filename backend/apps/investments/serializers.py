@@ -1,15 +1,18 @@
 from rest_framework import serializers
 
+from apps.projects.serializers import ProjectListSerializer
+
 from .models import Investment, Milestone, Repayment
 
 
 class InvestmentSerializer(serializers.ModelSerializer):
     investor = serializers.StringRelatedField(read_only=True)
+    project_detail = ProjectListSerializer(source="project", read_only=True)
 
     class Meta:
         model = Investment
         fields = [
-            "id", "investor", "project", "amount", "quantity", "investment_date",
+            "id", "investor", "project", "project_detail", "amount", "quantity", "investment_date",
             "status", "transaction_id", "payment_method", "expected_return",
             "actual_return", "return_received_at", "notes", "created_at", "updated_at",
         ]

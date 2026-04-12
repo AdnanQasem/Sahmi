@@ -1,9 +1,11 @@
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import ProjectCard from "@/components/ProjectCard";
-import { sampleProjects } from "@/data/sampleProjects";
+import projectsService, { Project } from "@/services/projectsService";
+import { useAuth } from "@/hooks/useAuth";
 import {
   ArrowRight,
   BadgeCheck,
@@ -16,6 +18,23 @@ import {
   UserCheck,
   Quote,
 } from "lucide-react";
+
+const fallbackImage = "/placeholder.svg";
+
+const toProjectCard = (project: Project) => ({
+  id: project.id,
+  slug: project.slug,
+  title: project.title,
+  description: project.short_description || project.description,
+  category: project.category_detail?.name ?? "Project",
+  founder: project.entrepreneur?.business_name || project.entrepreneur?.full_name || "Sahmi founder",
+  image: project.cover_image || fallbackImage,
+  goal: Number(project.goal_amount),
+  raised: Number(project.funded_amount),
+  supporters: project.investor_count,
+  daysLeft: project.days_left ?? 0,
+  verified: project.is_verified,
+});
 
 // Animation Variants
 const fadeInUp = {
@@ -158,6 +177,14 @@ const teamMembers = [
 ];
 
 const HomePage = () => {
+  const { user } = useAuth();
+  const canCreateProject = !user || user.user_type === "entrepreneur" || user.user_type === "admin";
+  const featuredProjectsQuery = useQuery({
+    queryKey: ["projects", "featured"],
+    queryFn: () => projectsService.listProjects({ page_size: 3, ordering: "-investor_count" }),
+  });
+  const featuredProjects = featuredProjectsQuery.data?.results.map(toProjectCard) ?? [];
+
   return (
     <div className="flex flex-col">
       {/* Hero */}
@@ -208,9 +235,11 @@ const HomePage = () => {
                   Explore Projects <ArrowRight className="ml-1 h-5 w-5" />
                 </Link>
               </Button>
-              <Button size="xl" variant="outline" className="bg-background/50 backdrop-blur-sm border-primary/20 hover:bg-background/80 text-foreground shadow-sm hover:scale-105 active:scale-95" asChild>
-                <Link to="/start-project">Start Your Project</Link>
-              </Button>
+              {canCreateProject && (
+                <Button size="xl" variant="outline" className="bg-background/50 backdrop-blur-sm border-primary/20 hover:bg-background/80 text-foreground shadow-sm hover:scale-105 active:scale-95" asChild>
+                  <Link to="/start-project">Start Your Project</Link>
+                </Button>
+              )}
             </motion.div>
           </motion.div>
         </div>
@@ -362,7 +391,22 @@ const HomePage = () => {
             whileInView="animate"
             viewport={{ once: true, margin: "-100px" }}
           >
-            {sampleProjects.slice(0, 3).map((p) => (
+            {featuredProjectsQuery.isLoading && (
+              <motion.div variants={fadeInUp} className="col-span-full rounded-xl border border-border bg-card p-10 text-center text-sm text-muted-foreground">
+                Loading featured projects...
+              </motion.div>
+            )}
+            {featuredProjectsQuery.isError && (
+              <motion.div variants={fadeInUp} className="col-span-full rounded-xl border border-border bg-card p-10 text-center text-sm text-muted-foreground">
+                Featured projects are unavailable right now.
+              </motion.div>
+            )}
+            {!featuredProjectsQuery.isLoading && !featuredProjectsQuery.isError && featuredProjects.length === 0 && (
+              <motion.div variants={fadeInUp} className="col-span-full rounded-xl border border-border bg-card p-10 text-center text-sm text-muted-foreground">
+                No featured projects are live yet.
+              </motion.div>
+            )}
+            {featuredProjects.map((p) => (
               <motion.div key={p.id} variants={fadeInUp}>
                 <ProjectCard project={p} />
               </motion.div>
@@ -542,11 +586,13 @@ const HomePage = () => {
                   <Link to="/projects">Explore Projects</Link>
                 </Button>
               </motion.div>
-              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                <Button size="xl" className="bg-transparent border-2 border-teal-300 text-teal-300 hover:bg-teal-300/10 shadow-sm font-bold h-16 px-10 text-lg rounded-2xl" asChild>
-                  <Link to="/start-project">Start Your Project</Link>
-                </Button>
-              </motion.div>
+              {canCreateProject && (
+                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                  <Button size="xl" className="bg-transparent border-2 border-teal-300 text-teal-300 hover:bg-teal-300/10 shadow-sm font-bold h-16 px-10 text-lg rounded-2xl" asChild>
+                    <Link to="/start-project">Start Your Project</Link>
+                  </Button>
+                </motion.div>
+              )}
             </div>
           </motion.div>
         </div>

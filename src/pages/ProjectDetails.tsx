@@ -1,24 +1,137 @@
-import { useParams, Link } from "react-router-dom";
+import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useParams, Link, Navigate, useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
 import ProjectCard from "@/components/ProjectCard";
-import { sampleProjects } from "@/data/sampleProjects";
+import projectsService, { Project } from "@/services/projectsService";
+import investmentsService from "@/services/investmentsService";
+import { getFieldErrors, getErrorMessage } from "@/services/api";
+import { useAuth } from "@/hooks/useAuth";
 import {
   CheckCircle, Users, Clock, Heart, Share2, ArrowLeft,
-  Calendar, MapPin, FileText, MessageSquare, AlertTriangle,
+  Calendar, MapPin, FileText, AlertTriangle,
 } from "lucide-react";
+
+const fallbackImage = "/placeholder.svg";
+
+const toProjectCard = (project: Project) => ({
+  id: project.id,
+  slug: project.slug,
+  title: project.title,
+  description: project.short_description || project.description,
+  category: project.category_detail?.name ?? "Project",
+  founder: project.entrepreneur?.business_name || project.entrepreneur?.full_name || "Sahmi founder",
+  image: project.cover_image || fallbackImage,
+  goal: Number(project.goal_amount),
+  raised: Number(project.funded_amount),
+  supporters: project.investor_count,
+  daysLeft: project.days_left ?? 0,
+  verified: project.is_verified,
+});
 
 const ProjectDetails = () => {
   const { id } = useParams();
-  const project = sampleProjects.find((p) => p.id === id) || sampleProjects[0];
-  const percent = Math.min(Math.round((project.raised / project.goal) * 100), 100);
-  const related = sampleProjects.filter((p) => p.id !== project.id).slice(0, 3);
+  const navigate = useNavigate();
+  const { isAuthenticated, user } = useAuth();
+  const queryClient = useQueryClient();
+  const [amount, setAmount] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  const projectQuery = useQuery({
+    queryKey: ["project", id],
+    queryFn: () => projectsService.getProject(id as string),
+    enabled: !!id,
+  });
+
+  const relatedQuery = useQuery({
+    queryKey: ["projects", "related", projectQuery.data?.category_detail?.slug],
+    queryFn: () => projectsService.listProjects({
+      category: projectQuery.data?.category_detail?.slug,
+      page_size: 3,
+    }),
+    enabled: !!projectQuery.data?.category_detail?.slug,
+  });
+
+  const investMutation = useMutation({
+    mutationFn: () => investmentsService.createInvestment({
+      project: projectQuery.data!.id,
+      amount,
+      payment_method: "bank_transfer",
+    }),
+    onSuccess: async () => {
+      toast.success("Investment request submitted.");
+      setAmount("");
+      setFieldErrors({});
+      await queryClient.invalidateQueries({ queryKey: ["project", id] });
+    },
+    onError: (error) => {
+      setFieldErrors(getFieldErrors(error));
+      toast.error(getErrorMessage(error, "Could not submit investment."));
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => projectsService.deleteProject(projectQuery.data!.slug),
+    onSuccess: () => {
+      toast.success("Project deleted.");
+      navigate("/projects");
+    },
+    onError: (error) => {
+      toast.error(getErrorMessage(error, "Could not delete project."));
+    },
+  });
+
+  if (!id) {
+    return <Navigate to="/projects" replace />;
+  }
+
+  if (projectQuery.isLoading) {
+    return (
+      <div className="container flex min-h-[60vh] items-center justify-center text-sm text-muted-foreground">
+        Loading project...
+      </div>
+    );
+  }
+
+  if (projectQuery.isError || !projectQuery.data) {
+    return (
+      <div className="container flex min-h-[60vh] flex-col items-center justify-center text-center">
+        <AlertTriangle className="mb-4 h-10 w-10 text-destructive" />
+        <h1 className="mb-2 text-2xl font-bold text-foreground">Project not found</h1>
+        <p className="mb-4 text-sm text-muted-foreground">The project may be private, deleted, or unavailable.</p>
+        <Button asChild>
+          <Link to="/projects">Back to Projects</Link>
+        </Button>
+      </div>
+    );
+  }
+
+  const project = projectQuery.data;
+  const percent = Math.min(Math.round(Number(project.funding_percent)), 100);
+  const founder = project.entrepreneur?.business_name || project.entrepreneur?.full_name || "Sahmi founder";
+  const related = (relatedQuery.data?.results ?? [])
+    .filter((item) => item.id !== project.id)
+    .slice(0, 3)
+    .map(toProjectCard);
+  const canManageProject = !!user && (user.id === project.entrepreneur?.id || user.user_type === "admin");
+
+  const handleInvest = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setFieldErrors({});
+    if (!isAuthenticated) {
+      toast.error("Please log in before contributing.");
+      return;
+    }
+    investMutation.mutate();
+  };
 
   return (
     <div className="min-h-screen">
-      {/* Back nav */}
       <div className="border-b border-border bg-card">
         <div className="container flex items-center gap-3 py-3">
           <Button variant="ghost" size="sm" asChild>
@@ -27,29 +140,47 @@ const ProjectDetails = () => {
         </div>
       </div>
 
-      {/* Hero image */}
       <div className="aspect-[21/9] w-full overflow-hidden bg-muted">
-        <img src={project.image} alt={project.title} className="h-full w-full object-cover" />
+        <img src={project.cover_image || fallbackImage} alt={project.title} className="h-full w-full object-cover" />
       </div>
 
       <div className="container py-8">
         <div className="grid gap-8 lg:grid-cols-3">
-          {/* Main content */}
           <div className="lg:col-span-2">
             <div className="mb-4 flex flex-wrap items-center gap-2">
-              <Badge variant="muted">{project.category}</Badge>
-              {project.verified && (
+              <Badge variant="muted">{project.category_detail?.name ?? "Project"}</Badge>
+              {project.is_verified && (
                 <Badge variant="success" className="flex items-center gap-1">
                   <CheckCircle className="h-3 w-3" /> Verified
                 </Badge>
               )}
+              <Badge variant="outline">{project.status}</Badge>
             </div>
             <h1 className="mb-2 text-3xl font-bold text-foreground">{project.title}</h1>
-            <p className="mb-6 flex items-center gap-2 text-sm text-muted-foreground">
-              <span>by <strong className="text-foreground">{project.founder}</strong></span>
-              <span>•</span>
-              <span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5" /> Palestine</span>
+            <p className="mb-6 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+              <span>by <strong className="text-foreground">{founder}</strong></span>
+              <span>|</span>
+              <span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5" /> {project.location}</span>
             </p>
+            {canManageProject && (
+              <div className="mb-6 flex flex-wrap gap-3">
+                <Button variant="outline" size="sm" asChild>
+                  <Link to={`/projects/${project.slug}/edit`}>Edit Project</Link>
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  disabled={deleteMutation.isPending}
+                  onClick={() => {
+                    if (window.confirm("Delete this project? This action will hide it from the platform.")) {
+                      deleteMutation.mutate();
+                    }
+                  }}
+                >
+                  {deleteMutation.isPending ? "Deleting..." : "Delete Project"}
+                </Button>
+              </div>
+            )}
 
             <Tabs defaultValue="overview" className="w-full">
               <TabsList className="mb-6 w-full justify-start border-b border-border bg-transparent p-0">
@@ -67,111 +198,75 @@ const ProjectDetails = () => {
               <TabsContent value="overview" className="space-y-6">
                 <div>
                   <h3 className="mb-3 text-lg font-semibold text-foreground">About This Project</h3>
-                  <p className="leading-relaxed text-muted-foreground">
-                    {project.description} This project aims to create sustainable, long-term impact
-                    by combining community engagement with innovative solutions. Every contribution
-                    directly supports the local economy and creates opportunities for future growth.
-                  </p>
+                  <p className="whitespace-pre-line leading-relaxed text-muted-foreground">{project.description}</p>
                 </div>
                 <div className="rounded-xl border border-border bg-card p-5">
                   <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold text-foreground">
                     <FileText className="h-4 w-4 text-primary" /> Transparency Report
                   </h4>
                   <ul className="space-y-2 text-sm text-muted-foreground">
-                    <li className="flex items-start gap-2"><CheckCircle className="mt-0.5 h-4 w-4 text-success" /> Project verified by Sahmi team</li>
-                    <li className="flex items-start gap-2"><CheckCircle className="mt-0.5 h-4 w-4 text-success" /> Founder identity confirmed</li>
-                    <li className="flex items-start gap-2"><CheckCircle className="mt-0.5 h-4 w-4 text-success" /> Funding plan reviewed and approved</li>
-                    <li className="flex items-start gap-2"><CheckCircle className="mt-0.5 h-4 w-4 text-success" /> Regular updates required</li>
+                    <li className="flex items-start gap-2"><CheckCircle className="mt-0.5 h-4 w-4 text-success" /> Project status: {project.status}</li>
+                    <li className="flex items-start gap-2"><CheckCircle className="mt-0.5 h-4 w-4 text-success" /> Verification: {project.is_verified ? "Verified by Sahmi team" : "Pending review"}</li>
+                    <li className="flex items-start gap-2"><CheckCircle className="mt-0.5 h-4 w-4 text-success" /> Minimum investment: ${Number(project.minimum_investment).toLocaleString()}</li>
+                    <li className="flex items-start gap-2"><CheckCircle className="mt-0.5 h-4 w-4 text-success" /> Expected ROI: {Number(project.expected_roi).toFixed(2)}%</li>
                   </ul>
                 </div>
               </TabsContent>
 
               <TabsContent value="story">
-                <p className="leading-relaxed text-muted-foreground">
-                  This project was born from a deep commitment to strengthening our community.
-                  As a Palestinian entrepreneur, I've seen firsthand the challenges our people face
-                  and the incredible resilience that drives us forward. Through this initiative,
-                  we aim to build something lasting — something that creates real jobs,
-                  real opportunity, and real hope.
-                </p>
+                <p className="whitespace-pre-line leading-relaxed text-muted-foreground">{project.description}</p>
               </TabsContent>
 
               <TabsContent value="funding-plan">
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-foreground">How Funds Will Be Used</h3>
-                  {[
-                    { label: "Equipment & Materials", pct: 40 },
-                    { label: "Operations & Setup", pct: 25 },
-                    { label: "Team & Training", pct: 20 },
-                    { label: "Marketing & Outreach", pct: 10 },
-                    { label: "Contingency", pct: 5 },
-                  ].map((item) => (
-                    <div key={item.label}>
-                      <div className="mb-1 flex justify-between text-sm">
-                        <span className="text-foreground">{item.label}</span>
-                        <span className="text-muted-foreground">{item.pct}%</span>
-                      </div>
-                      <Progress value={item.pct} className="h-2" />
+                  <h3 className="text-lg font-semibold text-foreground">Funding Details</h3>
+                  <div>
+                    <div className="mb-1 flex justify-between text-sm">
+                      <span className="text-foreground">Funding progress</span>
+                      <span className="text-muted-foreground">{percent}%</span>
                     </div>
-                  ))}
+                    <Progress value={percent} className="h-2" />
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Goal: ${Number(project.goal_amount).toLocaleString()} | Minimum investment: ${Number(project.minimum_investment).toLocaleString()} | Campaign duration: {project.funding_period_days} days
+                  </p>
                 </div>
               </TabsContent>
 
               <TabsContent value="updates">
-                <div className="space-y-4">
-                  {[
-                    { date: "Mar 15, 2026", title: "Milestone reached: 50% funded!", text: "We're halfway there! Thank you to all our amazing supporters." },
-                    { date: "Mar 1, 2026", title: "Project launched on Sahmi", text: "Excited to share our vision with the community. Let's make this happen together." },
-                  ].map((u) => (
-                    <div key={u.date} className="rounded-lg border border-border bg-card p-4">
-                      <div className="mb-1 flex items-center gap-2 text-xs text-muted-foreground">
-                        <Calendar className="h-3.5 w-3.5" /> {u.date}
-                      </div>
-                      <h4 className="mb-1 text-sm font-semibold text-foreground">{u.title}</h4>
-                      <p className="text-sm text-muted-foreground">{u.text}</p>
-                    </div>
-                  ))}
+                <div className="rounded-lg border border-border bg-card p-4 text-sm text-muted-foreground">
+                  No project updates have been published yet.
                 </div>
               </TabsContent>
 
               <TabsContent value="team">
                 <div className="flex items-start gap-4 rounded-lg border border-border bg-card p-5">
                   <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary-light text-lg font-bold text-primary">
-                    {project.founder.charAt(0)}
+                    {founder.charAt(0)}
                   </div>
                   <div>
-                    <h4 className="font-semibold text-foreground">{project.founder}</h4>
+                    <h4 className="font-semibold text-foreground">{founder}</h4>
                     <p className="text-sm text-muted-foreground">Project Founder</p>
                     <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                      Passionate entrepreneur dedicated to building sustainable solutions for Palestinian communities.
+                      {project.entrepreneur?.email}
                     </p>
                   </div>
                 </div>
               </TabsContent>
 
               <TabsContent value="faq">
-                <div className="space-y-4">
-                  {[
-                    { q: "How will my contribution be used?", a: "100% of contributions go directly to the project. You can see the detailed funding breakdown in the Funding Plan tab." },
-                    { q: "What happens if the goal isn't reached?", a: "If the project doesn't reach its minimum funding goal, all contributions are returned to supporters." },
-                    { q: "How can I track progress?", a: "Project owners post regular updates, and you'll receive notifications on milestones and key developments." },
-                  ].map((faq) => (
-                    <div key={faq.q} className="rounded-lg border border-border bg-card p-4">
-                      <h4 className="mb-2 text-sm font-semibold text-foreground">{faq.q}</h4>
-                      <p className="text-sm text-muted-foreground">{faq.a}</p>
-                    </div>
-                  ))}
+                <div className="rounded-lg border border-border bg-card p-4 text-sm text-muted-foreground">
+                  No FAQ entries have been published for this project yet.
                 </div>
               </TabsContent>
             </Tabs>
           </div>
 
-          {/* Sidebar funding card */}
           <div className="lg:col-span-1">
             <div className="sticky top-20 space-y-4">
               <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-                <div className="mb-1 text-3xl font-bold text-primary">${project.raised.toLocaleString()}</div>
-                <div className="mb-4 text-sm text-muted-foreground">raised of ${project.goal.toLocaleString()} goal</div>
+                <div className="mb-1 text-3xl font-bold text-primary">${Number(project.funded_amount).toLocaleString()}</div>
+                <div className="mb-4 text-sm text-muted-foreground">raised of ${Number(project.goal_amount).toLocaleString()} goal</div>
                 <Progress value={percent} className="mb-4 h-3" />
                 <div className="mb-6 grid grid-cols-3 gap-3 text-center text-sm">
                   <div>
@@ -179,18 +274,30 @@ const ProjectDetails = () => {
                     <div className="text-xs text-muted-foreground">Funded</div>
                   </div>
                   <div>
-                    <div className="font-bold text-foreground">{project.supporters}</div>
-                    <div className="text-xs text-muted-foreground">Supporters</div>
+                    <div className="font-bold text-foreground">{project.investor_count}</div>
+                    <div className="text-xs text-muted-foreground">Investors</div>
                   </div>
                   <div>
-                    <div className="font-bold text-foreground">{project.daysLeft}</div>
+                    <div className="font-bold text-foreground">{project.days_left ?? 0}</div>
                     <div className="text-xs text-muted-foreground">Days Left</div>
                   </div>
                 </div>
-                <Button size="lg" className="mb-3 w-full">
-                  <Heart className="mr-2 h-4 w-4" /> Contribute Now
-                </Button>
-                <Button size="lg" variant="outline" className="w-full">
+                <form className="space-y-3" onSubmit={handleInvest}>
+                  <Input
+                    type="number"
+                    min={Number(project.minimum_investment)}
+                    step="1"
+                    value={amount}
+                    onChange={(event) => setAmount(event.target.value)}
+                    placeholder={`Minimum $${Number(project.minimum_investment).toLocaleString()}`}
+                    required
+                  />
+                  {fieldErrors.amount && <p className="text-xs text-destructive">{fieldErrors.amount}</p>}
+                  <Button size="lg" className="w-full" type="submit" disabled={investMutation.isPending}>
+                    <Heart className="mr-2 h-4 w-4" /> {investMutation.isPending ? "Submitting..." : "Contribute Now"}
+                  </Button>
+                </form>
+                <Button size="lg" variant="outline" className="mt-3 w-full" onClick={() => navigator.clipboard?.writeText(window.location.href)}>
                   <Share2 className="mr-2 h-4 w-4" /> Share Project
                 </Button>
               </div>
@@ -198,24 +305,25 @@ const ProjectDetails = () => {
               <div className="rounded-xl border border-border bg-card p-5">
                 <h4 className="mb-3 text-sm font-semibold text-foreground">Trust & Safety</h4>
                 <ul className="space-y-2 text-xs text-muted-foreground">
-                  <li className="flex items-center gap-2"><CheckCircle className="h-3.5 w-3.5 text-success" /> Verified project</li>
-                  <li className="flex items-center gap-2"><CheckCircle className="h-3.5 w-3.5 text-success" /> Funds held securely</li>
-                  <li className="flex items-center gap-2"><CheckCircle className="h-3.5 w-3.5 text-success" /> Transparent reporting</li>
+                  <li className="flex items-center gap-2"><CheckCircle className="h-3.5 w-3.5 text-success" /> Backend-verified project data</li>
+                  <li className="flex items-center gap-2"><CheckCircle className="h-3.5 w-3.5 text-success" /> Authenticated investment requests</li>
+                  <li className="flex items-center gap-2"><CheckCircle className="h-3.5 w-3.5 text-success" /> Transparent funding totals</li>
                 </ul>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Related */}
-        <section className="mt-16 border-t border-border pt-12">
-          <h2 className="mb-6 text-2xl font-bold text-foreground">Related Projects</h2>
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {related.map((p) => (
-              <ProjectCard key={p.id} project={p} />
-            ))}
-          </div>
-        </section>
+        {related.length > 0 && (
+          <section className="mt-16 border-t border-border pt-12">
+            <h2 className="mb-6 text-2xl font-bold text-foreground">Related Projects</h2>
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {related.map((item) => (
+                <ProjectCard key={item.id} project={item} />
+              ))}
+            </div>
+          </section>
+        )}
       </div>
     </div>
   );

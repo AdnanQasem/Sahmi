@@ -5,6 +5,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import ProtectedRoute from "@/components/ProtectedRoute";
+import { AuthProvider } from "@/hooks/useAuth";
 import HomePage from "./pages/HomePage";
 import BrowseProjects from "./pages/BrowseProjects";
 import ProjectDetails from "./pages/ProjectDetails";
@@ -14,7 +16,11 @@ import ContactPage from "./pages/ContactPage";
 import HowItWorksPage from "./pages/HowItWorksPage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
+import EditProject from "./pages/EditProject";
 import NotFound from "./pages/NotFound.tsx";
+import DashboardRedirect from "./pages/dashboard/DashboardRedirect";
+import InvestorDashboard from "./pages/dashboard/InvestorDashboard";
+import EntrepreneurDashboard from "./pages/dashboard/EntrepreneurDashboard";
 
 const queryClient = new QueryClient();
 
@@ -24,24 +30,50 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <div className="flex min-h-screen flex-col">
-          <Navbar />
-          <main className="flex-1">
-            <Routes>
-              <Route path="/" element={<HomePage />} />
-              <Route path="/projects" element={<BrowseProjects />} />
-              <Route path="/projects/:id" element={<ProjectDetails />} />
-              <Route path="/start-project" element={<StartProject />} />
-              <Route path="/about" element={<AboutPage />} />
-              <Route path="/contact" element={<ContactPage />} />
-              <Route path="/how-it-works" element={<HowItWorksPage />} />
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/register" element={<RegisterPage />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </main>
-          <Footer />
-        </div>
+        <AuthProvider>
+          <Routes>
+            {/* Dashboard routes — full-page layout with sidebar, no Navbar/Footer */}
+            <Route element={<ProtectedRoute />}>
+              <Route path="/dashboard" element={<DashboardRedirect />} />
+            </Route>
+            <Route element={<ProtectedRoute allowedUserTypes={["investor", "admin"]} redirectTo="/dashboard" />}>
+              <Route path="/dashboard/investor" element={<InvestorDashboard />} />
+            </Route>
+            <Route element={<ProtectedRoute allowedUserTypes={["entrepreneur", "admin"]} redirectTo="/dashboard" />}>
+              <Route path="/dashboard/entrepreneur" element={<EntrepreneurDashboard />} />
+            </Route>
+
+            {/* Main website routes — with shared Navbar and Footer */}
+            <Route
+              path="/*"
+              element={
+                <div className="flex min-h-screen flex-col">
+                  <Navbar />
+                  <main className="flex-1">
+                    <Routes>
+                      <Route path="/" element={<HomePage />} />
+                      <Route path="/projects" element={<BrowseProjects />} />
+                      <Route path="/projects/:id" element={<ProjectDetails />} />
+                      <Route element={<ProtectedRoute allowedUserTypes={["entrepreneur", "admin"]} redirectTo="/" />}>
+                        <Route path="/start-project" element={<StartProject />} />
+                      </Route>
+                      <Route element={<ProtectedRoute />}>
+                        <Route path="/projects/:id/edit" element={<EditProject />} />
+                      </Route>
+                      <Route path="/about" element={<AboutPage />} />
+                      <Route path="/contact" element={<ContactPage />} />
+                      <Route path="/how-it-works" element={<HowItWorksPage />} />
+                      <Route path="/login" element={<LoginPage />} />
+                      <Route path="/register" element={<RegisterPage />} />
+                      <Route path="*" element={<NotFound />} />
+                    </Routes>
+                  </main>
+                  <Footer />
+                </div>
+              }
+            />
+          </Routes>
+        </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

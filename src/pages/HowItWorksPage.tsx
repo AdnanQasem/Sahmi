@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/hooks/useAuth";
 import { Lightbulb, Users, TrendingUp, CheckCircle, Shield, Eye } from "lucide-react";
 
 const steps = [
@@ -42,6 +43,9 @@ const steps = [
 ];
 
 const HowItWorksPage = () => {
+  const { user } = useAuth();
+  const canCreateProject = !user || user.user_type === "entrepreneur" || user.user_type === "admin";
+
   return (
     <div className="min-h-screen">
       <section className="gradient-hero-subtle py-16">
@@ -81,9 +85,11 @@ const HowItWorksPage = () => {
             <Button size="lg" asChild>
               <Link to="/projects">Explore Projects</Link>
             </Button>
-            <Button size="lg" variant="outline-primary" asChild>
-              <Link to="/start-project">Start Your Project</Link>
-            </Button>
+            {canCreateProject && (
+              <Button size="lg" variant="outline-primary" asChild>
+                <Link to="/start-project">Start Your Project</Link>
+              </Button>
+            )}
           </div>
         </div>
       </section>

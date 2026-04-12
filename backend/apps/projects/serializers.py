@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from django.utils import timezone
 from rest_framework import serializers
 
@@ -27,8 +29,25 @@ class ProjectDocumentSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "created_at"]
 
 
+class ProjectCategoryRelatedField(serializers.PrimaryKeyRelatedField):
+    def get_queryset(self):
+        return ProjectCategory.objects.all()
+
+    def to_internal_value(self, data):
+        try:
+            return super().to_internal_value(data)
+        except serializers.ValidationError as exc:
+            if isinstance(data, str):
+                try:
+                    return self.get_queryset().get(slug=data)
+                except ProjectCategory.DoesNotExist:
+                    pass
+            raise exc
+
+
 class ProjectSerializer(serializers.ModelSerializer):
     entrepreneur = UserSerializer(read_only=True)
+    category = ProjectCategoryRelatedField(queryset=ProjectCategory.objects.all())
     category_detail = ProjectCategorySerializer(source="category", read_only=True)
     images = ProjectImageSerializer(many=True, read_only=True)
     supporting_documents = ProjectDocumentSerializer(many=True, read_only=True)
@@ -66,6 +85,28 @@ class ProjectSerializer(serializers.ModelSerializer):
         if not obj.goal_amount:
             return 0
         return round((obj.funded_amount / obj.goal_amount) * 100, 2)
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        if attrs.get("goal_amount") is not None and attrs["goal_amount"] <= 0:
+            raise serializers.ValidationError({"goal_amount": "Funding goal must be greater than zero."})
+        if attrs.get("minimum_investment") is not None and attrs["minimum_investment"] <= 0:
+            raise serializers.ValidationError({"minimum_investment": "Minimum investment must be greater than zero."})
+        if attrs.get("funding_period_days") is not None and attrs["funding_period_days"] <= 0:
+            raise serializers.ValidationError({"funding_period_days": "Campaign duration must be greater than zero."})
+        return attrs
+
+    def create(self, validated_data):
+        if not validated_data.get("end_date"):
+            start_date = validated_data.get("start_date") or timezone.now()
+            validated_data["end_date"] = start_date + timedelta(days=validated_data.get("funding_period_days", 30))
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        if "funding_period_days" in validated_data and "end_date" not in validated_data:
+            start_date = validated_data.get("start_date") or instance.start_date or timezone.now()
+            validated_data["end_date"] = start_date + timedelta(days=validated_data["funding_period_days"])
+        return super().update(instance, validated_data)
 
 
 class ProjectListSerializer(ProjectSerializer):

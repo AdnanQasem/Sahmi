@@ -6,6 +6,7 @@ import { CheckCircle, Users, Clock } from "lucide-react";
 
 export interface ProjectData {
   id: string;
+  slug?: string;
   title: string;
   description: string;
   category: string;
@@ -82,7 +83,7 @@ const ProjectCard = ({ project }: { project: ProjectData }) => {
           </div>
 
           <Button size="sm" className="w-full" asChild>
-            <Link to={`/projects/${project.id}`}>View Project</Link>
+            <Link to={`/projects/${project.slug ?? project.id}`}>View Project</Link>
           </Button>
         </div>
       </div>

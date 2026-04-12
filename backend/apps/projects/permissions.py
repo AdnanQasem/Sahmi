@@ -1,6 +1,16 @@
 from rest_framework.permissions import SAFE_METHODS, BasePermission
 
 
+class IsEntrepreneur(BasePermission):
+    message = "Only entrepreneurs can create projects."
+
+    def has_permission(self, request, view):
+        user = request.user
+        if not user or not user.is_authenticated:
+            return False
+        return user.is_staff or getattr(user, "user_type", None) == "entrepreneur"
+
+
 class ProjectPermission(BasePermission):
     def has_permission(self, request, view):
         if request.method in SAFE_METHODS:

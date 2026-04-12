@@ -6,7 +6,7 @@ from rest_framework.response import Response
 
 from .filters import ProjectFilter
 from .models import Project, ProjectCategory
-from .permissions import ProjectPermission
+from .permissions import IsEntrepreneur, ProjectPermission
 from .serializers import ProjectCategorySerializer, ProjectListSerializer, ProjectSerializer
 
 
@@ -26,6 +26,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
     search_fields = ["title", "short_description", "description", "location"]
     ordering_fields = ["created_at", "goal_amount", "funded_amount", "expected_roi", "investor_count"]
     lookup_field = "slug"
+
+    def get_permissions(self):
+        if self.action == "create":
+            return [ProjectPermission(), IsEntrepreneur()]
+        return super().get_permissions()
 
     def get_serializer_class(self):
         if self.action == "list":
@@ -63,3 +68,15 @@ class ProjectViewSet(viewsets.ModelViewSet):
         project.verification_notes = request.data.get("verification_notes", "")
         project.save(update_fields=["is_verified", "status", "verified_by", "verified_at", "verification_notes", "updated_at"])
         return Response(self.get_serializer(project).data)
+
+    @action(detail=False, methods=["get"], permission_classes=[permissions.IsAuthenticated])
+    def my(self, request):
+        queryset = super().get_queryset().filter(deleted_at__isnull=True)
+        if not request.user.is_staff:
+            queryset = queryset.filter(entrepreneur=request.user)
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = ProjectListSerializer(page, many=True, context={"request": request})
+            return self.get_paginated_response(serializer.data)
+        serializer = ProjectListSerializer(queryset, many=True, context={"request": request})
+        return Response(serializer.data)

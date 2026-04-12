@@ -1,21 +1,57 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import ProjectCard from "@/components/ProjectCard";
-import { sampleProjects, categories } from "@/data/sampleProjects";
 import { Search, SlidersHorizontal } from "lucide-react";
+import projectsService, { Project } from "@/services/projectsService";
+
+const fallbackImage = "/placeholder.svg";
+
+const toProjectCard = (project: Project) => ({
+  id: project.id,
+  slug: project.slug,
+  title: project.title,
+  description: project.short_description || project.description,
+  category: project.category_detail?.name ?? "Project",
+  founder: project.entrepreneur?.business_name || project.entrepreneur?.full_name || "Sahmi founder",
+  image: project.cover_image || fallbackImage,
+  goal: Number(project.goal_amount),
+  raised: Number(project.funded_amount),
+  supporters: project.investor_count,
+  daysLeft: project.days_left ?? 0,
+  verified: project.is_verified,
+});
 
 const BrowseProjects = () => {
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [sortBy, setSortBy] = useState("trending");
 
-  const filtered = sampleProjects.filter((p) => {
-    const matchSearch = p.title.toLowerCase().includes(search.toLowerCase()) ||
-      p.description.toLowerCase().includes(search.toLowerCase());
-    const matchCat = selectedCategory === "All" || p.category === selectedCategory;
-    return matchSearch && matchCat;
+  const categoriesQuery = useQuery({
+    queryKey: ["project-categories"],
+    queryFn: projectsService.listCategories,
   });
+
+  const ordering =
+    sortBy === "newest" ? "-created_at" :
+    sortBy === "most-funded" ? "-funded_amount" :
+    sortBy === "ending-soon" ? "end_date" :
+    "-investor_count";
+
+  const projectsQuery = useQuery({
+    queryKey: ["projects", { search, selectedCategory, ordering }],
+    queryFn: () => projectsService.listProjects({
+      search: search || undefined,
+      category: selectedCategory === "All" ? undefined : selectedCategory,
+      ordering,
+    }),
+  });
+
+  const categories = ["All", ...(categoriesQuery.data?.map((category) => category.name) ?? [])];
+  const categorySlugByName = new Map(categoriesQuery.data?.map((category) => [category.name, category.slug]) ?? []);
+  const selectedCategorySlug = selectedCategory === "All" ? "All" : categorySlugByName.get(selectedCategory) ?? selectedCategory;
+  const projects = projectsQuery.data?.results.map(toProjectCard) ?? [];
 
   return (
     <div className="min-h-screen">
@@ -56,9 +92,9 @@ const BrowseProjects = () => {
           {categories.map((cat) => (
             <button
               key={cat}
-              onClick={() => setSelectedCategory(cat)}
+              onClick={() => setSelectedCategory(cat === "All" ? "All" : categorySlugByName.get(cat) ?? cat)}
               className={`rounded-full px-4 py-2 text-sm font-medium transition-all ${
-                selectedCategory === cat
+                selectedCategorySlug === (cat === "All" ? "All" : categorySlugByName.get(cat))
                   ? "bg-primary text-primary-foreground"
                   : "border border-border bg-card text-muted-foreground hover:border-primary hover:text-primary"
               }`}
@@ -69,9 +105,21 @@ const BrowseProjects = () => {
         </div>
 
         {/* Results */}
-        {filtered.length > 0 ? (
+        {projectsQuery.isLoading ? (
+          <div className="rounded-xl border border-border bg-card p-16 text-center text-sm text-muted-foreground">
+            Loading projects...
+          </div>
+        ) : projectsQuery.isError ? (
+          <div className="rounded-xl border border-border bg-card p-16 text-center">
+            <h3 className="mb-2 text-lg font-semibold text-foreground">Could not load projects</h3>
+            <p className="text-sm text-muted-foreground">Check the backend API and try again.</p>
+            <Button variant="outline" className="mt-4" onClick={() => projectsQuery.refetch()}>
+              Retry
+            </Button>
+          </div>
+        ) : projects.length > 0 ? (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {filtered.map((p) => (
+            {projects.map((p) => (
               <ProjectCard key={p.id} project={p} />
             ))}
           </div>
