@@ -115,7 +115,6 @@ const InvestorDashboard = () => {
       subtext: `Across ${investments.length} investment${investments.length === 1 ? "" : "s"}`,
       icon: DollarSign,
       trend: "neutral" as const,
-      trendValue: "Live backend data",
       iconColorClass: "text-primary",
       iconBgClass: "bg-primary/10",
     },
@@ -125,7 +124,6 @@ const InvestorDashboard = () => {
       subtext: "Pending or confirmed",
       icon: Briefcase,
       trend: "neutral" as const,
-      trendValue: "From investment status",
       iconColorClass: "text-secondary",
       iconBgClass: "bg-secondary/10",
     },
@@ -135,7 +133,6 @@ const InvestorDashboard = () => {
       subtext: "Calculated by backend",
       icon: TrendingUp,
       trend: "neutral" as const,
-      trendValue: "Projected return",
       iconColorClass: "text-success",
       iconBgClass: "bg-success/10",
     },
@@ -145,7 +142,6 @@ const InvestorDashboard = () => {
       subtext: "Verified projects to review",
       icon: Wallet,
       trend: "neutral" as const,
-      trendValue: "Explore marketplace",
       iconColorClass: "text-accent",
       iconBgClass: "bg-accent/10",
     },
@@ -202,26 +198,72 @@ const InvestorDashboard = () => {
           <div className="lg:col-span-2 rounded-2xl border border-border bg-card p-6 shadow-sm">
             <SectionHeader title="Portfolio Allocation" subtitle="By project category" />
             {allocation.length ? (
-              <>
-                <ResponsiveContainer width="100%" height={160}>
-                  <PieChart>
-                    <Pie data={allocation} cx="50%" cy="50%" innerRadius={48} outerRadius={72} paddingAngle={2} dataKey="value">
-                      {allocation.map((entry) => <Cell key={entry.name} fill={entry.color} />)}
-                    </Pie>
-                  </PieChart>
-                </ResponsiveContainer>
-                <div className="mt-3 space-y-1.5">
-                  {allocation.map((item) => (
-                    <div key={item.name} className="flex items-center justify-between text-sm">
-                      <div className="flex items-center gap-2">
-                        <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: item.color }} />
-                        <span className="text-muted-foreground">{item.name}</span>
-                      </div>
-                      <span className="font-semibold text-foreground">{item.value}%</span>
+              <div className="flex flex-col sm:flex-row items-center gap-6">
+                <div className="relative w-full sm:w-48 h-48">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie 
+                        data={allocation} 
+                        cx="50%" 
+                        cy="50%" 
+                        innerRadius={56} 
+                        outerRadius={76} 
+                        paddingAngle={3} 
+                        dataKey="value"
+                        stroke="hsl(var(--card))"
+                        strokeWidth={2}
+                      >
+                        {allocation.map((entry) => (
+                          <Cell key={entry.name} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip 
+                        content={({ active, payload }) => {
+                          if (active && payload && payload.length) {
+                            const data = payload[0].payload;
+                            return (
+                              <div className="rounded-lg border border-border bg-card px-3 py-2 shadow-lg">
+                                <p className="text-xs font-medium text-muted-foreground">{data.name}</p>
+                                <p className="text-sm font-bold text-foreground">{data.value}%</p>
+                              </div>
+                            );
+                          }
+                          return null;
+                        }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <div className="text-center">
+                      <p className="text-xs text-muted-foreground">Total</p>
+                      <p className="text-lg font-bold text-foreground">100%</p>
                     </div>
-                  ))}
+                  </div>
                 </div>
-              </>
+                <div className="flex-1 w-full">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {allocation.map((item) => (
+                      <motion.div 
+                        key={item.name}
+                        whileHover={{ x: 4 }}
+                        className="flex items-center justify-between gap-3 rounded-lg border border-border/50 bg-muted/30 px-3 py-2.5 transition-all hover:border-primary/30 hover:bg-muted/50"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <span 
+                            className="h-2.5 w-2.5 rounded-full shadow-sm" 
+                            style={{ 
+                              background: item.color,
+                              boxShadow: `0 0 8px ${item.color}40`
+                            }} 
+                          />
+                          <span className="text-xs font-medium text-foreground">{item.name}</span>
+                        </div>
+                        <span className="text-xs font-bold text-foreground">{item.value}%</span>
+                      </motion.div>
+                    ))}
+                  </div>
+                </div>
+              </div>
             ) : (
               <EmptyState icon={BookMarked} title="No allocation yet" description="Make your first investment to see category allocation." ctaLabel="Explore Projects" ctaHref="/projects" />
             )}
