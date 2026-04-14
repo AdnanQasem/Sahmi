@@ -21,6 +21,9 @@ import NotFound from "./pages/NotFound.tsx";
 import DashboardRedirect from "./pages/dashboard/DashboardRedirect";
 import InvestorDashboard from "./pages/dashboard/InvestorDashboard";
 import EntrepreneurDashboard from "./pages/dashboard/EntrepreneurDashboard";
+import SettingsPage from "./pages/dashboard/SettingsPage";
+import MessagesPage from "./pages/dashboard/MessagesPage";
+import InvestorsPage from "./pages/dashboard/InvestorsPage";
 
 const queryClient = new QueryClient();
 
@@ -38,9 +41,14 @@ const App = () => (
             </Route>
             <Route element={<ProtectedRoute allowedUserTypes={["investor", "admin"]} redirectTo="/dashboard" />}>
               <Route path="/dashboard/investor" element={<InvestorDashboard />} />
+              <Route path="/dashboard/investor/settings" element={<SettingsPage />} />
+              <Route path="/dashboard/investor/messages" element={<MessagesPage />} />
             </Route>
             <Route element={<ProtectedRoute allowedUserTypes={["entrepreneur", "admin"]} redirectTo="/dashboard" />}>
               <Route path="/dashboard/entrepreneur" element={<EntrepreneurDashboard />} />
+              <Route path="/dashboard/entrepreneur/settings" element={<SettingsPage />} />
+              <Route path="/dashboard/entrepreneur/messages" element={<MessagesPage />} />
+              <Route path="/dashboard/entrepreneur/investors" element={<InvestorsPage />} />
             </Route>
 
             {/* Main website routes — with shared Navbar and Footer */}

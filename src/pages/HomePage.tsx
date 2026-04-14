@@ -67,40 +67,37 @@ const stats = [
 
 const steps = [
   {
+    number: "01",
     icon: Lightbulb,
     title: "Submit Your Project",
-    description: "Share your idea and goal. We review all projects to ensure quality and transparency.",
-    bgClass: "bg-primary/5",
-    borderClass: "border-primary/20",
-    hoverBorderClass: "hover:border-primary/50",
-    textClass: "text-primary",
-    iconBgClass: "bg-primary/10",
-    hoverBgClass: "group-hover:bg-primary",
-    hoverTextClass: "group-hover:text-primary-foreground",
+    description: "Share your innovative idea and funding goal. Our team reviews every project to ensure quality, transparency, and community value.",
+    features: ["Project Review", "Goal Setting", "Documentation"],
+    gradient: "from-primary/20 via-primary/10 to-transparent",
+    iconBg: "bg-primary/20",
+    iconColor: "text-primary",
+    borderColor: "group-hover:border-primary/50",
   },
   {
-    icon: TrendingUp,
-    title: "Create Impact",
-    description: "Bring your funded idea to life. Keep your supportive community updated as you grow.",
-    bgClass: "bg-accent/5",
-    borderClass: "border-accent/20",
-    hoverBorderClass: "hover:border-accent/50",
-    textClass: "text-accent",
-    iconBgClass: "bg-accent/10",
-    hoverBgClass: "group-hover:bg-accent",
-    hoverTextClass: "group-hover:text-accent-foreground",
-  },
-  {
+    number: "02",
     icon: Users,
-    title: "Get Support",
-    description: "Supporters back projects they believe in. Track your funding progress in real-time.",
-    bgClass: "bg-secondary/5",
-    borderClass: "border-secondary/20",
-    hoverBorderClass: "hover:border-secondary/50",
-    textClass: "text-secondary",
-    iconBgClass: "bg-secondary/10",
-    hoverBgClass: "group-hover:bg-secondary",
-    hoverTextClass: "group-hover:text-secondary-foreground",
+    title: "Get Community Support",
+    description: "Supporters discover and back projects they believe in. Track funding progress in real-time and build your supporter community.",
+    features: ["Real-time Tracking", "Community Updates", "Backer Rewards"],
+    gradient: "from-secondary/20 via-secondary/10 to-transparent",
+    iconBg: "bg-secondary/20",
+    iconColor: "text-secondary",
+    borderColor: "group-hover:border-secondary/50",
+  },
+  {
+    number: "03",
+    icon: TrendingUp,
+    title: "Create Lasting Impact",
+    description: "Bring your funded vision to life with continuous support. Keep your backers updated as you make meaningful change.",
+    features: ["Progress Updates", "Impact Reports", "Success Stories"],
+    gradient: "from-accent/20 via-accent/10 to-transparent",
+    iconBg: "bg-accent/20",
+    iconColor: "text-accent",
+    borderColor: "group-hover:border-accent/50",
   },
 ];
 
@@ -234,81 +231,172 @@ const HomePage = () => {
         </div>
       </section>
 
-      {/* How It Works (Bento Grid) */}
-      <section className="bg-muted/10 py-24 md:py-32">
-        <div className="container">
+      {/* How It Works */}
+      <section className="relative overflow-hidden bg-gradient-to-b from-background via-muted/20 to-background py-24 md:py-32">
+        {/* Background decorations */}
+        <div className="absolute inset-0 overflow-hidden">
+          <motion.div 
+            className="absolute -top-40 -right-40 h-80 w-80 rounded-full bg-primary/5 blur-3xl"
+            animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.5, 0.3] }}
+            transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+          />
+          <motion.div 
+            className="absolute -bottom-40 -left-40 h-80 w-80 rounded-full bg-secondary/5 blur-3xl"
+            animate={{ scale: [1, 1.3, 1], opacity: [0.2, 0.4, 0.2] }}
+            transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
+          />
+        </div>
+
+        <div className="container relative z-10">
+          {/* Section Header */}
           <motion.div 
             className="mx-auto mb-20 max-w-3xl text-center"
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
           >
-            <h2 
-              className="text-4xl font-bold tracking-tight text-foreground md:text-5xl lg:text-6xl mb-6"
-              style={{ fontFamily: "'Outfit', sans-serif" }}
+            <motion.div
+              initial={{ scale: 0 }}
+              whileInView={{ scale: 1 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
+              className="mb-6 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20"
             >
+              <Lightbulb className="h-4 w-4 text-primary" />
+              <span className="text-sm font-semibold text-primary">Simple Process</span>
+            </motion.div>
+            
+            <h2 className="text-4xl font-bold tracking-tight text-foreground md:text-5xl lg:text-6xl mb-6">
               How <span className="gradient-text">Sahmi</span> Works
             </h2>
-            <p className="text-lg text-muted-foreground">Three simple steps to transform ideas into reality with the power of community.</p>
+            <p className="text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
+              Three simple steps to transform ideas into reality with the power of community. No complexity, just impact.
+            </p>
           </motion.div>
 
+          {/* Steps */}
           <motion.div 
-            className="grid gap-6 md:grid-cols-12 md:grid-rows-2 h-auto md:h-[600px]"
+            className="grid gap-8 md:grid-cols-3"
             variants={staggerContainer}
             initial="initial"
             whileInView="animate"
             viewport={{ once: true, margin: "-100px" }}
           >
-            {/* Step 1 - Large Card */}
-            <motion.div 
-              variants={fadeInUp}
-              className={`md:col-span-8 md:row-span-1 group relative overflow-hidden rounded-3xl border ${steps[0].bgClass} ${steps[0].borderClass} p-8 shadow-sm transition-all hover:shadow-xl ${steps[0].hoverBorderClass} flex flex-col justify-between`}
-            >
-              <div className="flex justify-between items-start">
-                <div className={`flex h-16 w-16 items-center justify-center rounded-2xl ${steps[0].iconBgClass} ${steps[0].textClass} transition-colors ${steps[0].hoverBgClass} ${steps[0].hoverTextClass}`}>
-                  {(() => { const Icon = steps[0].icon; return <Icon className="h-8 w-8" />; })()}
-                </div>
-                <div className={`text-sm font-bold uppercase tracking-widest ${steps[0].textClass}`}>Step 01</div>
-              </div>
-              <div className="mt-8">
-                <h3 className="mb-4 text-3xl font-bold text-foreground">{steps[0].title}</h3>
-                <p className="text-lg text-muted-foreground leading-relaxed max-w-xl">{steps[0].description}</p>
-              </div>
-              <div className="absolute -bottom-12 -right-12 h-64 w-64 bg-primary/10 rounded-full blur-3xl group-hover:bg-primary/20 transition-colors duration-500" />
-            </motion.div>
+            {steps.map((step, index) => (
+              <motion.div
+                key={step.number}
+                variants={fadeInUp}
+                className="group relative"
+              >
+                {/* Connector line */}
+                {index < steps.length - 1 && (
+                  <div className="hidden md:block absolute top-20 left-full w-full h-0.5 bg-gradient-to-r from-border to-transparent z-0" style={{ width: 'calc(100% - 2rem)' }} />
+                )}
+                
+                <motion.div
+                  whileHover={{ y: -8 }}
+                  className="relative h-full"
+                >
+                  {/* Card */}
+                  <div className={`relative h-full rounded-3xl border border-border bg-card shadow-sm overflow-hidden transition-all duration-500 hover:shadow-xl ${step.borderColor}`}>
+                    {/* Gradient overlay */}
+                    <div className={`absolute inset-0 bg-gradient-to-br ${step.gradient} opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
 
-            {/* Step 2 - Medium Card */}
-            <motion.div 
-              variants={fadeInUp}
-              className={`md:col-span-4 md:row-span-2 group relative overflow-hidden rounded-3xl border ${steps[1].bgClass} ${steps[1].borderClass} p-8 shadow-sm transition-all hover:shadow-xl ${steps[1].hoverBorderClass} flex flex-col justify-center text-center`}
-            >
-              <div className={`mx-auto mb-8 flex h-20 w-20 items-center justify-center rounded-3xl ${steps[1].iconBgClass} ${steps[1].textClass} transition-colors ${steps[1].hoverBgClass} ${steps[1].hoverTextClass}`}>
-                {(() => { const Icon = steps[1].icon; return <Icon className="h-10 w-10" />; })()}
-              </div>
-              <div className={`mb-4 text-sm font-bold uppercase tracking-widest ${steps[1].textClass}`}>Step 03</div>
-              <h3 className="mb-6 text-3xl font-bold text-foreground">{steps[1].title}</h3>
-              <p className="text-lg text-muted-foreground leading-relaxed">{steps[1].description}</p>
-              <div className="absolute inset-0 bg-gradient-to-b from-accent/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-            </motion.div>
+                    <div className="relative p-8 flex flex-col h-full">
+                      {/* Step number and icon */}
+                      <div className="flex items-start justify-between mb-8">
+                        <motion.div 
+                          className={`relative flex h-16 w-16 items-center justify-center rounded-2xl ${step.iconBg}`}
+                          whileHover={{ scale: 1.1, rotate: 5 }}
+                          transition={{ duration: 0.3 }}
+                        >
+                          <step.icon className={`h-8 w-8 ${step.iconColor}`} />
+                        </motion.div>
+                        
+                        <motion.div 
+                          className="flex h-10 w-10 items-center justify-center rounded-full bg-muted border border-border"
+                          initial={{ scale: 0 }}
+                          whileInView={{ scale: 1 }}
+                          viewport={{ once: true }}
+                          transition={{ delay: 0.2 + index * 0.1, type: "spring" }}
+                        >
+                          <span className={`text-sm font-bold ${step.iconColor}`}>
+                            {step.number}
+                          </span>
+                        </motion.div>
+                      </div>
 
-            {/* Step 3 - Large Card */}
-            <motion.div 
-              variants={fadeInUp}
-              className={`md:col-span-8 md:row-span-1 group relative overflow-hidden rounded-3xl border ${steps[2].bgClass} ${steps[2].borderClass} p-8 shadow-sm transition-all hover:shadow-xl ${steps[2].hoverBorderClass} flex flex-col justify-between`}
-            >
-              <div className="flex justify-between items-start">
-                <div className={`flex h-16 w-16 items-center justify-center rounded-2xl ${steps[2].iconBgClass} ${steps[2].textClass} transition-colors ${steps[2].hoverBgClass} ${steps[2].hoverTextClass}`}>
-                  {(() => { const Icon = steps[2].icon; return <Icon className="h-8 w-8" />; })()}
-                </div>
-                <div className={`text-sm font-bold uppercase tracking-widest ${steps[2].textClass}`}>Step 02</div>
-              </div>
-              <div className="mt-8">
-                <h3 className="mb-4 text-3xl font-bold text-foreground">{steps[2].title}</h3>
-                <p className="text-lg text-muted-foreground leading-relaxed max-w-xl">{steps[2].description}</p>
-              </div>
-              <div className="absolute -top-12 -left-12 h-64 w-64 bg-secondary/10 rounded-full blur-3xl group-hover:bg-secondary/20 transition-colors duration-500" />
-            </motion.div>
+                      {/* Content */}
+                      <div className="flex-1">
+                        <h3 className="text-2xl font-bold text-foreground mb-4 group-hover:text-primary transition-colors duration-300">
+                          {step.title}
+                        </h3>
+                        <p className="text-muted-foreground leading-relaxed mb-6">
+                          {step.description}
+                        </p>
+                      </div>
+
+                      {/* Features */}
+                      <div className="space-y-3">
+                        {step.features.map((feature, fIndex) => (
+                          <motion.div
+                            key={feature}
+                            initial={{ opacity: 0, x: -10 }}
+                            whileInView={{ opacity: 1, x: 0 }}
+                            viewport={{ once: true }}
+                            transition={{ delay: 0.3 + fIndex * 0.1 }}
+                            className="flex items-center gap-3"
+                          >
+                            <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10">
+                              <BadgeCheck className="h-3 w-3 text-primary" />
+                            </div>
+                            <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">
+                              {feature}
+                            </span>
+                          </motion.div>
+                        ))}
+                      </div>
+
+                      {/* Arrow indicator */}
+                      <motion.div
+                        className="absolute bottom-8 right-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                        initial={{ x: -10 }}
+                        whileHover={{ x: 0 }}
+                      >
+                        <ArrowRight className={`h-5 w-5 ${step.iconColor}`} />
+                      </motion.div>
+                    </div>
+                  </div>
+                </motion.div>
+              </motion.div>
+            ))}
+          </motion.div>
+
+          {/* CTA */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.4 }}
+            className="mt-16 text-center"
+          >
+            <p className="text-muted-foreground mb-6">
+              Ready to start your journey?
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Button size="lg" className="group bg-gradient-to-r from-primary to-primary/80 hover:from-primary hover:to-secondary shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all" asChild>
+                <Link to="/start-project">
+                  Submit Your Project
+                  <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                </Link>
+              </Button>
+              <Button size="lg" variant="outline" className="hover:bg-muted border-border" asChild>
+                <Link to="/how-it-works">
+                  Learn More
+                </Link>
+              </Button>
+            </div>
           </motion.div>
         </div>
       </section>

@@ -147,14 +147,35 @@ const DashboardLayout = ({ children, roleBase }: DashboardLayoutProps) => {
         )}
       </div>
 
-      {/* Role Badge */}
+      {/* User Info */}
       {!collapsed && (
-        <div className="px-4 pt-4">
-          <div className="rounded-xl bg-primary/8 border border-primary/15 px-3 py-2 flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-primary animate-pulse" />
-            <span className="text-xs font-semibold text-primary capitalize">
-              {role === "entrepreneur" ? "Project Owner" : role}
-            </span>
+        <div className="px-4 pt-4 pb-2">
+          <div className="rounded-xl bg-gradient-to-r from-primary/10 via-secondary/5 to-primary/10 border border-primary/20 p-3">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-secondary text-sm font-bold text-primary-foreground shadow-lg shadow-primary/20">
+                {user?.full_name?.[0]?.toUpperCase() || "U"}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-foreground truncate text-sm">
+                  {user?.full_name || "User"}
+                </p>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
+                  <span className="text-xs font-medium text-primary capitalize">
+                    {role === "entrepreneur" ? "Project Owner" : role}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Collapsed User Avatar */}
+      {collapsed && (
+        <div className="pt-4 px-3">
+          <div className="flex h-10 w-10 mx-auto items-center justify-center rounded-xl bg-gradient-to-br from-primary to-secondary text-sm font-bold text-primary-foreground shadow-lg shadow-primary/20">
+            {user?.full_name?.[0]?.toUpperCase() || "U"}
           </div>
         </div>
       )}
