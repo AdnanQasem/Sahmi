@@ -137,44 +137,6 @@ const trustPoints = [
   },
 ];
 
-const teamMembers = [
-  {
-    name: "Adnan Qasem",
-    role: "Co-Founder & CEO",
-    description: "Driving the vision to connect Palestinian entrepreneurs with global supporters.",
-    image: "", 
-  },
-  {
-    name: "Ikrayyem Alabadla",
-    role: "Co-Founder",
-    description: "Ensuring platform transparency, trust, and technical execution.",
-    image: "", 
-  },
-  {
-    name: "Abdullah Al Otti",
-    role: "Operations & Strategy",
-    description: "Streamlining the process of vetting and supporting new business ideas.",
-    image: "", 
-  },
-  {
-    name: "Ahmed Qudaih",
-    role: "Community Growth",
-    description: "Building strong relationships with founders and the investor community.",
-    image: "", 
-  },
-  {
-    name: "Mohammed Al Madhoon",
-    role: "Product Design",
-    description: "Creating a seamless, intuitive experience for all users on Sahmi.",
-    image: "", 
-  },
-  {
-    name: "Moomen Jibril",
-    role: "Partnerships",
-    description: "Forging critical alliances with organizations to amplify impact.",
-    image: "", 
-  },
-];
 
 const HomePage = () => {
   const { user } = useAuth();
@@ -505,59 +467,6 @@ const HomePage = () => {
                 </div>
                 <h3 className="mb-4 text-2xl font-bold text-foreground">{tp.title}</h3>
                 <p className="text-lg leading-relaxed text-muted-foreground">{tp.desc}</p>
-              </motion.div>
-            ))}
-          </motion.div>
-        </div>
-      </section>
-
-      {/* Meet The Team */}
-      <section className="relative overflow-hidden py-24 md:py-32">
-        {/* Subtle Background Gradient for Depth */}
-        <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/5 via-background to-background" />
-
-        <div className="container relative z-10">
-          <motion.div 
-            className="mx-auto mb-16 max-w-3xl text-center"
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-          >
-            <h2 
-              className="text-4xl font-bold tracking-tight text-foreground md:text-5xl lg:text-6xl mb-6"
-              style={{ fontFamily: "'Outfit', sans-serif" }}
-            >
-              Meet The <span className="gradient-text">Team</span>
-            </h2>
-            <p className="text-lg text-muted-foreground">The visionaries behind Sahmi, dedicated to empowering the next generation of Palestinian entrepreneurs.</p>
-          </motion.div>
-          
-          <motion.div 
-            className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3"
-            variants={staggerContainer}
-            initial="initial"
-            whileInView="animate"
-            viewport={{ once: true, margin: "-100px" }}
-          >
-            {teamMembers.map((member) => (
-              <motion.div 
-                key={member.name} 
-                variants={fadeInUp}
-                whileHover={{ y: -5 }}
-                className="group flex flex-col items-center rounded-3xl border border-border/40 bg-card/40 p-8 text-center shadow-sm backdrop-blur-md transition-all duration-300 hover:border-primary/30 hover:bg-card hover:shadow-xl"
-              >
-                <div className="mb-6 flex h-28 w-28 items-center justify-center overflow-hidden rounded-full bg-muted/30 border-2 border-border group-hover:border-primary/50 transition-all duration-500 group-hover:scale-105">
-                  {member.image ? (
-                    <img src={member.image} alt={member.name} className="h-full w-full object-cover" />
-                  ) : (
-                    <span className="text-2xl font-bold tracking-wider text-primary/40">
-                      {member.name.split(" ").map((n) => n[0]).join("")}
-                    </span>
-                  )}
-                </div>
-                <h3 className="mb-1 text-xl font-bold text-foreground">{member.name}</h3>
-                <p className="mb-4 text-sm font-semibold text-primary uppercase tracking-widest">{member.role}</p>
-                <p className="text-sm leading-relaxed text-muted-foreground">{member.description}</p>
               </motion.div>
             ))}
           </motion.div>
