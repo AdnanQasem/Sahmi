@@ -68,15 +68,9 @@ const navItems: NavItem[] = [
   },
   // Entrepreneur routes
   {
-    label: "My Projects",
-    href: "/projects",
+    label: "Project",
+    href: "#projects-section",
     icon: FolderOpen,
-    roles: ["entrepreneur"],
-  },
-  {
-    label: "Add Project",
-    href: "/add-project",
-    icon: PlusSquare,
     roles: ["entrepreneur"],
   },
   {
@@ -132,9 +126,8 @@ const DashboardLayout = ({ children, roleBase }: DashboardLayoutProps) => {
     <div className="flex h-full flex-col">
       {/* Logo */}
       <div
-        className={`flex h-16 items-center border-b border-border px-4 ${
-          collapsed ? "justify-center" : "gap-3"
-        }`}
+        className={`flex h-16 items-center border-b border-border px-4 ${collapsed ? "justify-center" : "gap-3"
+          }`}
       >
         {collapsed ? (
           <Link to="/" className="flex items-center">
@@ -184,28 +177,45 @@ const DashboardLayout = ({ children, roleBase }: DashboardLayoutProps) => {
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
         {filteredNav.map((item) => {
           const fullHref =
-            item.href === "" ? roleBase : `${roleBase}${item.href}`;
+            item.href === "" ? roleBase : (item.href.startsWith("#") ? `${roleBase}${item.href}` : `${roleBase}${item.href}`);
           const isActive =
             item.href === ""
               ? location.pathname === roleBase
-              : location.pathname.startsWith(fullHref);
+              : item.href.startsWith("#") 
+                ? location.pathname === roleBase && location.hash === item.href
+                : location.pathname.startsWith(fullHref);
+
+          const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+            if (item.href.startsWith("#")) {
+              const target = document.getElementById(item.href.substring(1));
+              if (target) {
+                // Let the URL update the hash, but handle the scroll smoothly
+                setSidebarOpen(false);
+                setTimeout(() => {
+                  target.scrollIntoView({ behavior: "smooth" });
+                }, 50);
+              } else {
+                setSidebarOpen(false);
+              }
+            } else {
+              setSidebarOpen(false);
+            }
+          };
 
           return (
             <Link
               key={item.href}
               to={fullHref}
-              onClick={() => setSidebarOpen(false)}
+              onClick={handleClick}
               title={collapsed ? item.label : undefined}
-              className={`group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 cursor-pointer ${
-                isActive
+              className={`group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 cursor-pointer ${isActive
                   ? "bg-primary/10 text-primary"
                   : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              } ${collapsed ? "justify-center" : ""}`}
+                } ${collapsed ? "justify-center" : ""}`}
             >
               <item.icon
-                className={`h-5 w-5 shrink-0 transition-colors ${
-                  isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
-                }`}
+                className={`h-5 w-5 shrink-0 transition-colors ${isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
+                  }`}
               />
               {!collapsed && <span>{item.label}</span>}
             </Link>
@@ -217,9 +227,8 @@ const DashboardLayout = ({ children, roleBase }: DashboardLayoutProps) => {
       <div className="border-t border-border p-3 space-y-1">
         <Link
           to="/"
-          className={`group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-all duration-200 cursor-pointer ${
-            collapsed ? "justify-center" : ""
-          }`}
+          className={`group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-all duration-200 cursor-pointer ${collapsed ? "justify-center" : ""
+            }`}
           title={collapsed ? "Go to website" : undefined}
         >
           <ExternalLink className="h-4 w-4 shrink-0" />
@@ -227,9 +236,8 @@ const DashboardLayout = ({ children, roleBase }: DashboardLayoutProps) => {
         </Link>
         <button
           onClick={handleLogout}
-          className={`group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-destructive/8 hover:text-destructive transition-all duration-200 cursor-pointer ${
-            collapsed ? "justify-center" : ""
-          }`}
+          className={`group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-destructive/8 hover:text-destructive transition-all duration-200 cursor-pointer ${collapsed ? "justify-center" : ""
+            }`}
           title={collapsed ? "Log out" : undefined}
         >
           <LogOut className="h-4 w-4 shrink-0" />
@@ -243,9 +251,8 @@ const DashboardLayout = ({ children, roleBase }: DashboardLayoutProps) => {
     <div className="flex h-screen overflow-hidden bg-background">
       {/* Desktop Sidebar */}
       <aside
-        className={`hidden lg:flex flex-col border-r border-border bg-card transition-all duration-300 ease-in-out shrink-0 ${
-          collapsed ? "w-[68px]" : "w-60"
-        }`}
+        className={`hidden lg:flex flex-col border-r border-border bg-card transition-all duration-300 ease-in-out shrink-0 ${collapsed ? "w-[68px]" : "w-60"
+          }`}
       >
         <SidebarContent />
         {/* Collapse toggle */}

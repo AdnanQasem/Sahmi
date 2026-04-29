@@ -25,6 +25,7 @@ import {
   Plus,
   Filter,
   X,
+  Sparkles,
 } from "lucide-react";
 
 interface Message {
@@ -46,6 +47,7 @@ interface Conversation {
     role: string;
     isOnline?: boolean;
     lastSeen?: Date;
+    status?: "active" | "premium";
   };
   lastMessage: Message;
   unreadCount: number;
@@ -107,6 +109,7 @@ const mockConversations: Conversation[] = [
       avatar: "LK",
       role: "Investor",
       isOnline: true,
+      status: "premium",
     },
     lastMessage: {
       id: "m3",
@@ -150,6 +153,7 @@ const mockConversations: Conversation[] = [
       avatar: "FO",
       role: "Investor",
       isOnline: true,
+      status: "premium",
     },
     lastMessage: {
       id: "m5",
@@ -439,14 +443,21 @@ const MessagesPage = () => {
                         {/* Avatar */}
                         <div className="relative shrink-0">
                           <motion.div 
-                            className={`h-12 w-12 rounded-xl flex items-center justify-center text-sm font-bold ${
-                              selectedConversation?.id === conv.id
+                            className={`relative h-12 w-12 rounded-xl flex items-center justify-center text-sm font-bold ${
+                              conv.participant.status === "premium"
+                                ? "bg-gradient-to-br from-warning to-warning/70 text-secondary-foreground shadow-lg shadow-warning/30"
+                                : selectedConversation?.id === conv.id
                                 ? "bg-gradient-to-br from-primary to-secondary text-primary-foreground"
                                 : "bg-gradient-to-br from-primary/20 to-secondary/20 text-primary"
                             }`}
                             whileHover={{ scale: 1.05 }}
                           >
                             {conv.participant.avatar}
+                            {conv.participant.status === "premium" && (
+                              <div className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-warning text-secondary-foreground shadow-sm">
+                                <Sparkles className="h-2.5 w-2.5" />
+                              </div>
+                            )}
                           </motion.div>
                           {conv.participant.isOnline && (
                             <motion.div
@@ -545,10 +556,19 @@ const MessagesPage = () => {
                         
                         <div className="relative">
                           <motion.div 
-                            className="h-11 w-11 rounded-xl flex items-center justify-center text-sm font-bold bg-gradient-to-br from-primary to-secondary text-primary-foreground shadow-lg shadow-primary/20"
+                            className={`relative h-11 w-11 rounded-xl flex items-center justify-center text-sm font-bold shadow-lg ${
+                              selectedConversation.participant.status === "premium"
+                                ? "bg-gradient-to-br from-warning to-warning/70 text-secondary-foreground shadow-warning/30"
+                                : "bg-gradient-to-br from-primary to-secondary text-primary-foreground shadow-primary/20"
+                            }`}
                             whileHover={{ scale: 1.05 }}
                           >
                             {selectedConversation.participant.avatar}
+                            {selectedConversation.participant.status === "premium" && (
+                              <div className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-warning text-secondary-foreground shadow-sm">
+                                <Sparkles className="h-2.5 w-2.5" />
+                              </div>
+                            )}
                           </motion.div>
                           {selectedConversation.participant.isOnline && (
                             <motion.div
@@ -564,8 +584,15 @@ const MessagesPage = () => {
                             <h2 className="font-semibold text-foreground truncate">
                               {selectedConversation.participant.name}
                             </h2>
-                            <Badge variant="outline" className="text-xs border-primary/20 text-primary">
-                              {selectedConversation.participant.role}
+                            <Badge 
+                              variant="outline" 
+                              className={`text-xs ${
+                                selectedConversation.participant.status === "premium"
+                                  ? "bg-warning/10 text-warning border-warning/20"
+                                  : "border-primary/20 text-primary"
+                              }`}
+                            >
+                              {selectedConversation.participant.status === "premium" ? "Premium Investor" : selectedConversation.participant.role}
                             </Badge>
                           </div>
                           <p className="text-sm text-muted-foreground">

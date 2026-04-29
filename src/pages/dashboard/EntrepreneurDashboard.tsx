@@ -38,6 +38,7 @@ import {
   TrendingUp,
   Rocket,
   Target,
+  MessageSquare,
 } from "lucide-react";
 
 const currency = (value: number) => `$${Math.round(value).toLocaleString()}`;
@@ -332,12 +333,13 @@ const EntrepreneurDashboard = () => {
         </motion.div>
 
         <motion.div 
+          id="projects-section"
           variants={itemVariants}
           className="relative overflow-hidden rounded-2xl border border-border bg-card shadow-sm"
         >
           <div className="px-6 py-5 border-b border-border bg-gradient-to-r from-card via-muted/20 to-card">
             <SectionHeader 
-              title="My Projects" 
+              title="Project" 
               subtitle="Manage and track your projects" 
               ctaLabel="Add New Project" 
               ctaIcon={PlusSquare} 
@@ -521,44 +523,63 @@ const EntrepreneurDashboard = () => {
           >
             <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-primary/10 to-secondary/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
             <div className="relative">
-              <div className="flex items-center gap-2 mb-4">
-                <div className="p-2 rounded-lg bg-primary/10">
-                  <Rocket className="h-5 w-5 text-primary" />
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-lg bg-primary/10">
+                    <MessageSquare className="h-5 w-5 text-primary" />
+                  </div>
+                  <h3 className="font-semibold text-foreground">Recent Messages</h3>
                 </div>
-                <h3 className="font-semibold text-foreground">Quick Actions</h3>
+                <Badge variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/20 border-0">2 New</Badge>
               </div>
               <div className="space-y-3">
-                <Button 
-                  variant="outline" 
-                  className="w-full justify-start group hover:bg-primary/5 hover:border-primary/30 transition-all duration-200" 
-                  asChild
-                >
-                  <Link to="/start-project">
-                    <PlusSquare className="mr-3 h-4 w-4 group-hover:scale-110 transition-transform duration-200" />
-                    Create New Project
+                {[
+                  { id: 1, sender: "Sarah Ahmed", message: "I'm very interested in your...", time: "5m ago", unread: true, initials: "SA" },
+                  { id: 2, sender: "Layla Khaled", message: "The project proposal looks...", time: "1d ago", unread: false, initials: "LK", status: "premium" },
+                  { id: 3, sender: "Mohammad H.", message: "What's the funding goal...", time: "2d ago", unread: false, initials: "MH" }
+                ].map((msg) => (
+                  <Link to="/dashboard/entrepreneur/messages" key={msg.id} className="block group">
+                    <div className={`p-3 rounded-xl border transition-all duration-200 flex items-start gap-3 ${msg.unread ? 'bg-primary/5 border-primary/20 hover:bg-primary/10' : 'bg-transparent border-border hover:border-primary/30 hover:bg-muted/50'}`}>
+                      <div className={`relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+                        msg.status === "premium"
+                          ? 'bg-gradient-to-br from-warning to-warning/70 text-secondary-foreground shadow-sm'
+                          : msg.unread 
+                          ? 'bg-primary text-primary-foreground shadow-sm' 
+                          : 'bg-primary/10 text-primary'
+                      }`}>
+                        {msg.initials}
+                        {msg.status === "premium" && (
+                          <div className="absolute -top-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-warning text-secondary-foreground shadow-sm">
+                            <Sparkles className="h-2 w-2" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5">
+                            <p className={`text-sm truncate ${msg.unread ? 'font-semibold text-foreground' : 'font-medium text-foreground'}`}>
+                              {msg.sender}
+                            </p>
+                            {msg.status === "premium" && (
+                              <Badge variant="secondary" className="px-1 py-0 h-4 text-[10px] bg-warning/10 text-warning border-0">Premium</Badge>
+                            )}
+                          </div>
+                          <span className="text-xs text-muted-foreground shrink-0">{msg.time}</span>
+                        </div>
+                        <p className={`text-xs truncate mt-0.5 ${msg.unread ? 'text-foreground font-medium' : 'text-muted-foreground'}`}>
+                          {msg.message}
+                        </p>
+                      </div>
+                      {msg.unread && (
+                        <div className="w-2 h-2 rounded-full bg-primary mt-1.5 shrink-0 shadow-sm" />
+                      )}
+                    </div>
                   </Link>
-                </Button>
-                <Button 
-                  variant="outline" 
-                  className="w-full justify-start group hover:bg-primary/5 hover:border-primary/30 transition-all duration-200" 
-                  asChild
-                >
-                  <Link to="/projects">
-                    <Eye className="mr-3 h-4 w-4 group-hover:scale-110 transition-transform duration-200" />
-                    Browse Platform
-                  </Link>
-                </Button>
-                <Button 
-                  variant="outline" 
-                  className="w-full justify-start group hover:bg-primary/5 hover:border-primary/30 transition-all duration-200" 
-                  asChild
-                >
-                  <Link to="/dashboard/entrepreneur/settings">
-                    <Target className="mr-3 h-4 w-4 group-hover:scale-110 transition-transform duration-200" />
-                    Account Settings
-                  </Link>
-                </Button>
+                ))}
               </div>
+              <Button variant="ghost" className="w-full mt-2 text-xs text-muted-foreground hover:text-primary transition-colors" asChild>
+                <Link to="/dashboard/entrepreneur/messages">View All Messages <ArrowRight className="ml-1.5 h-3.5 w-3.5" /></Link>
+              </Button>
             </div>
           </motion.div>
         </motion.div>
