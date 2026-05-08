@@ -43,20 +43,8 @@ const navItems: NavItem[] = [
   },
   // Investor routes
   {
-    label: "Portfolio",
-    href: "/portfolio",
-    icon: Briefcase,
-    roles: ["investor"],
-  },
-  {
-    label: "Performance",
-    href: "/performance",
-    icon: TrendingUp,
-    roles: ["investor"],
-  },
-  {
     label: "Watched Projects",
-    href: "/watchlist",
+    href: "#watched-projects",
     icon: BookMarked,
     roles: ["investor"],
   },
@@ -178,25 +166,36 @@ const DashboardLayout = ({ children, roleBase }: DashboardLayoutProps) => {
         {filteredNav.map((item) => {
           const fullHref =
             item.href === "" ? roleBase : (item.href.startsWith("#") ? `${roleBase}${item.href}` : `${roleBase}${item.href}`);
+          const hasHash = !!location.hash;
           const isActive =
             item.href === ""
-              ? location.pathname === roleBase
+              ? location.pathname === roleBase && !hasHash
               : item.href.startsWith("#") 
                 ? location.pathname === roleBase && location.hash === item.href
                 : location.pathname.startsWith(fullHref);
 
           const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
             if (item.href.startsWith("#")) {
+              e.preventDefault();
+              setSidebarOpen(false);
+              navigate(item.href, { replace: true });
               const target = document.getElementById(item.href.substring(1));
               if (target) {
-                // Let the URL update the hash, but handle the scroll smoothly
-                setSidebarOpen(false);
                 setTimeout(() => {
                   target.scrollIntoView({ behavior: "smooth" });
-                }, 50);
-              } else {
-                setSidebarOpen(false);
+                }, 100);
               }
+            } else if (item.href === "") {
+              setSidebarOpen(false);
+              if (location.hash) {
+                navigate(roleBase, { replace: true });
+              }
+              setTimeout(() => {
+                const main = document.querySelector("main");
+                if (main) {
+                  main.scrollTo({ top: 0, behavior: "smooth" });
+                }
+              }, 100);
             } else {
               setSidebarOpen(false);
             }

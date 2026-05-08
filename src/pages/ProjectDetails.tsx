@@ -265,39 +265,58 @@ const ProjectDetails = () => {
           <div className="lg:col-span-1">
             <div className="sticky top-20 space-y-4">
               <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-                <div className="mb-1 text-3xl font-bold text-primary">${Number(project.funded_amount).toLocaleString()}</div>
-                <div className="mb-4 text-sm text-muted-foreground">raised of ${Number(project.goal_amount).toLocaleString()} goal</div>
-                <Progress value={percent} className="mb-4 h-3" />
-                <div className="mb-6 grid grid-cols-3 gap-3 text-center text-sm">
-                  <div>
-                    <div className="font-bold text-foreground">{percent}%</div>
-                    <div className="text-xs text-muted-foreground">Funded</div>
+                {project.status === "active" ? (
+                  <>
+                    <div className="mb-1 text-3xl font-bold text-primary">${Number(project.funded_amount).toLocaleString()}</div>
+                    <div className="mb-4 text-sm text-muted-foreground">raised of ${Number(project.goal_amount).toLocaleString()} goal</div>
+                    <Progress value={percent} className="mb-4 h-3" />
+                    <div className="mb-6 grid grid-cols-3 gap-3 text-center text-sm">
+                      <div>
+                        <div className="font-bold text-foreground">{percent}%</div>
+                        <div className="text-xs text-muted-foreground">Funded</div>
+                      </div>
+                      <div>
+                        <div className="font-bold text-foreground">{project.investor_count}</div>
+                        <div className="text-xs text-muted-foreground">Investors</div>
+                      </div>
+                      <div>
+                        <div className="font-bold text-foreground">{project.days_left ?? 0}</div>
+                        <div className="text-xs text-muted-foreground">Days Left</div>
+                      </div>
+                    </div>
+                    <form className="space-y-3" onSubmit={handleInvest}>
+                      <Input
+                        type="number"
+                        min={Number(project.minimum_investment)}
+                        step="1"
+                        value={amount}
+                        onChange={(event) => setAmount(event.target.value)}
+                        placeholder={`Minimum $${Number(project.minimum_investment).toLocaleString()}`}
+                        required
+                      />
+                      {fieldErrors.amount && <p className="text-xs text-destructive">{fieldErrors.amount}</p>}
+                      <Button size="lg" className="w-full" type="submit" disabled={investMutation.isPending}>
+                        <Heart className="mr-2 h-4 w-4" /> {investMutation.isPending ? "Submitting..." : "Contribute Now"}
+                      </Button>
+                    </form>
+                  </>
+                ) : (
+                  <div className="text-center py-4">
+                    <div className="mb-4 flex justify-center">
+                      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
+                        <Clock className="h-8 w-8 text-primary" />
+                      </div>
+                    </div>
+                    <h3 className="mb-2 text-lg font-semibold text-foreground">Coming Soon</h3>
+                    <p className="mb-4 text-sm text-muted-foreground">This project is preparing to launch and will be available for contributions shortly.</p>
+                    <div className="rounded-lg bg-muted/50 p-4 text-sm">
+                      <p className="mb-1 font-medium text-foreground">Funding Goal</p>
+                      <p className="text-2xl font-bold text-primary">${Number(project.goal_amount).toLocaleString()}</p>
+                    </div>
+                    <p className="mt-4 text-xs text-muted-foreground">You'll be able to contribute once the project becomes active.</p>
                   </div>
-                  <div>
-                    <div className="font-bold text-foreground">{project.investor_count}</div>
-                    <div className="text-xs text-muted-foreground">Investors</div>
-                  </div>
-                  <div>
-                    <div className="font-bold text-foreground">{project.days_left ?? 0}</div>
-                    <div className="text-xs text-muted-foreground">Days Left</div>
-                  </div>
-                </div>
-                <form className="space-y-3" onSubmit={handleInvest}>
-                  <Input
-                    type="number"
-                    min={Number(project.minimum_investment)}
-                    step="1"
-                    value={amount}
-                    onChange={(event) => setAmount(event.target.value)}
-                    placeholder={`Minimum $${Number(project.minimum_investment).toLocaleString()}`}
-                    required
-                  />
-                  {fieldErrors.amount && <p className="text-xs text-destructive">{fieldErrors.amount}</p>}
-                  <Button size="lg" className="w-full" type="submit" disabled={investMutation.isPending}>
-                    <Heart className="mr-2 h-4 w-4" /> {investMutation.isPending ? "Submitting..." : "Contribute Now"}
-                  </Button>
-                </form>
-                <Button size="lg" variant="outline" className="mt-3 w-full" onClick={() => navigator.clipboard?.writeText(window.location.href)}>
+                )}
+                <Button size="lg" variant="outline" className="mt-4 w-full" onClick={() => navigator.clipboard?.writeText(window.location.href)}>
                   <Share2 className="mr-2 h-4 w-4" /> Share Project
                 </Button>
               </div>

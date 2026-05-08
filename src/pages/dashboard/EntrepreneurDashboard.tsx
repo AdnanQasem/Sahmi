@@ -86,10 +86,12 @@ const EntrepreneurDashboard = () => {
   const projectsQuery = useQuery({
     queryKey: ["dashboard", "entrepreneur", "projects"],
     queryFn: projectsService.listMyProjects,
+    refetchInterval: 5000,
   });
   const investmentsQuery = useQuery({
     queryKey: ["dashboard", "entrepreneur", "investments"],
     queryFn: investmentsService.listInvestments,
+    refetchInterval: 5000,
   });
 
   const projects = projectsQuery.data?.results ?? [];
@@ -393,7 +395,7 @@ const EntrepreneurDashboard = () => {
                           <StatusBadge status={project.status} />
                           <Badge variant="outline" className="text-xs border-primary/20">{project.category_detail?.name ?? "Project"}</Badge>
                         </div>
-                        <div className="mb-4 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+                        <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
                           <span className="flex items-center gap-1.5 hover:text-primary transition-colors duration-200">
                             <Users className="h-3.5 w-3.5" /> 
                             <span className="font-medium">{project.investor_count}</span> investors
@@ -407,7 +409,11 @@ const EntrepreneurDashboard = () => {
                             <span className="font-medium">{(project.view_count ?? 0).toLocaleString()}</span> views
                           </span>
                         </div>
-                        <FundingProgressBar raised={projectRaised(project)} goal={projectGoal(project)} size="sm" />
+                        {project.status === "active" && (
+                          <div className="mt-4">
+                            <FundingProgressBar raised={projectRaised(project)} goal={projectGoal(project)} size="sm" />
+                          </div>
+                        )}
                         {!project.is_verified && (
                           <motion.div 
                             initial={{ opacity: 0, y: 5 }}
@@ -479,7 +485,7 @@ const EntrepreneurDashboard = () => {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                 >
-                  {investments.slice(0, 6).map((investment, index) => (
+                  {investments.slice(0, 4).map((investment, index) => (
                     <motion.div
                       key={investment.id}
                       initial={{ opacity: 0, y: 10 }}

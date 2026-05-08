@@ -53,7 +53,7 @@ const StartProject = () => {
     }),
     onSuccess: (project) => {
       toast.success("Project submitted for review.");
-      navigate(`/projects/${project.slug}`);
+      navigate("/dashboard/entrepreneur");
     },
     onError: (error) => {
       setFieldErrors(getFieldErrors(error));

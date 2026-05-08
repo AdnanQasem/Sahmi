@@ -93,10 +93,12 @@ const InvestorDashboard = () => {
   const investmentsQuery = useQuery({
     queryKey: ["dashboard", "investor", "investments"],
     queryFn: investmentsService.listInvestments,
+    refetchInterval: 5000,
   });
   const projectsQuery = useQuery({
     queryKey: ["dashboard", "investor", "available-projects"],
     queryFn: () => projectsService.listProjects({ page_size: 3, ordering: "-created_at" }),
+    refetchInterval: 5000,
   });
 
   const investments = investmentsQuery.data?.results ?? [];
@@ -305,8 +307,8 @@ const InvestorDashboard = () => {
           )}
         </div>
 
-        <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-          <SectionHeader title="Available Projects" subtitle="Live verified projects from the backend" />
+        <div id="watched-projects" className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+          <SectionHeader title="Watched Projects" subtitle="Live verified projects from the backend" />
           {availableProjects.length === 0 ? (
             <EmptyState icon={CheckCircle} title="No live projects" description="No verified projects are available right now." />
           ) : (
