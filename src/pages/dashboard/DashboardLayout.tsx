@@ -178,13 +178,11 @@ const DashboardLayout = ({ children, roleBase }: DashboardLayoutProps) => {
             if (item.href.startsWith("#")) {
               e.preventDefault();
               setSidebarOpen(false);
-              navigate(item.href, { replace: true });
-              const target = document.getElementById(item.href.substring(1));
-              if (target) {
-                setTimeout(() => {
-                  target.scrollIntoView({ behavior: "smooth" });
-                }, 100);
-              }
+              navigate(fullHref, { replace: location.pathname === roleBase });
+              setTimeout(() => {
+                const target = document.getElementById(item.href.substring(1));
+                target?.scrollIntoView({ behavior: "smooth" });
+              }, 150);
             } else if (item.href === "") {
               setSidebarOpen(false);
               if (location.hash) {

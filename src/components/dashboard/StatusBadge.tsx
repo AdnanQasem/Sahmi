@@ -66,6 +66,27 @@ const statusConfig: Record<
     className:
       "bg-warning/10 text-warning border-warning/30",
   },
+  pending: {
+    label: "Pending",
+    className:
+      "bg-warning/15 text-warning border-warning/30",
+    pulse: true,
+  },
+  confirmed: {
+    label: "Confirmed",
+    className:
+      "bg-primary/15 text-primary border-primary/30",
+  },
+  canceled: {
+    label: "Canceled",
+    className:
+      "bg-destructive/15 text-destructive border-destructive/30",
+  },
+  completed: {
+    label: "Completed",
+    className:
+      "bg-success/20 text-success border-success/40",
+  },
 };
 
 const StatusBadge = ({ status }: StatusBadgeProps) => {

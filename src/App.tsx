@@ -7,6 +7,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { AuthProvider } from "@/hooks/useAuth";
+import ScrollToTop from "@/components/ScrollToTop";
 import HomePage from "./pages/HomePage";
 import BrowseProjects from "./pages/BrowseProjects";
 import ProjectDetails from "./pages/ProjectDetails";
@@ -20,7 +21,9 @@ import EditProject from "./pages/EditProject";
 import NotFound from "./pages/NotFound.tsx";
 import DashboardRedirect from "./pages/dashboard/DashboardRedirect";
 import InvestorDashboard from "./pages/dashboard/InvestorDashboard";
+import InvestorTransactionsPage from "./pages/dashboard/InvestorTransactionsPage";
 import EntrepreneurDashboard from "./pages/dashboard/EntrepreneurDashboard";
+import EntrepreneurAnalyticsPage from "./pages/dashboard/EntrepreneurAnalyticsPage";
 import SettingsPage from "./pages/dashboard/SettingsPage";
 import MessagesPage from "./pages/dashboard/MessagesPage";
 import InvestorsPage from "./pages/dashboard/InvestorsPage";
@@ -33,6 +36,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
+        <ScrollToTop />
         <AuthProvider>
           <Routes>
             {/* Dashboard routes — full-page layout with sidebar, no Navbar/Footer */}
@@ -41,11 +45,13 @@ const App = () => (
             </Route>
             <Route element={<ProtectedRoute allowedUserTypes={["investor", "admin"]} redirectTo="/dashboard" />}>
               <Route path="/dashboard/investor" element={<InvestorDashboard />} />
+              <Route path="/dashboard/investor/transactions" element={<InvestorTransactionsPage />} />
               <Route path="/dashboard/investor/settings" element={<SettingsPage />} />
               <Route path="/dashboard/investor/messages" element={<MessagesPage />} />
             </Route>
             <Route element={<ProtectedRoute allowedUserTypes={["entrepreneur", "admin"]} redirectTo="/dashboard" />}>
               <Route path="/dashboard/entrepreneur" element={<EntrepreneurDashboard />} />
+              <Route path="/dashboard/entrepreneur/analytics" element={<EntrepreneurAnalyticsPage />} />
               <Route path="/dashboard/entrepreneur/settings" element={<SettingsPage />} />
               <Route path="/dashboard/entrepreneur/messages" element={<MessagesPage />} />
               <Route path="/dashboard/entrepreneur/investors" element={<InvestorsPage />} />

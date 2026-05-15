@@ -265,6 +265,7 @@ const itemVariants = {
 
 const MessagesPage = () => {
   const { user } = useAuth();
+  const roleBase = user?.user_type === "investor" ? "/dashboard/investor" : "/dashboard/entrepreneur";
   const [conversations, setConversations] = useState<Conversation[]>(mockConversations);
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -323,7 +324,7 @@ const MessagesPage = () => {
   };
 
   return (
-    <DashboardLayout roleBase="/dashboard/entrepreneur">
+    <DashboardLayout roleBase={roleBase}>
       <motion.div 
         className="h-[calc(100vh-8rem)]"
         variants={containerVariants}

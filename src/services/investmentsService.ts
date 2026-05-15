@@ -23,6 +23,7 @@ export interface Investment {
   payment_method: "card" | "bank_transfer" | "paypal";
   expected_return: string;
   actual_return: string;
+  return_received_at: string | null;
   notes: string;
   created_at: string;
   updated_at: string;

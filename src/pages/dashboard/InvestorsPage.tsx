@@ -571,31 +571,7 @@ const InvestorsPage = () => {
               )}
             </AnimatePresence>
 
-            {/* Quick Actions */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4 }}
-              className="relative overflow-hidden rounded-2xl border border-border bg-card p-6"
-            >
-              <h4 className="font-semibold text-foreground mb-4">Quick Actions</h4>
-              <div className="space-y-3">
-                <Button variant="outline" className="w-full justify-start group hover:bg-primary/5 hover:border-primary/30 transition-all" asChild>
-                  <Link to="/projects">
-                    <Briefcase className="mr-3 h-4 w-4 group-hover:scale-110 transition-transform" />
-                    View Projects
-                  </Link>
-                </Button>
-                <Button variant="outline" className="w-full justify-start group hover:bg-primary/5 hover:border-primary/30 transition-all">
-                  <Download className="mr-3 h-4 w-4 group-hover:scale-110 transition-transform" />
-                  Export Report
-                </Button>
-                <Button variant="outline" className="w-full justify-start group hover:bg-primary/5 hover:border-primary/30 transition-all">
-                  <Clock className="mr-3 h-4 w-4 group-hover:scale-110 transition-transform" />
-                  Schedule Update
-                </Button>
-              </div>
-            </motion.div>
+
 
             {/* Tips Card */}
             <motion.div

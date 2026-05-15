@@ -180,6 +180,117 @@ const faqs = [
 const HowItWorksPage = () => {
   const { user } = useAuth();
   const canCreateProject = !user || user.user_type === "entrepreneur" || user.user_type === "admin";
+  const isInvestor = user?.user_type === "investor";
+
+  const renderEntrepreneursSection = (bgClass: string) => (
+    <section className={`${bgClass} py-24 md:py-32`}>
+      <div className="container">
+        <motion.div
+          className="mx-auto mb-16 max-w-3xl text-center"
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6 }}
+        >
+          <h2
+            className="mb-6 text-3xl font-bold tracking-tight text-foreground md:text-4xl"
+            style={{ fontFamily: "'Outfit', sans-serif" }}
+          >
+            For <span className="gradient-text">Entrepreneurs</span>
+          </h2>
+          <p className="text-lg text-muted-foreground">
+            Turn your vision into reality with these four simple steps.
+          </p>
+        </motion.div>
+
+        <motion.div
+          className="grid gap-6 md:grid-cols-2"
+          variants={staggerContainer}
+          initial="initial"
+          whileInView="animate"
+          viewport={{ once: true, margin: "-100px" }}
+        >
+          {entrepreneurSteps.map((step, index) => (
+            <motion.div
+              key={step.title}
+              variants={fadeInUp}
+              whileHover={{ y: -5 }}
+              className={`group relative overflow-hidden rounded-3xl border ${step.bgClass} ${step.borderClass} p-8 shadow-sm transition-all hover:shadow-xl ${step.hoverBorderClass}`}
+            >
+              <div className="flex items-start gap-5">
+                <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl ${step.iconBgClass} ${step.textClass} transition-transform group-hover:scale-110`}>
+                  <step.icon className="h-7 w-7" />
+                </div>
+                <div className="flex-1">
+                  <div className={`mb-2 text-sm font-bold uppercase tracking-widest ${step.textClass}`}>
+                    Step 0{index + 1}
+                  </div>
+                  <h3 className="mb-3 text-xl font-bold text-foreground">{step.title}</h3>
+                  <p className="mb-4 text-muted-foreground">{step.description}</p>
+                  <ul className="space-y-2">
+                    {step.details.map((detail) => (
+                      <li key={detail} className="flex items-start gap-2 text-sm text-muted-foreground">
+                        <CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-success" />
+                        {detail}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+              <div className="absolute -bottom-16 -right-16 h-48 w-48 rounded-full bg-gradient-to-br from-primary/5 to-transparent blur-2xl transition-opacity group-hover:opacity-50" />
+            </motion.div>
+          ))}
+        </motion.div>
+      </div>
+    </section>
+  );
+
+  const renderSupportersSection = (bgClass: string) => (
+    <section className={`${bgClass} py-24 md:py-32`}>
+      <div className="container">
+        <motion.div
+          className="mx-auto mb-16 max-w-3xl text-center"
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6 }}
+        >
+          <h2
+            className="mb-6 text-3xl font-bold tracking-tight text-foreground md:text-4xl"
+            style={{ fontFamily: "'Outfit', sans-serif" }}
+          >
+            For <span className="gradient-text">Supporters</span>
+          </h2>
+          <p className="text-lg text-muted-foreground">
+            Make a difference by supporting verified projects with confidence.
+          </p>
+        </motion.div>
+
+        <motion.div
+          className="mb-8 grid gap-6 md:grid-cols-4"
+          variants={staggerContainer}
+          initial="initial"
+          whileInView="animate"
+          viewport={{ once: true, margin: "-100px" }}
+        >
+          {supporterSteps.map((step) => (
+            <motion.div
+              key={step.title}
+              variants={fadeInUp}
+              whileHover={{ y: -5 }}
+              className={`group flex flex-col items-center rounded-3xl border ${step.bgClass} ${step.borderClass} p-6 text-center shadow-sm transition-all hover:shadow-xl ${step.hoverBorderClass || 'hover:border-primary/30'}`}
+            >
+              <div className={`mb-4 flex h-16 w-16 items-center justify-center rounded-2xl ${step.iconBgClass} ${step.textClass} transition-transform group-hover:scale-110`}>
+                <step.icon className="h-8 w-8" />
+              </div>
+              <h3 className="mb-2 text-lg font-bold text-foreground">{step.title}</h3>
+              <p className="text-sm text-muted-foreground">{step.description}</p>
+            </motion.div>
+          ))}
+        </motion.div>
+      </div>
+    </section>
+  );
 
   return (
     <div className="min-h-screen">
@@ -217,111 +328,17 @@ const HowItWorksPage = () => {
         </div>
       </section>
 
-      <section className="bg-muted/10 py-24 md:py-32">
-        <div className="container">
-          <motion.div
-            className="mx-auto mb-16 max-w-3xl text-center"
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-          >
-            <h2
-              className="mb-6 text-3xl font-bold tracking-tight text-foreground md:text-4xl"
-              style={{ fontFamily: "'Outfit', sans-serif" }}
-            >
-              For <span className="gradient-text">Entrepreneurs</span>
-            </h2>
-            <p className="text-lg text-muted-foreground">
-              Turn your vision into reality with these four simple steps.
-            </p>
-          </motion.div>
-
-          <motion.div
-            className="grid gap-6 md:grid-cols-2"
-            variants={staggerContainer}
-            initial="initial"
-            whileInView="animate"
-            viewport={{ once: true, margin: "-100px" }}
-          >
-            {entrepreneurSteps.map((step, index) => (
-              <motion.div
-                key={step.title}
-                variants={fadeInUp}
-                whileHover={{ y: -5 }}
-                className={`group relative overflow-hidden rounded-3xl border ${step.bgClass} ${step.borderClass} p-8 shadow-sm transition-all hover:shadow-xl ${step.hoverBorderClass}`}
-              >
-                <div className="flex items-start gap-5">
-                  <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl ${step.iconBgClass} ${step.textClass} transition-transform group-hover:scale-110`}>
-                    <step.icon className="h-7 w-7" />
-                  </div>
-                  <div className="flex-1">
-                    <div className={`mb-2 text-sm font-bold uppercase tracking-widest ${step.textClass}`}>
-                      Step 0{index + 1}
-                    </div>
-                    <h3 className="mb-3 text-xl font-bold text-foreground">{step.title}</h3>
-                    <p className="mb-4 text-muted-foreground">{step.description}</p>
-                    <ul className="space-y-2">
-                      {step.details.map((detail) => (
-                        <li key={detail} className="flex items-start gap-2 text-sm text-muted-foreground">
-                          <CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-success" />
-                          {detail}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-                <div className="absolute -bottom-16 -right-16 h-48 w-48 rounded-full bg-gradient-to-br from-primary/5 to-transparent blur-2xl transition-opacity group-hover:opacity-50" />
-              </motion.div>
-            ))}
-          </motion.div>
-        </div>
-      </section>
-
-      <section className="bg-background py-24 md:py-32">
-        <div className="container">
-          <motion.div
-            className="mx-auto mb-16 max-w-3xl text-center"
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-          >
-            <h2
-              className="mb-6 text-3xl font-bold tracking-tight text-foreground md:text-4xl"
-              style={{ fontFamily: "'Outfit', sans-serif" }}
-            >
-              For <span className="gradient-text">Supporters</span>
-            </h2>
-            <p className="text-lg text-muted-foreground">
-              Make a difference by supporting verified projects with confidence.
-            </p>
-          </motion.div>
-
-          <motion.div
-            className="mb-8 grid gap-6 md:grid-cols-4"
-            variants={staggerContainer}
-            initial="initial"
-            whileInView="animate"
-            viewport={{ once: true, margin: "-100px" }}
-          >
-            {supporterSteps.map((step) => (
-              <motion.div
-                key={step.title}
-                variants={fadeInUp}
-                whileHover={{ y: -5 }}
-                className={`group flex flex-col items-center rounded-3xl border ${step.bgClass} ${step.borderClass} p-6 text-center shadow-sm transition-all hover:shadow-xl ${step.hoverBorderClass || 'hover:border-primary/30'}`}
-              >
-                <div className={`mb-4 flex h-16 w-16 items-center justify-center rounded-2xl ${step.iconBgClass} ${step.textClass} transition-transform group-hover:scale-110`}>
-                  <step.icon className="h-8 w-8" />
-                </div>
-                <h3 className="mb-2 text-lg font-bold text-foreground">{step.title}</h3>
-                <p className="text-sm text-muted-foreground">{step.description}</p>
-              </motion.div>
-            ))}
-          </motion.div>
-        </div>
-      </section>
+      {isInvestor ? (
+        <>
+          {renderSupportersSection("bg-muted/10")}
+          {renderEntrepreneursSection("bg-background")}
+        </>
+      ) : (
+        <>
+          {renderEntrepreneursSection("bg-muted/10")}
+          {renderSupportersSection("bg-background")}
+        </>
+      )}
 
       <section className="bg-card/50 border-y border-border py-24">
         <div className="container">

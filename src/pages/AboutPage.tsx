@@ -618,7 +618,7 @@ const AboutPage = () => {
                 everyone.
               </p>
               <Button size="lg" variant="outline" asChild>
-                <Link to="/how-it-works">
+                <Link to="/how-it-works" onClick={() => window.scrollTo(0, 0)}>
                   Learn More About Our Process{" "}
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Link>

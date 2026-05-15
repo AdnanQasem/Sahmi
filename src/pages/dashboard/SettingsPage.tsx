@@ -48,6 +48,7 @@ const itemVariants = {
 
 const SettingsPage = () => {
   const { user } = useAuth();
+  const roleBase = user?.user_type === "investor" ? "/dashboard/investor" : "/dashboard/entrepreneur";
   const [activeSection, setActiveSection] = useState<SettingsSection>("profile");
   const [isSaving, setIsSaving] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -651,7 +652,7 @@ const SettingsPage = () => {
   };
 
   return (
-    <DashboardLayout roleBase="/dashboard/entrepreneur">
+    <DashboardLayout roleBase={roleBase}>
       <motion.div 
         className="space-y-8"
         variants={containerVariants}

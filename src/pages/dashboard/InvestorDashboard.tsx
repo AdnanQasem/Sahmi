@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
@@ -24,20 +25,28 @@ import EmptyState from "@/components/dashboard/EmptyState";
 import { useAuth } from "@/hooks/useAuth";
 import investmentsService, { Investment } from "@/services/investmentsService";
 import projectsService, { Project } from "@/services/projectsService";
+import TransactionDetailsDialog, {
+  amountOf,
+  currency,
+  expectedOf,
+  formatDateTime,
+  formatPaymentMethod,
+  getProjectTitle,
+} from "@/components/dashboard/TransactionDetailsDialog";
 import {
   ArrowRight,
   BookMarked,
   Briefcase,
+  CalendarClock,
   CheckCircle,
   Clock,
+  CreditCard,
   DollarSign,
   Eye,
   TrendingUp,
   Wallet,
 } from "lucide-react";
 
-const currency = (value: number) => `$${Math.round(value).toLocaleString()}`;
-const shortDate = (value: string) => new Intl.DateTimeFormat("en", { month: "short", day: "numeric", year: "numeric" }).format(new Date(value));
 const monthLabel = (value: string) => new Intl.DateTimeFormat("en", { month: "short" }).format(new Date(value));
 
 const colors = [
@@ -47,9 +56,6 @@ const colors = [
   "hsl(142 72% 36%)",
   "hsl(215 16% 35%)",
 ];
-
-const amountOf = (investment: Investment) => Number(investment.amount || 0);
-const expectedOf = (investment: Investment) => Number(investment.expected_return || 0);
 
 const buildPerformance = (investments: Investment[]) => {
   const byMonth = investments.reduce<Record<string, number>>((acc, investment) => {
@@ -90,6 +96,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 
 const InvestorDashboard = () => {
   const { user } = useAuth();
+  const [selectedTransaction, setSelectedTransaction] = useState<Investment | null>(null);
   const investmentsQuery = useQuery({
     queryKey: ["dashboard", "investor", "investments"],
     queryFn: investmentsService.listInvestments,
@@ -274,31 +281,62 @@ const InvestorDashboard = () => {
 
         <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
           <div className="px-6 py-5 border-b border-border">
-            <SectionHeader title="Recent Investments" subtitle="Your latest backend investment records" />
+            <SectionHeader title="Recent Transactions" subtitle="Your last 5 project payments from the backend" />
           </div>
           {investments.length === 0 ? (
             <div className="p-6">
-              <EmptyState icon={Briefcase} title="No investments yet" description="Start exploring verified Palestinian projects and make your first investment today." ctaLabel="Explore Projects" ctaHref="/projects" />
+              <EmptyState icon={Briefcase} title="No transactions yet" description="Start exploring verified Palestinian projects and make your first investment today." ctaLabel="Explore Projects" ctaHref="/projects" />
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border bg-muted/30">
-                    {["Project", "Category", "Amount", "Expected Return", "Status", "Date"].map((header) => (
+                    {["Project", "Amount Paid", "Payment", "Status", "Date & Time", "Details"].map((header) => (
                       <th key={header} className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">{header}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {investments.slice(0, 8).map((investment) => (
-                    <tr key={investment.id} className="hover:bg-muted/20 transition-colors">
-                      <td className="px-6 py-4 font-medium text-foreground">{investment.project_detail?.title ?? investment.project}</td>
-                      <td className="px-6 py-4"><Badge variant="outline" className="text-xs">{investment.project_detail?.category_detail?.name ?? "Project"}</Badge></td>
+                  {investments.slice(0, 5).map((investment) => (
+                    <tr
+                      key={investment.id}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => setSelectedTransaction(investment)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          setSelectedTransaction(investment);
+                        }
+                      }}
+                      className="group cursor-pointer transition-colors hover:bg-muted/20 focus:bg-muted/20 focus:outline-none"
+                    >
+                      <td className="px-6 py-4">
+                        <div className="min-w-[200px]">
+                          <p className="font-medium text-foreground">{getProjectTitle(investment)}</p>
+                          <Badge variant="outline" className="mt-1 text-xs">{investment.project_detail?.category_detail?.name ?? "Project"}</Badge>
+                        </div>
+                      </td>
                       <td className="px-6 py-4 font-semibold text-foreground">{currency(amountOf(investment))}</td>
-                      <td className="px-6 py-4 text-success font-semibold">{currency(expectedOf(investment))}</td>
+                      <td className="px-6 py-4 text-muted-foreground">
+                        <span className="inline-flex items-center gap-2 whitespace-nowrap">
+                          <CreditCard className="h-4 w-4" />
+                          {formatPaymentMethod(investment.payment_method)}
+                        </span>
+                      </td>
                       <td className="px-6 py-4"><StatusBadge status={investment.status} /></td>
-                      <td className="px-6 py-4 text-muted-foreground">{shortDate(investment.investment_date)}</td>
+                      <td className="px-6 py-4 text-muted-foreground">
+                        <span className="inline-flex items-center gap-2 whitespace-nowrap">
+                          <CalendarClock className="h-4 w-4" />
+                          {formatDateTime(investment.investment_date)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-background text-primary transition-colors group-hover:bg-primary/10">
+                          <Eye className="h-4 w-4" />
+                        </span>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -348,6 +386,13 @@ const InvestorDashboard = () => {
           <div className="absolute -bottom-8 right-24 h-32 w-32 rounded-full bg-white/5" />
         </motion.div>
       </div>
+
+      <TransactionDetailsDialog
+        investment={selectedTransaction}
+        onOpenChange={(open) => {
+          if (!open) setSelectedTransaction(null);
+        }}
+      />
     </DashboardLayout>
   );
 };
