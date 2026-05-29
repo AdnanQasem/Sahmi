@@ -2,12 +2,11 @@ import { useState, ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import SahmiLogo from "@/components/SahmiLogo";
 import { useAuth } from "@/hooks/useAuth";
 import {
   LayoutDashboard,
-  TrendingUp,
-  Briefcase,
   Bell,
   LogOut,
   Menu,
@@ -15,7 +14,6 @@ import {
   ChevronLeft,
   ChevronRight,
   FolderOpen,
-  PlusSquare,
   BarChart3,
   Users,
   Wallet,
@@ -23,6 +21,11 @@ import {
   Settings,
   ExternalLink,
   MessageSquare,
+  TrendingUp,
+  CheckCircle2,
+  AlertCircle,
+  Info,
+  DollarSign,
 } from "lucide-react";
 
 type UserRole = "investor" | "entrepreneur" | "admin";
@@ -33,6 +36,89 @@ interface NavItem {
   icon: React.ElementType;
   roles: UserRole[];
 }
+
+type NotificationTone = "success" | "warning" | "info" | "investment";
+
+interface RecentNotification {
+  id: string;
+  title: string;
+  description: string;
+  time: string;
+  icon: React.ElementType;
+  tone: NotificationTone;
+  unread?: boolean;
+  roles: UserRole[];
+}
+
+const notificationToneClasses: Record<NotificationTone, string> = {
+  success: "bg-success/10 text-success",
+  warning: "bg-accent/10 text-accent",
+  info: "bg-secondary/10 text-secondary",
+  investment: "bg-primary/10 text-primary",
+};
+
+const recentNotifications: RecentNotification[] = [
+  {
+    id: "return-updated",
+    title: "Expected return updated",
+    description: "Olive Grove Co-op adjusted its latest return forecast.",
+    time: "10 min ago",
+    icon: TrendingUp,
+    tone: "investment",
+    unread: true,
+    roles: ["investor"],
+  },
+  {
+    id: "payment-confirmed",
+    title: "Payment confirmed",
+    description: "Your investment in Handmade Ceramics was marked confirmed.",
+    time: "1 hr ago",
+    icon: CheckCircle2,
+    tone: "success",
+    unread: true,
+    roles: ["investor"],
+  },
+  {
+    id: "funding-milestone",
+    title: "Funding milestone reached",
+    description: "Gaza Tech Hub crossed 75% of its funding goal.",
+    time: "Yesterday",
+    icon: DollarSign,
+    tone: "info",
+    unread: true,
+    roles: ["investor"],
+  },
+  {
+    id: "project-reviewed",
+    title: "Project review completed",
+    description: "Your latest project is now visible to investors.",
+    time: "18 min ago",
+    icon: CheckCircle2,
+    tone: "success",
+    unread: true,
+    roles: ["entrepreneur"],
+  },
+  {
+    id: "investor-message",
+    title: "New investor message",
+    description: "A potential investor asked about your funding timeline.",
+    time: "2 hrs ago",
+    icon: Info,
+    tone: "info",
+    unread: true,
+    roles: ["entrepreneur"],
+  },
+  {
+    id: "project-needs-attention",
+    title: "Project details need attention",
+    description: "Add recent financial updates before the next review.",
+    time: "Yesterday",
+    icon: AlertCircle,
+    tone: "warning",
+    unread: true,
+    roles: ["entrepreneur"],
+  },
+];
 
 const navItems: NavItem[] = [
   {
@@ -104,6 +190,10 @@ const DashboardLayout = ({ children, roleBase }: DashboardLayoutProps) => {
   const filteredNav = navItems.filter(
     (item) => role && item.roles.includes(role)
   );
+  const visibleNotifications = recentNotifications.filter(
+    (notification) => role && notification.roles.includes(role)
+  );
+  const unreadCount = visibleNotifications.filter((notification) => notification.unread).length;
 
   const handleLogout = () => {
     logout();
@@ -327,15 +417,87 @@ const DashboardLayout = ({ children, roleBase }: DashboardLayoutProps) => {
           {/* Right side actions */}
           <div className="flex items-center gap-3 ml-auto">
             {/* Notifications */}
-            <button
-              className="relative flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
-              aria-label="Notifications"
-            >
-              <Bell className="h-4 w-4" />
-              <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
-                3
-              </span>
-            </button>
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  className="relative flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
+                  aria-label={`Notifications${unreadCount ? `, ${unreadCount} unread` : ""}`}
+                >
+                  <Bell className="h-4 w-4" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
+                      {unreadCount}
+                    </span>
+                  )}
+                </button>
+              </PopoverTrigger>
+              <PopoverContent
+                align="end"
+                sideOffset={10}
+                className="w-[min(calc(100vw-2rem),22rem)] overflow-hidden rounded-xl p-0 shadow-xl"
+              >
+                <div className="flex items-start justify-between gap-3 border-b border-border px-4 py-3">
+                  <div>
+                    <h2 className="text-sm font-semibold text-foreground">Notifications</h2>
+                    <p className="mt-0.5 text-xs text-muted-foreground">Recent activity for your account</p>
+                  </div>
+                  {unreadCount > 0 && (
+                    <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
+                      {unreadCount} new
+                    </span>
+                  )}
+                </div>
+
+                <div className="max-h-[320px] overflow-y-auto p-2">
+                  {visibleNotifications.length > 0 ? (
+                    visibleNotifications.map((notification) => {
+                      const NotificationIcon = notification.icon;
+
+                      return (
+                        <div
+                          key={notification.id}
+                          className="flex gap-3 rounded-lg px-2 py-3 transition-colors hover:bg-muted/60"
+                        >
+                          <div className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${notificationToneClasses[notification.tone]}`}>
+                            <NotificationIcon className="h-4 w-4" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-start justify-between gap-2">
+                              <p className="text-sm font-semibold leading-snug text-foreground">
+                                {notification.title}
+                              </p>
+                              {notification.unread && (
+                                <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-primary" aria-label="Unread" />
+                              )}
+                            </div>
+                            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                              {notification.description}
+                            </p>
+                            <p className="mt-2 text-[11px] font-medium text-muted-foreground">
+                              {notification.time}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="px-4 py-8 text-center">
+                      <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                        <Bell className="h-4 w-4" />
+                      </div>
+                      <p className="text-sm font-medium text-foreground">No notifications yet</p>
+                      <p className="mt-1 text-xs text-muted-foreground">Recent updates will appear here.</p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="border-t border-border p-2">
+                  <Button variant="ghost" size="sm" className="w-full cursor-pointer justify-center" asChild>
+                    <Link to={`${roleBase}/settings`}>Notification settings</Link>
+                  </Button>
+                </div>
+              </PopoverContent>
+            </Popover>
 
             {/* Avatar */}
             <div className="flex items-center gap-2.5">

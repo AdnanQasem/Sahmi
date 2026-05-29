@@ -385,7 +385,7 @@ const HowItWorksPage = () => {
         </div>
       </section>
 
-      <section className="bg-muted/10 py-24 md:py-32">
+      <section id="faq" className="scroll-mt-24 bg-muted/10 py-24 md:py-32">
         <div className="container">
           <motion.div
             className="mx-auto mb-16 max-w-3xl text-center"

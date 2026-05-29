@@ -36,7 +36,6 @@ import {
   Zap,
   Sparkles,
   TrendingUp,
-  Rocket,
   Target,
   MessageSquare,
 } from "lucide-react";
@@ -590,88 +589,6 @@ const EntrepreneurDashboard = () => {
           </motion.div>
         </motion.div>
 
-        <motion.div 
-          variants={itemVariants}
-          className="relative overflow-hidden rounded-2xl shadow-2xl"
-          whileHover={{ scale: 1.01 }}
-          transition={{ duration: 0.3 }}
-        >
-          <div className="absolute inset-0 bg-gradient-to-r from-primary via-primary/90 to-secondary animate-pulse opacity-90" style={{ animationDuration: "3s" }} />
-          <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PGNpcmNsZSBjeD0iMzAiIGN5PSIzMCIgcj0iMiIvPjwvZz48L2c+PC9zdmc+')] opacity-30" />
-          <div className="relative z-10 flex flex-col gap-6 p-8 sm:flex-row sm:items-center sm:justify-between">
-            <div className="space-y-2">
-              <motion.h3 
-                className="text-2xl font-bold text-primary-foreground"
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.2 }}
-              >
-                Ready to grow your vision?
-              </motion.h3>
-              <motion.p 
-                className="text-primary-foreground/90"
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.3 }}
-              >
-                Launch your next project and connect with investors today.
-              </motion.p>
-            </div>
-            <motion.div 
-              className="flex flex-col gap-3 sm:flex-row"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.4 }}
-            >
-              <Button 
-                size="lg"
-                className="bg-white text-primary hover:bg-white/90 font-semibold shadow-lg hover:shadow-xl transition-all duration-300 group" 
-                asChild
-              >
-                <Link to="/start-project">
-                  <Rocket className="mr-2 h-4 w-4 group-hover:rotate-12 transition-transform duration-300" />
-                  Launch Project
-                </Link>
-              </Button>
-              <Button 
-                size="lg"
-                variant="outline" 
-                className="border-white/50 text-white bg-white/10 hover:bg-white/20 hover:border-white/70 transition-all duration-300" 
-                asChild
-              >
-                <Link to="/projects">
-                  <Eye className="mr-2 h-4 w-4" />
-                  Explore
-                </Link>
-              </Button>
-            </motion.div>
-          </div>
-          <motion.div 
-            className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-white/10"
-            animate={{ 
-              scale: [1, 1.1, 1],
-              opacity: [0.1, 0.15, 0.1]
-            }}
-            transition={{ 
-              duration: 4, 
-              repeat: Infinity,
-              ease: "easeInOut"
-            }}
-          />
-          <motion.div 
-            className="absolute -bottom-16 right-32 h-40 w-40 rounded-full bg-white/5"
-            animate={{ 
-              scale: [1, 1.2, 1],
-              opacity: [0.05, 0.1, 0.05]
-            }}
-            transition={{ 
-              duration: 5, 
-              repeat: Infinity,
-              ease: "easeInOut",
-              delay: 0.5
-            }}
-          />
-        </motion.div>
       </motion.div>
     </DashboardLayout>
   );

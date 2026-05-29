@@ -96,6 +96,7 @@ const StartProject = () => {
   const handleContinue = () => {
     if (validateStep()) {
       setCurrentStep((step) => Math.min(steps.length - 1, step + 1));
+      window.scrollTo({ top: 0, behavior: "smooth" });
     }
   };
 
@@ -277,7 +278,10 @@ const StartProject = () => {
         <div className="mt-6 flex justify-between">
           <Button
             variant="outline"
-            onClick={() => setCurrentStep(Math.max(0, currentStep - 1))}
+            onClick={() => {
+              setCurrentStep(Math.max(0, currentStep - 1));
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
             disabled={currentStep === 0 || createMutation.isPending}
           >
             <ArrowLeft className="mr-1 h-4 w-4" /> Back

@@ -160,7 +160,7 @@ const EditProject = () => {
 
         <div className="flex justify-end gap-3">
           <Button variant="outline" asChild>
-            <Link to={`/projects/${id}`}>Cancel</Link>
+            <Link to="/dashboard/entrepreneur">Cancel</Link>
           </Button>
           <Button type="submit" disabled={updateMutation.isPending}>
             {updateMutation.isPending ? "Saving..." : "Save Changes"}

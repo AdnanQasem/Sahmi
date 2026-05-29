@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
 import {
   User,
   Mail,
@@ -24,6 +25,15 @@ import {
   Camera,
   Save,
   Loader2,
+  Languages,
+  Clock,
+  ShieldCheck,
+  ArrowUpRight,
+  ArrowDownRight,
+  Download,
+  Activity,
+  History,
+  Coins,
 } from "lucide-react";
 
 type SettingsSection = "profile" | "account" | "security" | "notifications" | "billing";
@@ -37,12 +47,30 @@ const containerVariants = {
 };
 
 const itemVariants = {
-  hidden: { opacity: 0, y: 20, scale: 0.98 },
+  hidden: { opacity: 0, y: 15, scale: 0.98 },
   visible: { 
     opacity: 1, 
     y: 0, 
     scale: 1,
-    transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] }
+    transition: { duration: 0.35, ease: [0.22, 1, 0.36, 1] }
+  }
+};
+
+const tabVariants = {
+  hidden: { opacity: 0, x: 15 },
+  visible: { 
+    opacity: 1, 
+    x: 0,
+    transition: { 
+      duration: 0.3,
+      when: "beforeChildren",
+      staggerChildren: 0.08
+    }
+  },
+  exit: { 
+    opacity: 0, 
+    x: -15,
+    transition: { duration: 0.2 }
   }
 };
 
@@ -57,10 +85,10 @@ const SettingsPage = () => {
   const [formData, setFormData] = useState({
     fullName: user?.full_name || "",
     email: user?.email || "",
-    phone: "",
-    bio: "",
-    location: "",
-    website: "",
+    phone: "+966 50 123 4567",
+    bio: "Active investor focusing on tech startups, renewable energy, and fintech developments across the MENA region. Passionate about high-growth business models.",
+    location: "Riyadh, Saudi Arabia",
+    website: "https://sahmi.io",
     currentPassword: "",
     newPassword: "",
     confirmPassword: "",
@@ -68,7 +96,17 @@ const SettingsPage = () => {
     pushNotifications: true,
     marketingEmails: false,
     twoFactorEnabled: false,
+    language: "english",
+    timezone: "Asia/Riyadh (UTC+3)",
+    recoveryEmail: "backup.investor@example.com",
+    autoReinvest: false,
+    defaultInvestment: "5000",
   });
+
+  const [walletBalance, setWalletBalance] = useState(25000);
+  const [downloadingInvoice, setDownloadingInvoice] = useState<Record<number, boolean>>({});
+  const [connected, setConnected] = useState<Record<string, boolean>>({});
+  const [revokedSessions, setRevokedSessions] = useState<Record<number, boolean>>({});
 
   const [notifications, setNotifications] = useState({
     emailNotifications: true,
@@ -78,6 +116,20 @@ const SettingsPage = () => {
     investorMessages: true,
     fundingMilestones: true,
   });
+
+  const getPasswordStrength = (password: string) => {
+    if (!password) return { score: 0, label: "Not Entered", color: "bg-muted text-muted-foreground", width: "w-0" };
+    let score = 0;
+    if (password.length >= 8) score += 1;
+    if (/[A-Z]/.test(password)) score += 1;
+    if (/[a-z]/.test(password)) score += 1;
+    if (/[0-9]/.test(password)) score += 1;
+    if (/[^A-Za-z0-9]/.test(password)) score += 1;
+
+    if (score <= 2) return { score, label: "Weak", color: "bg-destructive text-destructive-foreground", width: "w-1/3" };
+    if (score <= 4) return { score, label: "Medium", color: "bg-warning text-warning-foreground", width: "w-2/3" };
+    return { score, label: "Strong", color: "bg-success text-success-foreground", width: "w-full" };
+  };
 
   const sections = [
     { id: "profile" as const, label: "Profile", icon: User, description: "Personal information" },
@@ -91,6 +143,59 @@ const SettingsPage = () => {
     setIsSaving(true);
     await new Promise(resolve => setTimeout(resolve, 1500));
     setIsSaving(false);
+    toast.success("Settings saved successfully!", {
+      description: "Your preferences and profile details have been updated.",
+    });
+  };
+
+  const handleConnect = (provider: string) => {
+    const isCurrentlyConnected = !!connected[provider];
+    if (isCurrentlyConnected) {
+      setConnected(prev => ({ ...prev, [provider]: false }));
+      toast.success(`Disconnected from ${provider}`, {
+        description: `Your Sahmi account is no longer linked to ${provider}.`
+      });
+    } else {
+      const toastId = toast.loading(`Connecting to ${provider}...`, {
+        description: "Please authorize the connection in the pop-up window."
+      });
+      setTimeout(() => {
+        setConnected(prev => ({ ...prev, [provider]: true }));
+        toast.success(`Successfully connected to ${provider}!`, {
+          id: toastId,
+          description: `Your Sahmi account is now linked to ${provider}.`
+        });
+      }, 1200);
+    }
+  };
+
+  const handleDeposit = () => {
+    setWalletBalance(prev => prev + 5000);
+    toast.success("Deposit Successful", {
+      description: "Successfully deposited $5,000.00 into your Sahmi wallet."
+    });
+  };
+
+  const handleWithdraw = () => {
+    if (walletBalance < 5000) {
+      toast.error("Insufficient Funds", {
+        description: "Your wallet balance is too low for this withdrawal (minimum $5,000.00)."
+      });
+      return;
+    }
+    setWalletBalance(prev => prev - 5000);
+    toast.success("Withdrawal Initiated", {
+      description: "Your request to withdraw $5,000.00 has been sent for bank processing."
+    });
+  };
+
+  const handleDownloadInvoice = async (index: number, description: string) => {
+    setDownloadingInvoice(prev => ({ ...prev, [index]: true }));
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    setDownloadingInvoice(prev => ({ ...prev, [index]: false }));
+    toast.success("Invoice Downloaded", {
+      description: `Invoice for "${description}" has been saved as PDF.`
+    });
   };
 
   const renderSectionContent = () => {
@@ -99,10 +204,10 @@ const SettingsPage = () => {
         return (
           <motion.div
             key="profile"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.3 }}
+            variants={tabVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
             className="space-y-6"
           >
             <div className="relative flex flex-col sm:flex-row items-start sm:items-center gap-6 pb-6 border-b border-border">
@@ -220,10 +325,10 @@ const SettingsPage = () => {
         return (
           <motion.div
             key="account"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.3 }}
+            variants={tabVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
             className="space-y-6"
           >
             <div className="p-5 rounded-2xl border border-warning/30 bg-warning/5">
@@ -240,78 +345,199 @@ const SettingsPage = () => {
               </div>
             </div>
 
-            <motion.div variants={itemVariants} className="space-y-2">
-              <label className="text-sm font-medium text-foreground">Primary Email</label>
-              <div className="relative group">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
-                <Input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="pl-10 h-11 bg-background border-border focus:border-primary focus:ring-primary/20 transition-all"
-                />
-                <Badge variant="secondary" className="absolute right-3 top-1/2 -translate-y-1/2 bg-success/10 text-success border-success/20 text-xs">
-                  Verified
-                </Badge>
-              </div>
-            </motion.div>
+            <div className="grid gap-6 sm:grid-cols-2">
+              <motion.div variants={itemVariants} className="space-y-2">
+                <label className="text-sm font-medium text-foreground">Primary Email</label>
+                <div className="relative group">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                  <Input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    className="pl-10 pr-20 h-11 bg-background border-border focus:border-primary focus:ring-primary/20 transition-all"
+                  />
+                  <Badge variant="secondary" className="absolute right-3 top-1/2 -translate-y-1/2 bg-success/10 text-success border-success/20 text-xs">
+                    Verified
+                  </Badge>
+                </div>
+              </motion.div>
 
-            <motion.div variants={itemVariants} className="space-y-2">
-              <label className="text-sm font-medium text-foreground">Phone Number</label>
-              <div className="relative group">
-                <Smartphone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
-                <Input
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  className="pl-10 h-11 bg-background border-border focus:border-primary focus:ring-primary/20 transition-all"
-                  placeholder="+1 (555) 000-0000"
-                />
-              </div>
-            </motion.div>
+              <motion.div variants={itemVariants} className="space-y-2">
+                <label className="text-sm font-medium text-foreground">Phone Number</label>
+                <div className="relative group">
+                  <Smartphone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                  <Input
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    className="pl-10 h-11 bg-background border-border focus:border-primary focus:ring-primary/20 transition-all"
+                    placeholder="+1 (555) 000-0000"
+                  />
+                </div>
+              </motion.div>
 
-            <motion.div variants={itemVariants} className="pt-4">
-              <h4 className="font-medium text-foreground mb-4">Connected Accounts</h4>
-              <div className="space-y-3">
-                {["Google", "LinkedIn", "Twitter"].map((provider, index) => (
-                  <motion.div
-                    key={provider}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.1 }}
-                    className="flex items-center justify-between p-4 rounded-xl border border-border bg-muted/30 hover:bg-muted/50 transition-colors"
+              {/* Language and Region selectors */}
+              <motion.div variants={itemVariants} className="space-y-2">
+                <label className="text-sm font-medium text-foreground">Preferred Language</label>
+                <div className="relative group">
+                  <Languages className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                  <select
+                    value={formData.language}
+                    onChange={(e) => setFormData({ ...formData, language: e.target.value })}
+                    className="w-full pl-10 pr-10 h-11 rounded-lg border border-border bg-background text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all appearance-none cursor-pointer"
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-lg bg-background flex items-center justify-center border border-border">
-                        <KeyRound className="h-5 w-5 text-muted-foreground" />
-                      </div>
-                      <div>
-                        <p className="font-medium text-foreground">{provider}</p>
-                        <p className="text-xs text-muted-foreground">Not connected</p>
-                      </div>
+                    <option value="english">English (US)</option>
+                    <option value="arabic">العربية (Arabic)</option>
+                    <option value="french">Français (French)</option>
+                  </select>
+                  <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground rotate-90 pointer-events-none" />
+                </div>
+              </motion.div>
+
+              <motion.div variants={itemVariants} className="space-y-2">
+                <label className="text-sm font-medium text-foreground">Timezone</label>
+                <div className="relative group">
+                  <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                  <select
+                    value={formData.timezone}
+                    onChange={(e) => setFormData({ ...formData, timezone: e.target.value })}
+                    className="w-full pl-10 pr-10 h-11 rounded-lg border border-border bg-background text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all appearance-none cursor-pointer"
+                  >
+                    <option value="Asia/Riyadh (UTC+3)">Riyadh, Saudi Arabia (UTC+3)</option>
+                    <option value="Asia/Dubai (UTC+4)">Dubai, UAE (UTC+4)</option>
+                    <option value="Europe/London (GMT)">London, UK (GMT)</option>
+                    <option value="America/New_York (EST)">New York, USA (EST)</option>
+                  </select>
+                  <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground rotate-90 pointer-events-none" />
+                </div>
+              </motion.div>
+            </div>
+
+            {/* Verification Tiers Status */}
+            <motion.div variants={itemVariants} className="p-5 rounded-2xl border border-primary/20 bg-primary/5 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center border border-primary/20">
+                    <ShieldCheck className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-foreground flex items-center gap-2">
+                      Verification Level: Tier 2
+                      <Badge className="bg-success/15 text-success border-success/20 text-[10px] font-semibold py-0">Approved</Badge>
+                    </h4>
+                    <p className="text-xs text-muted-foreground">Enables investment limits up to $100,000 per transaction.</p>
+                  </div>
+                </div>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => toast.info("Verification Request Submitted", {
+                    description: "Our compliance team will review your account credentials for Tier 3 upgrade."
+                  })}
+                  className="bg-card hover:bg-primary/5 hover:text-primary hover:border-primary/30"
+                >
+                  Request Tier 3 Upgrade
+                </Button>
+              </div>
+
+              <div className="grid gap-3 grid-cols-1 sm:grid-cols-3 pt-2 border-t border-border/60">
+                {[
+                  { label: "Identity Verified", status: true },
+                  { label: "Accreditation Checked", status: true },
+                  { label: "Proof of Funds Verified", status: true },
+                ].map((tier, idx) => (
+                  <div key={idx} className="flex items-center gap-2 text-xs">
+                    <div className="h-4 w-4 rounded-full bg-success/10 flex items-center justify-center text-success shrink-0">
+                      <Check className="h-3 w-3" />
                     </div>
-                    <Button variant="outline" size="sm" className="hover:bg-primary/5 hover:border-primary/30">
-                      Connect
-                    </Button>
-                  </motion.div>
+                    <span className="font-medium text-foreground/80">{tier.label}</span>
+                  </div>
                 ))}
+              </div>
+            </motion.div>
+
+            {/* Connected Accounts */}
+            <motion.div variants={itemVariants} className="pt-4 space-y-3">
+              <h4 className="font-medium text-foreground">Connected Accounts</h4>
+              <div className="space-y-3">
+                {["Google", "LinkedIn", "Twitter"].map((provider) => {
+                  const isLinked = !!connected[provider];
+                  return (
+                    <motion.div
+                      key={provider}
+                      variants={itemVariants}
+                      className="flex items-center justify-between p-4 rounded-xl border border-border bg-muted/30 hover:bg-muted/50 transition-colors animate-fade-in"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-lg bg-background flex items-center justify-center border border-border">
+                          <KeyRound className="h-5 w-5 text-muted-foreground" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-foreground flex items-center gap-2">
+                            {provider}
+                            {isLinked && (
+                              <Badge className="bg-success/10 text-success border-success/20 text-[10px] py-0">Linked</Badge>
+                            )}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {isLinked ? "Sign in enabled through this provider" : "Not connected"}
+                          </p>
+                        </div>
+                      </div>
+                      <Button 
+                        variant={isLinked ? "ghost" : "outline"} 
+                        size="sm" 
+                        onClick={() => handleConnect(provider)}
+                        className={isLinked ? "text-destructive hover:bg-destructive/10 hover:text-destructive" : "hover:bg-primary/5 hover:border-primary/30"}
+                      >
+                        {isLinked ? "Disconnect" : "Connect"}
+                      </Button>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            </motion.div>
+
+            {/* Deactivation zone */}
+            <motion.div variants={itemVariants} className="pt-4 border-t border-border/80">
+              <div className="p-5 rounded-2xl border border-muted-foreground/20 bg-muted/10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div className="space-y-1">
+                  <h4 className="font-medium text-foreground">Temporary Deactivation</h4>
+                  <p className="text-xs text-muted-foreground">Temporarily freeze your account activities. You can reactivate anytime by logging back in.</p>
+                </div>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => toast.warning("Confirm Deactivation", {
+                    description: "To confirm temporary deactivation, please contact support@sahmi.io.",
+                    action: {
+                      label: "Contact Support",
+                      onClick: () => window.open("mailto:support@sahmi.io")
+                    }
+                  })}
+                  className="text-muted-foreground hover:text-foreground border-muted-foreground/30 hover:bg-muted"
+                >
+                  Deactivate Account
+                </Button>
               </div>
             </motion.div>
           </motion.div>
         );
 
       case "security":
+        const strength = getPasswordStrength(formData.newPassword);
         return (
           <motion.div
             key="security"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.3 }}
+            variants={tabVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
             className="space-y-6"
           >
             <motion.div variants={itemVariants} className="space-y-4">
               <h4 className="font-medium text-foreground flex items-center gap-2">
-                <Lock className="h-4 w-4" />
+                <Lock className="h-4 w-4 text-primary" />
                 Change Password
               </h4>
               <div className="grid gap-4">
@@ -355,6 +581,63 @@ const SettingsPage = () => {
                       {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
                   </div>
+
+                  {/* Password Strength Meter */}
+                  {formData.newPassword && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: -5 }} 
+                      animate={{ opacity: 1, y: 0 }} 
+                      className="space-y-2 mt-2 p-3 rounded-xl border border-border bg-muted/20 animate-fade-in"
+                    >
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-muted-foreground flex items-center gap-1">
+                          <Activity className="h-3.5 w-3.5 text-primary" /> Password Strength:
+                        </span>
+                        <span className={`font-semibold capitalize ${
+                          strength.score <= 2 ? "text-destructive" : strength.score <= 4 ? "text-warning" : "text-success"
+                        }`}>
+                          {strength.label}
+                        </span>
+                      </div>
+                      <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                        <div className={`h-full ${strength.color} ${strength.width} transition-all duration-300`} />
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1.5 text-[11px] text-muted-foreground">
+                        <div className="flex items-center gap-1.5">
+                          <div className={`h-3.5 w-3.5 rounded-full flex items-center justify-center shrink-0 ${
+                            formData.newPassword.length >= 8 ? "bg-success/10 text-success" : "bg-muted text-muted-foreground/60"
+                          }`}>
+                            <Check className="h-2 w-2" />
+                          </div>
+                          <span>At least 8 characters</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <div className={`h-3.5 w-3.5 rounded-full flex items-center justify-center shrink-0 ${
+                            /[A-Z]/.test(formData.newPassword) && /[a-z]/.test(formData.newPassword) ? "bg-success/10 text-success" : "bg-muted text-muted-foreground/60"
+                          }`}>
+                            <Check className="h-2 w-2" />
+                          </div>
+                          <span>Uppercase & lowercase</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <div className={`h-3.5 w-3.5 rounded-full flex items-center justify-center shrink-0 ${
+                            /[0-9]/.test(formData.newPassword) ? "bg-success/10 text-success" : "bg-muted text-muted-foreground/60"
+                          }`}>
+                            <Check className="h-2 w-2" />
+                          </div>
+                          <span>Contains a number</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <div className={`h-3.5 w-3.5 rounded-full flex items-center justify-center shrink-0 ${
+                            /[^A-Za-z0-9]/.test(formData.newPassword) ? "bg-success/10 text-success" : "bg-muted text-muted-foreground/60"
+                          }`}>
+                            <Check className="h-2 w-2" />
+                          </div>
+                          <span>Contains a special character</span>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -370,12 +653,30 @@ const SettingsPage = () => {
                     />
                   </div>
                 </div>
+
+                {/* Backup Recovery Email Address */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-foreground">Backup Recovery Email</label>
+                  <div className="relative group">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                    <Input
+                      type="email"
+                      value={formData.recoveryEmail}
+                      onChange={(e) => setFormData({ ...formData, recoveryEmail: e.target.value })}
+                      className="pl-10 h-11 bg-background border-border focus:border-primary focus:ring-primary/20 transition-all"
+                      placeholder="recovery@email.com"
+                    />
+                  </div>
+                  <p className="text-[11px] text-muted-foreground pl-1">
+                    Used to securely reset your credentials if you lose access to your primary email.
+                  </p>
+                </div>
               </div>
             </motion.div>
 
             <motion.div variants={itemVariants} className="pt-4 border-t border-border space-y-4">
               <h4 className="font-medium text-foreground flex items-center gap-2">
-                <Shield className="h-4 w-4" />
+                <Shield className="h-4 w-4 text-primary" />
                 Two-Factor Authentication
               </h4>
               <div className="flex items-center justify-between p-4 rounded-xl border border-border bg-muted/30">
@@ -391,7 +692,19 @@ const SettingsPage = () => {
                 <motion.button
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
-                  onClick={() => setFormData({ ...formData, twoFactorEnabled: !formData.twoFactorEnabled })}
+                  onClick={() => {
+                    const nextVal = !formData.twoFactorEnabled;
+                    setFormData({ ...formData, twoFactorEnabled: nextVal });
+                    if (nextVal) {
+                      toast.success("Two-Factor Authentication enabled!", {
+                        description: "Your account is now protected with a secondary authenticator app."
+                      });
+                    } else {
+                      toast.warning("Two-Factor Authentication disabled", {
+                        description: "Your account security has been downgraded."
+                      });
+                    }
+                  }}
                   className={`relative h-7 w-14 rounded-full transition-colors duration-300 ${
                     formData.twoFactorEnabled ? "bg-success" : "bg-muted"
                   }`}
@@ -419,44 +732,86 @@ const SettingsPage = () => {
               )}
             </motion.div>
 
+            {/* Active Sessions */}
             <motion.div variants={itemVariants} className="pt-4 border-t border-border space-y-4">
-              <h4 className="font-medium text-foreground">Active Sessions</h4>
+              <h4 className="font-medium text-foreground flex items-center gap-2">
+                <Smartphone className="h-4 w-4 text-primary" />
+                Active Sessions
+              </h4>
               <div className="space-y-3">
                 {[
-                  { device: "MacBook Pro", location: "San Francisco, CA", current: true },
-                  { device: "iPhone 15 Pro", location: "San Francisco, CA", current: false },
-                  { device: "Windows Desktop", location: "New York, NY", current: false },
-                ].map((session, index) => (
-                  <motion.div
-                    key={index}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.1 }}
-                    className="flex items-center justify-between p-4 rounded-xl border border-border bg-muted/30"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-lg bg-background flex items-center justify-center border border-border">
-                        <Smartphone className="h-5 w-5 text-muted-foreground" />
+                  { device: "MacBook Pro", location: "Riyadh, SA", current: true },
+                  { device: "iPhone 15 Pro", location: "Riyadh, SA", current: false },
+                  { device: "Windows Desktop", location: "Dubai, UAE", current: false },
+                ].map((session, index) => {
+                  const isRevoked = !!revokedSessions[index];
+                  if (isRevoked) return null;
+                  
+                  return (
+                    <motion.div
+                      key={index}
+                      variants={itemVariants}
+                      className="flex items-center justify-between p-4 rounded-xl border border-border bg-muted/30 hover:bg-muted/50 transition-colors animate-fade-in"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-lg bg-background flex items-center justify-center border border-border">
+                          <Smartphone className="h-5 w-5 text-muted-foreground" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-foreground flex items-center gap-2">
+                            {session.device}
+                            {session.current && (
+                              <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20 text-xs">
+                                Current
+                              </Badge>
+                            )}
+                          </p>
+                          <p className="text-xs text-muted-foreground">{session.location}</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-medium text-foreground flex items-center gap-2">
-                          {session.device}
-                          {session.current && (
-                            <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20 text-xs">
-                              Current
-                            </Badge>
-                          )}
-                        </p>
-                        <p className="text-xs text-muted-foreground">{session.location}</p>
+                      {!session.current && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => {
+                            setRevokedSessions(prev => ({ ...prev, [index]: true }));
+                            toast.success(`Session on ${session.device} revoked successfully!`);
+                          }}
+                          className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                        >
+                          Revoke
+                        </Button>
+                      )}
+                    </motion.div>
+                  );
+                })}
+              </div>
+            </motion.div>
+
+            {/* Recent Login History Log */}
+            <motion.div variants={itemVariants} className="pt-4 border-t border-border space-y-4">
+              <h4 className="font-medium text-foreground flex items-center gap-2">
+                <History className="h-4 w-4 text-primary" />
+                Security Login History
+              </h4>
+              <div className="overflow-hidden rounded-xl border border-border/80">
+                <div className="bg-muted/30 divide-y divide-border/60">
+                  {[
+                    { timestamp: "Today, 19:42", ip: "197.34.120.8", method: "Password + 2FA", status: "Success" },
+                    { timestamp: "May 25, 14:10", ip: "94.23.45.109", method: "Password Connection", status: "Success" },
+                    { timestamp: "May 12, 09:15", ip: "197.34.120.8", method: "Google Linked Login", status: "Success" },
+                  ].map((log, idx) => (
+                    <div key={idx} className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-3 text-xs gap-2">
+                      <div className="space-y-0.5">
+                        <p className="font-semibold text-foreground">{log.timestamp}</p>
+                        <p className="text-muted-foreground">IP: {log.ip} • Method: {log.method}</p>
                       </div>
+                      <Badge className="bg-success/10 text-success border-success/20 text-[10px] py-0 px-2">
+                        {log.status}
+                      </Badge>
                     </div>
-                    {!session.current && (
-                      <Button variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10 hover:text-destructive">
-                        Revoke
-                      </Button>
-                    )}
-                  </motion.div>
-                ))}
+                  ))}
+                </div>
               </div>
             </motion.div>
           </motion.div>
@@ -466,10 +821,10 @@ const SettingsPage = () => {
         return (
           <motion.div
             key="notifications"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.3 }}
+            variants={tabVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
             className="space-y-6"
           >
             {[
@@ -512,9 +867,7 @@ const SettingsPage = () => {
             ].map((item, index) => (
               <motion.div
                 key={item.key}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.05 }}
+                variants={itemVariants}
                 className="flex items-center justify-between p-4 rounded-xl border border-border bg-muted/30 hover:bg-muted/50 transition-colors"
               >
                 <div className="flex items-center gap-4">
@@ -549,15 +902,126 @@ const SettingsPage = () => {
         return (
           <motion.div
             key="billing"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.3 }}
+            variants={tabVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
             className="space-y-6"
           >
+            {/* Interactive wallet balance card */}
+            <motion.div variants={itemVariants} className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary via-primary/80 to-secondary text-primary-foreground p-6 shadow-lg shadow-primary/20">
+              <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-white/20 via-transparent to-transparent pointer-events-none" />
+              <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div className="space-y-1">
+                  <span className="text-xs text-primary-foreground/75 uppercase tracking-wider font-semibold flex items-center gap-1.5">
+                    <Coins className="h-4 w-4" /> Sahmi Investment Wallet
+                  </span>
+                  <div className="flex items-baseline gap-2 mt-1">
+                    <h3 className="text-3xl font-extrabold tracking-tight">
+                      ${walletBalance.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                    </h3>
+                    <span className="text-xs text-primary-foreground/80 font-medium">USD</span>
+                  </div>
+                  <p className="text-xs text-primary-foreground/70">
+                    Use these funds to instantly commit to raising projects.
+                  </p>
+                </div>
+                <div className="flex gap-2 shrink-0">
+                  <Button 
+                    type="button" 
+                    onClick={handleDeposit}
+                    className="bg-white text-primary hover:bg-white/95 font-semibold shadow-md flex items-center gap-1.5 h-10 px-4 rounded-xl transition-all"
+                  >
+                    <ArrowDownRight className="h-4 w-4" /> Deposit Funds
+                  </Button>
+                  <Button 
+                    type="button" 
+                    onClick={handleWithdraw}
+                    variant="outline"
+                    className="bg-transparent border-white/30 text-white hover:bg-white/10 hover:text-white font-semibold flex items-center gap-1.5 h-10 px-4 rounded-xl transition-all"
+                  >
+                    <ArrowUpRight className="h-4 w-4" /> Withdraw
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+
+            {/* Auto-invest controls */}
+            <motion.div variants={itemVariants} className="p-5 rounded-2xl border border-border bg-card space-y-4 animate-fade-in">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="font-semibold text-foreground flex items-center gap-2">
+                    <Activity className="h-4 w-4 text-primary" /> Auto-Invest Configuration
+                  </h4>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Automatically invest available wallet funds into newly launched green initiatives.
+                  </p>
+                </div>
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => {
+                    const nextVal = !formData.autoReinvest;
+                    setFormData(prev => ({ ...prev, autoReinvest: nextVal }));
+                    if (nextVal) {
+                      toast.success("Auto-Invest Enabled!", {
+                        description: `Automatically allocating $${Number(formData.defaultInvestment).toLocaleString()} per project.`
+                      });
+                    } else {
+                      toast.info("Auto-Invest Disabled");
+                    }
+                  }}
+                  className={`relative h-7 w-14 rounded-full transition-colors duration-300 shrink-0 ${
+                    formData.autoReinvest ? "bg-primary" : "bg-muted"
+                  }`}
+                >
+                  <motion.div
+                    animate={{ x: formData.autoReinvest ? 28 : 2 }}
+                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                    className="absolute top-1 h-5 w-5 rounded-full bg-white shadow-md"
+                  />
+                </motion.button>
+              </div>
+
+              {formData.autoReinvest && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="pt-3 border-t border-border/60 space-y-3"
+                >
+                  <label className="text-xs font-semibold text-foreground uppercase tracking-wider block">
+                    Default Ticket Size per Project
+                  </label>
+                  <div className="flex gap-2">
+                    {["1000", "5000", "10000"].map((size) => {
+                      const isActive = formData.defaultInvestment === size;
+                      return (
+                        <button
+                          key={size}
+                          type="button"
+                          onClick={() => {
+                            setFormData(prev => ({ ...prev, defaultInvestment: size }));
+                            toast.success(`Investment size updated to $${Number(size).toLocaleString()}`);
+                          }}
+                          className={`flex-1 py-2 px-3 text-xs font-semibold rounded-xl border transition-all ${
+                            isActive
+                              ? "bg-primary/10 text-primary border-primary"
+                              : "bg-background hover:bg-muted border-border text-muted-foreground"
+                          }`}
+                        >
+                          ${Number(size).toLocaleString()}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </motion.div>
+              )}
+            </motion.div>
+
             <motion.div variants={itemVariants} className="space-y-4">
               <h4 className="font-medium text-foreground flex items-center gap-2">
-                <CreditCard className="h-4 w-4" />
+                <CreditCard className="h-4 w-4 text-primary" />
                 Payment Methods
               </h4>
               <div className="space-y-3">
@@ -567,9 +1031,7 @@ const SettingsPage = () => {
                 ].map((card, index) => (
                   <motion.div
                     key={index}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.1 }}
+                    variants={itemVariants}
                     className="flex items-center justify-between p-4 rounded-xl border border-border bg-muted/30 hover:bg-muted/50 transition-colors"
                   >
                     <div className="flex items-center gap-4">
@@ -616,7 +1078,8 @@ const SettingsPage = () => {
                       <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wide">Date</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wide">Description</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wide">Amount</th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wide">Status</th>
+                      <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wide">Status</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wide">Invoice</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
@@ -635,10 +1098,25 @@ const SettingsPage = () => {
                         <td className="px-4 py-3 text-sm text-muted-foreground">{item.date}</td>
                         <td className="px-4 py-3 text-sm text-foreground">{item.desc}</td>
                         <td className="px-4 py-3 text-sm font-medium text-foreground">{item.amount}</td>
-                        <td className="px-4 py-3 text-right">
+                        <td className="px-4 py-3 text-center">
                           <Badge variant="secondary" className="bg-success/10 text-success border-success/20">
                             {item.status}
                           </Badge>
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            disabled={!!downloadingInvoice[index]}
+                            onClick={() => handleDownloadInvoice(index, item.desc)}
+                            className="h-8 w-8 p-0 text-muted-foreground hover:text-primary rounded-lg transition-colors"
+                          >
+                            {downloadingInvoice[index] ? (
+                              <Loader2 className="h-4.5 w-4.5 animate-spin text-primary" />
+                            ) : (
+                              <Download className="h-4.5 w-4.5" />
+                            )}
+                          </Button>
                         </td>
                       </motion.tr>
                     ))}

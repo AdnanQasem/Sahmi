@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { motion, type Variants } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
@@ -55,23 +56,44 @@ const projectFundingPercent = (project: Project) => {
   return goal > 0 ? Math.min(Math.round((projectRaised(project) / goal) * 100), 100) : 0;
 };
 
-const monthKey = (value: string) => {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "unknown";
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-};
+export type Timeframe = "1M" | "3M" | "6M" | "1Y" | "ALL";
 
-const monthLabel = (key: string) => {
-  if (key === "unknown") return "Unknown";
-  const [year, month] = key.split("-").map(Number);
-  return new Intl.DateTimeFormat("en", { month: "short" }).format(new Date(year, month - 1, 1));
-};
+const buildPerformanceData = (investments: Investment[], timeframe: Timeframe) => {
+  const now = new Date();
+  let startDate = new Date(0);
 
-const buildMonthlyPerformance = (investments: Investment[]) => {
-  const grouped = investments.reduce<Record<string, { raised: number; transactions: number; investors: Set<string> }>>(
+  if (timeframe === "1M") startDate = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
+  if (timeframe === "3M") startDate = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate());
+  if (timeframe === "6M") startDate = new Date(now.getFullYear(), now.getMonth() - 6, now.getDate());
+  if (timeframe === "1Y") startDate = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
+
+  const filtered = investments.filter((inv) => {
+    const d = new Date(inv.investment_date);
+    return !Number.isNaN(d.getTime()) && d >= startDate;
+  });
+
+  const grouped = filtered.reduce<Record<string, { raised: number; transactions: number; investors: Set<string>; sortKey: string }>>(
     (acc, investment) => {
-      const key = monthKey(investment.investment_date);
-      if (!acc[key]) acc[key] = { raised: 0, transactions: 0, investors: new Set() };
+      const date = new Date(investment.investment_date);
+      let key = "";
+      let sortKey = "";
+      
+      if (timeframe === "1M") {
+        key = new Intl.DateTimeFormat("en", { month: "short", day: "numeric" }).format(date);
+        sortKey = date.toISOString().split("T")[0];
+      } else if (timeframe === "3M") {
+        const d = new Date(date);
+        const day = d.getDay();
+        const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+        const startOfWeek = new Date(d.setDate(diff));
+        key = `Week of ${new Intl.DateTimeFormat("en", { month: "short", day: "numeric" }).format(startOfWeek)}`;
+        sortKey = startOfWeek.toISOString().split("T")[0];
+      } else {
+        key = new Intl.DateTimeFormat("en", { month: "short", year: timeframe === "ALL" ? "numeric" : undefined }).format(date);
+        sortKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+      }
+
+      if (!acc[key]) acc[key] = { raised: 0, transactions: 0, investors: new Set(), sortKey };
       acc[key].raised += amountOf(investment);
       acc[key].transactions += 1;
       acc[key].investors.add(investment.investor);
@@ -81,16 +103,15 @@ const buildMonthlyPerformance = (investments: Investment[]) => {
   );
 
   const rows = Object.entries(grouped)
-    .sort(([a], [b]) => a.localeCompare(b))
-    .slice(-6)
-    .map(([key, data]) => ({
-      month: monthLabel(key),
+    .sort(([, a], [, b]) => a.sortKey.localeCompare(b.sortKey))
+    .map(([label, data]) => ({
+      label,
       raised: data.raised,
       transactions: data.transactions,
       investors: data.investors.size,
     }));
 
-  return rows.length ? rows : [{ month: "Now", raised: 0, transactions: 0, investors: 0 }];
+  return rows.length ? rows : [{ label: "No data", raised: 0, transactions: 0, investors: 0 }];
 };
 
 const buildStatusMix = (projects: Project[]) => {
@@ -204,7 +225,8 @@ const EntrepreneurAnalyticsPage = () => {
   const expectedReturn = confirmedInvestments.reduce((sum, investment) => sum + expectedOf(investment), 0);
   const conversionRate = totalViews > 0 ? (totalInvestors / totalViews) * 100 : 0;
 
-  const monthlyPerformance = buildMonthlyPerformance(investments);
+  const [timeframe, setTimeframe] = useState<Timeframe>("6M");
+  const performanceData = buildPerformanceData(investments, timeframe);
   const statusMix = buildStatusMix(projects);
   const topProjects = [...projects]
     .sort((a, b) => projectFundingPercent(b) - projectFundingPercent(a))
@@ -232,28 +254,36 @@ const EntrepreneurAnalyticsPage = () => {
       value: currency(totalRaised),
       subtext: `${percent(totalGoal > 0 ? (totalRaised / totalGoal) * 100 : 0)} of funding goal`,
       icon: CircleDollarSign,
-      className: "from-primary/15 to-primary/5 text-primary",
+      iconClass: "from-primary/20 to-primary/5 text-primary",
+      glowClass: "from-primary/40 to-primary/5",
+      borderClass: "hover:border-primary/50",
     },
     {
       label: "Average progress",
       value: percent(avgFunding),
       subtext: `${activeProjects} active, ${fundedProjects} funded`,
       icon: Target,
-      className: "from-secondary/15 to-secondary/5 text-secondary",
+      iconClass: "from-secondary/20 to-secondary/5 text-secondary",
+      glowClass: "from-secondary/40 to-secondary/5",
+      borderClass: "hover:border-secondary/50",
     },
     {
       label: "Investor reach",
       value: totalInvestors.toString(),
       subtext: `${compactNumber(totalViews)} total project views`,
       icon: Users,
-      className: "from-success/15 to-success/5 text-success",
+      iconClass: "from-success/20 to-success/5 text-success",
+      glowClass: "from-success/40 to-success/5",
+      borderClass: "hover:border-success/50",
     },
     {
       label: "Avg. transaction",
       value: currency(averageTicket),
       subtext: `${confirmedInvestments.length} confirmed payments`,
       icon: Activity,
-      className: "from-warning/15 to-warning/5 text-warning",
+      iconClass: "from-warning/20 to-warning/5 text-warning",
+      glowClass: "from-warning/40 to-warning/5",
+      borderClass: "hover:border-warning/50",
     },
   ];
 
@@ -277,18 +307,19 @@ const EntrepreneurAnalyticsPage = () => {
 
         <motion.section variants={itemVariants} className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {metricCards.map((metric) => (
-            <div key={metric.label} className="group relative overflow-hidden rounded-3xl border border-border/50 bg-card/40 backdrop-blur-sm p-6 shadow-sm transition-all hover:shadow-xl hover:border-primary/20">
-              <div className="absolute -right-4 -top-4 h-24 w-24 rounded-full bg-gradient-to-br opacity-20 blur-2xl transition-opacity group-hover:opacity-40" />
+            <div key={metric.label} className={`group relative overflow-hidden rounded-3xl border border-border/50 bg-gradient-to-b from-card/80 to-card/20 backdrop-blur-md p-6 shadow-sm transition-all duration-300 hover:shadow-xl ${metric.borderClass} hover:-translate-y-1`}>
+              <div className={`absolute -right-10 -top-10 h-40 w-40 rounded-full bg-gradient-to-br opacity-30 blur-3xl transition-opacity duration-500 group-hover:opacity-60 ${metric.glowClass}`} />
+              <div className={`absolute -left-10 -bottom-10 h-32 w-32 rounded-full bg-gradient-to-tr opacity-20 blur-2xl transition-opacity duration-500 group-hover:opacity-40 ${metric.glowClass}`} />
               <div className="relative flex flex-col justify-between h-full gap-4">
                 <div className="flex items-start justify-between gap-4">
-                  <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br ${metric.className} shadow-sm transition-transform group-hover:scale-110`}>
+                  <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br ${metric.iconClass} shadow-sm transition-transform duration-300 group-hover:scale-110`}>
                     <metric.icon className="h-6 w-6" />
                   </div>
                 </div>
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">{metric.label}</p>
                   <p className="text-3xl font-black text-foreground tracking-tight">{metric.value}</p>
-                  <p className="mt-1.5 text-[11px] font-medium text-muted-foreground bg-muted/50 w-fit px-2 py-0.5 rounded-md">{metric.subtext}</p>
+                  <p className="mt-1.5 text-[11px] font-medium text-muted-foreground bg-foreground/5 w-fit px-2 py-0.5 rounded-md transition-colors group-hover:bg-foreground/10">{metric.subtext}</p>
                 </div>
               </div>
             </div>
@@ -316,16 +347,26 @@ const EntrepreneurAnalyticsPage = () => {
                     </div>
                     <div>
                       <h2 className="text-lg font-black tracking-tight text-foreground">Funding Momentum</h2>
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Monthly raised amount</p>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                        {timeframe === "1M" ? "Daily" : timeframe === "3M" ? "Weekly" : "Monthly"} raised amount
+                      </p>
                     </div>
                   </div>
-                  <Badge variant="outline" className="w-fit border-primary/20 text-primary bg-primary/5 rounded-full px-3">
-                    Last 6 months
-                  </Badge>
+                  <div className="flex bg-muted/30 p-1 rounded-lg">
+                    {(["1M", "3M", "6M", "1Y", "ALL"] as Timeframe[]).map((tf) => (
+                      <button
+                        key={tf}
+                        onClick={() => setTimeframe(tf)}
+                        className={`px-3 py-1 text-xs font-bold rounded-md transition-colors ${timeframe === tf ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground hover:bg-muted/50"}`}
+                      >
+                        {tf}
+                      </button>
+                    ))}
+                  </div>
                 </div>
                 <div className="h-72 mt-6">
                   <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={monthlyPerformance} margin={{ left: 0, right: 12, top: 8, bottom: 0 }}>
+                    <AreaChart data={performanceData} margin={{ left: 0, right: 12, top: 8, bottom: 0 }}>
                       <defs>
                         <linearGradient id="raisedGradient" x1="0" x2="0" y1="0" y2="1">
                           <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.32} />
@@ -333,7 +374,7 @@ const EntrepreneurAnalyticsPage = () => {
                         </linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} opacity={0.5} />
-                      <XAxis dataKey="month" tickLine={false} axisLine={false} fontSize={11} tickMargin={10} fontWeight="600" />
+                      <XAxis dataKey="label" tickLine={false} axisLine={false} fontSize={11} tickMargin={10} fontWeight="600" />
                       <YAxis tickLine={false} axisLine={false} fontSize={11} tickMargin={10} fontWeight="600" tickFormatter={(value) => compactNumber(Number(value))} />
                       <Tooltip content={<MoneyTooltip />} cursor={{ stroke: 'hsl(var(--primary))', strokeWidth: 1, strokeDasharray: '4 4' }} />
                       <Area

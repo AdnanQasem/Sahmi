@@ -1,10 +1,17 @@
+from django.contrib.auth import update_session_auth_hash
 from rest_framework import generics, permissions, status
 from rest_framework.renderers import JSONRenderer
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
-from .serializers import EmailTokenObtainPairSerializer, RegisterSerializer, UserSerializer, build_auth_payload
+from .serializers import (
+    EmailTokenObtainPairSerializer,
+    PasswordChangeSerializer,
+    RegisterSerializer,
+    UserSerializer,
+    build_auth_payload,
+)
 
 
 class RegisterView(generics.CreateAPIView):
@@ -42,3 +49,15 @@ class MeView(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data)
+
+
+class ChangePasswordView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    renderer_classes = [JSONRenderer]
+
+    def post(self, request):
+        serializer = PasswordChangeSerializer(data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        update_session_auth_hash(request, request.user)
+        return Response({"message": "Password updated successfully."})

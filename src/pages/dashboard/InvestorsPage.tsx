@@ -594,46 +594,6 @@ const InvestorsPage = () => {
           </motion.div>
         </motion.div>
 
-        {/* CTA Banner */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-          className="relative overflow-hidden rounded-2xl"
-          whileHover={{ scale: 1.005 }}
-        >
-          <div className="absolute inset-0 bg-gradient-to-r from-primary via-primary/90 to-secondary animate-pulse opacity-90" style={{ animationDuration: "3s" }} />
-          <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PGNpcmNsZSBjeD0iMzAiIGN5PSIzMCIgcj0iMiIvPjwvZz48L2c+PC9zdmc+')] opacity-30" />
-          <div className="relative z-10 flex flex-col gap-6 p-8 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h3 className="text-2xl font-bold text-primary-foreground mb-2">
-                Build Stronger Connections
-              </h3>
-              <p className="text-primary-foreground/80">
-                Keep your investors engaged with regular updates and milestone announcements.
-              </p>
-            </div>
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <Button size="lg" className="bg-white text-primary hover:bg-white/90 font-semibold shadow-lg" asChild>
-                <Link to="/projects">
-                  <Eye className="mr-2 h-4 w-4" />
-                  View Projects
-                </Link>
-              </Button>
-              <Button size="lg" variant="outline" className="border-white/30 text-white hover:bg-white/10 hover:border-white/50" asChild>
-                <Link to="/dashboard/entrepreneur/messages">
-                  <Send className="mr-2 h-4 w-4" />
-                  Send Updates
-                </Link>
-              </Button>
-            </div>
-          </div>
-          <motion.div
-            className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-white/10"
-            animate={{ scale: [1, 1.1, 1], opacity: [0.1, 0.15, 0.1] }}
-            transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-          />
-        </motion.div>
       </motion.div>
     </DashboardLayout>
   );

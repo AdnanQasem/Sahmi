@@ -9,10 +9,13 @@ export interface User {
   phone_number?: string;
   country?: string;
   city?: string;
+  bio?: string;
   business_name?: string;
   profile_picture?: string;
   is_verified?: boolean;
   is_kyc_verified?: boolean;
+  date_joined?: string;
+  last_login?: string | null;
 }
 
 export interface AuthResponse {
@@ -21,10 +24,29 @@ export interface AuthResponse {
   user: User;
 }
 
+export interface RegisterPayload {
+  username?: string;
+  email: string;
+  name?: string;
+  full_name?: string;
+  password: string;
+  user_type?: User["user_type"];
+  phone_number?: string;
+  country?: string;
+  city?: string;
+  business_name?: string;
+}
+
+export interface ChangePasswordPayload {
+  current_password: string;
+  new_password: string;
+  confirm_password: string;
+}
+
 const authService = {
   login: async (email: string, password: string): Promise<User> => {
-    const res = await api.post("auth/login/", { email, password });
-    const { access, refresh, user } = res as any;
+    const res: AuthResponse = await api.post("auth/login/", { email, password });
+    const { access, refresh, user } = res;
     
     localStorage.setItem("accessToken", access);
     localStorage.setItem("refreshToken", refresh);
@@ -33,7 +55,7 @@ const authService = {
     return user;
   },
 
-  register: async (userData: any): Promise<User> => {
+  register: async (userData: RegisterPayload): Promise<AuthResponse> => {
     return await api.post("auth/register/", userData);
   },
 
@@ -45,6 +67,10 @@ const authService = {
 
   getCurrentUser: async (): Promise<User> => {
     return await api.get("auth/me/");
+  },
+
+  changePassword: async (payload: ChangePasswordPayload): Promise<{ message?: string }> => {
+    return await api.post("auth/change-password/", payload);
   },
 };
 

@@ -133,11 +133,7 @@ const InvestorTransactionsPage = () => {
                         <p className="text-xl font-bold text-secondary-foreground">{currency(expectedReturns)}</p>
                       </div>
                     </div>
-                    <Button asChild size="icon" className="h-[52px] w-[52px] rounded-xl bg-white text-primary shadow-xl hover:bg-white/90 shrink-0">
-                      <Link to="/projects">
-                        <ArrowRight className="h-5 w-5" />
-                      </Link>
-                    </Button>
+
                   </div>
                 </div>
               </div>
