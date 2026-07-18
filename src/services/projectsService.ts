@@ -23,6 +23,14 @@ export interface UserSummary {
   business_name?: string;
 }
 
+export interface ConfirmedPayment {
+  id: string;
+  investor_name: string;
+  amount: number;
+  date: string;
+  payment_method: string;
+}
+
 export interface Project {
   id: string;
   entrepreneur?: UserSummary;
@@ -121,6 +129,10 @@ const projectsService = {
 
   deleteProject: async (slug: string): Promise<void> => {
     await api.delete(`projects/${slug}/`);
+  },
+
+  getProjectPayments: async (slug: string): Promise<ConfirmedPayment[]> => {
+    return await api.get(`projects/${slug}/payments/`);
   },
 };
 

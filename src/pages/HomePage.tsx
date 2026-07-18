@@ -2,7 +2,6 @@ import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import ProjectCard from "@/components/ProjectCard";
 import projectsService, { Project } from "@/services/projectsService";
 import { useAuth } from "@/hooks/useAuth";
@@ -164,12 +163,7 @@ const HomePage = () => {
             initial="initial"
             animate="animate"
           >
-            <motion.div variants={fadeInUp}>
-              <Badge variant="outline" className="mb-6 border-primary/30 text-foreground bg-background/50 backdrop-blur-sm">
-                🇵🇸 Empowering Palestinian Innovation
-              </Badge>
-            </motion.div>
-            
+
             <motion.h1 
               variants={fadeInUp}
               className="mb-8 text-4xl font-extrabold leading-tight tracking-tight text-foreground md:text-5xl lg:text-7xl"

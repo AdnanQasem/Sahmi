@@ -80,3 +80,62 @@ class ProjectViewSet(viewsets.ModelViewSet):
             return self.get_paginated_response(serializer.data)
         serializer = ProjectListSerializer(queryset, many=True, context={"request": request})
         return Response(serializer.data)
+
+    @action(detail=True, methods=["get"], permission_classes=[permissions.AllowAny])
+    def payments(self, request, slug=None):
+        project = self.get_object()
+        confirmed = project.investments.filter(status="confirmed").select_related("investor").order_by("-investment_date")
+        data = []
+        for inv in confirmed:
+            data.append({
+                "id": str(inv.id),
+                "investor_name": inv.investor.full_name or inv.investor.username,
+                "amount": float(inv.amount),
+                "date": inv.investment_date.isoformat(),
+                "payment_method": inv.payment_method,
+            })
+        return Response(data)
+
+    @action(detail=True, methods=["get"], permission_classes=[permissions.AllowAny])
+    def events(self, request, slug=None):
+        project = self.get_object()
+
+        def event_stream():
+            import redis
+            import json
+            from django.conf import settings
+
+            # Send connection established event
+            yield "data: {\"type\": \"connected\"}\n\n"
+
+            try:
+                r = redis.Redis.from_url(
+                    settings.CELERY_BROKER_URL,
+                    socket_connect_timeout=1,
+                    socket_timeout=1,
+                )
+                # Test the connection to catch connection errors early
+                r.ping()
+
+                pubsub = r.pubsub()
+                pubsub.subscribe(f"project_{project.id}")
+
+                try:
+                    for message in pubsub.listen():
+                        if message['type'] == 'message':
+                            data_str = message['data'].decode('utf-8')
+                            yield f"data: {data_str}\n\n"
+                except GeneratorExit:
+                    pubsub.unsubscribe(f"project_{project.id}")
+                    pubsub.close()
+            except Exception as e:
+                print(f"Redis connection failed for SSE: {e}")
+                yield "data: {\"type\": \"error\", \"message\": \"SSE connection failed\"}\n\n"
+
+        from django.http import StreamingHttpResponse
+        response = StreamingHttpResponse(event_stream(), content_type="text/event-stream")
+        response['Cache-Control'] = 'no-cache'
+        response['X-Accel-Buffering'] = 'no'  # Disable buffering in Nginx
+        return response
+
+

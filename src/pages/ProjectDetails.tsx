@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams, Link, Navigate, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -7,10 +7,11 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import ProjectCard from "@/components/ProjectCard";
-import projectsService, { Project } from "@/services/projectsService";
+import projectsService, { Project, ConfirmedPayment } from "@/services/projectsService";
 import investmentsService from "@/services/investmentsService";
-import { getFieldErrors, getErrorMessage } from "@/services/api";
+import { API_BASE_URL, getFieldErrors, getErrorMessage } from "@/services/api";
 import { useAuth } from "@/hooks/useAuth";
 import {
   CheckCircle, Users, Clock, Heart, Share2, ArrowLeft,
@@ -41,6 +42,7 @@ const ProjectDetails = () => {
   const queryClient = useQueryClient();
   const [amount, setAmount] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
 
   const projectQuery = useQuery({
     queryKey: ["project", id],
@@ -56,6 +58,129 @@ const ProjectDetails = () => {
     }),
     enabled: !!projectQuery.data?.category_detail?.slug,
   });
+
+  const paymentsQuery = useQuery({
+    queryKey: ["project-payments", id],
+    queryFn: () => projectsService.getProjectPayments(id as string),
+    enabled: !!id,
+  });
+
+  const [newPaymentIds, setNewPaymentIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!id || !projectQuery.data?.id) return;
+
+    let eventSource: EventSource | null = null;
+    let pollInterval: ReturnType<typeof window.setInterval> | null = null;
+    const projectId = projectQuery.data.id;
+
+    const refreshProjectData = async () => {
+      try {
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["project", id] }),
+          queryClient.invalidateQueries({ queryKey: ["project-payments", id] }),
+          queryClient.invalidateQueries({ queryKey: ["projects"] }),
+        ]);
+      } catch (err) {
+        console.error("Error refreshing project data", err);
+      }
+    };
+
+    const startPolling = () => {
+      if (pollInterval) return;
+      void refreshProjectData();
+      pollInterval = window.setInterval(() => {
+        void refreshProjectData();
+      }, 8000);
+    };
+
+    const connectSSE = () => {
+      const baseUrl = API_BASE_URL.replace(/\/?$/, "/");
+      const url = `${baseUrl}projects/${id}/events/`;
+      
+      eventSource = new EventSource(url);
+
+      eventSource.onmessage = (event) => {
+        try {
+          const payload = JSON.parse(event.data);
+          if (payload.type === "error") {
+            startPolling();
+            return;
+          }
+
+          if (payload.type === "investment_confirmed" && payload.project_id === projectId) {
+            const payment = payload.payment as ConfirmedPayment | undefined;
+            if (!payment) return;
+
+            // Update project totals in React Query cache
+            queryClient.setQueryData(["project", id], (oldProject: any) => {
+              if (!oldProject) return oldProject;
+              return {
+                ...oldProject,
+                funded_amount: String(payload.funded_amount),
+                investor_count: payload.investor_count,
+                funding_percent: payload.funding_percent,
+              };
+            });
+
+            // Append new payment to the payments list in cache
+            queryClient.setQueryData<ConfirmedPayment[]>(["project-payments", id], (oldPayments) => {
+              const list = oldPayments || [];
+              if (list.some((p) => p.id === payment.id)) {
+                return list;
+              }
+              return [payment, ...list];
+            });
+
+            // Highlight the new payment card
+            setNewPaymentIds((prev) => {
+              const next = new Set(prev);
+              next.add(payment.id);
+              return next;
+            });
+            setTimeout(() => {
+              setNewPaymentIds((prev) => {
+                const next = new Set(prev);
+                next.delete(payment.id);
+                return next;
+              });
+            }, 5000);
+
+            void refreshProjectData();
+            toast.success(`Investment of $${Number(payment.amount).toLocaleString()} by ${payment.investor_name} has been confirmed.`);
+          }
+        } catch (err) {
+          console.error("Error parsing SSE event data", err);
+        }
+      };
+
+      eventSource.onerror = (err) => {
+        console.warn("SSE connection error, falling back to polling...", err);
+        if (eventSource) {
+          eventSource.close();
+          eventSource = null;
+        }
+        startPolling();
+      };
+    };
+
+    connectSSE();
+
+    return () => {
+      if (eventSource) {
+        eventSource.close();
+      }
+      if (pollInterval) {
+        clearInterval(pollInterval);
+      }
+    };
+  }, [id, projectQuery.data?.id, queryClient]);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      setShowLoginPrompt(false);
+    }
+  }, [isAuthenticated]);
 
   const investMutation = useMutation({
     mutationFn: () => investmentsService.createInvestment({
@@ -124,9 +249,10 @@ const ProjectDetails = () => {
     event.preventDefault();
     setFieldErrors({});
     if (!isAuthenticated) {
-      toast.error("Please log in before contributing.");
+      setShowLoginPrompt(true);
       return;
     }
+    setShowLoginPrompt(false);
     investMutation.mutate();
   };
 
@@ -184,7 +310,7 @@ const ProjectDetails = () => {
 
             <Tabs defaultValue="overview" className="w-full">
               <TabsList className="mb-6 w-full justify-start border-b border-border bg-transparent p-0">
-                {["Overview", "Story", "Funding Plan", "Updates", "Team", "FAQ"].map((tab) => (
+                {["Overview", "Story", "Funding Plan", "Recent Payments", "Updates", "Team", "FAQ"].map((tab) => (
                   <TabsTrigger
                     key={tab}
                     value={tab.toLowerCase().replace(" ", "-")}
@@ -230,6 +356,53 @@ const ProjectDetails = () => {
                   <p className="text-sm text-muted-foreground">
                     Goal: ${Number(project.goal_amount).toLocaleString()} | Minimum investment: ${Number(project.minimum_investment).toLocaleString()} | Campaign duration: {project.funding_period_days} days
                   </p>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="recent-payments" className="space-y-4">
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-foreground">Recent Payments & Backers</h3>
+                  {paymentsQuery.isLoading ? (
+                    <div className="text-sm text-muted-foreground">Loading payments...</div>
+                  ) : !paymentsQuery.data || paymentsQuery.data.length === 0 ? (
+                    <div className="rounded-lg border border-border bg-card p-4 text-sm text-muted-foreground">
+                      No confirmed payments yet. Be the first to back this project!
+                    </div>
+                  ) : (
+                    <div className="grid gap-3">
+                      {paymentsQuery.data.map((payment: any) => {
+                        const isHighlighted = newPaymentIds.has(payment.id);
+                        return (
+                          <div
+                            key={payment.id}
+                            className={`flex items-center justify-between rounded-xl border p-4 transition-all duration-1000 ${
+                              isHighlighted
+                                ? "border-emerald-500 bg-emerald-50/10 dark:bg-emerald-950/15 shadow-[0_0_15px_rgba(16,185,129,0.15)] scale-[1.01]"
+                                : "border-border bg-card"
+                            }`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary font-bold">
+                                {payment.investor_name.charAt(0).toUpperCase()}
+                              </div>
+                              <div>
+                                <div className="font-semibold text-foreground">{payment.investor_name}</div>
+                                <div className="text-xs text-muted-foreground flex items-center gap-1.5">
+                                  <span>{new Date(payment.date).toLocaleDateString()}</span>
+                                  <span>•</span>
+                                  <span className="capitalize">{payment.payment_method.replace("_", " ")}</span>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className="font-bold text-primary text-base">${Number(payment.amount).toLocaleString()}</div>
+                              <div className="text-xs text-success font-medium">Confirmed</div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               </TabsContent>
 
@@ -299,6 +472,18 @@ const ProjectDetails = () => {
                         <Heart className="mr-2 h-4 w-4" /> {investMutation.isPending ? "Submitting..." : "Contribute Now"}
                       </Button>
                     </form>
+                    {showLoginPrompt && (
+                      <Alert className="mt-4 border-primary/20 bg-gradient-to-br from-primary/20 via-primary/10 to-transparent text-foreground shadow-sm [&>svg]:text-primary">
+                        <AlertTriangle className="h-4 w-4" />
+                        <AlertTitle className="text-primary">Login required</AlertTitle>
+                        <AlertDescription className="space-y-3">
+                          <p>Please log in before contributing.</p>
+                          <Button size="sm" className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground hover:from-primary hover:to-primary shadow-sm shadow-primary/20" asChild>
+                            <Link to="/login">Log in to contribute</Link>
+                          </Button>
+                        </AlertDescription>
+                      </Alert>
+                    )}
                   </>
                 ) : (
                   <div className="text-center py-4">

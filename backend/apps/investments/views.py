@@ -1,7 +1,4 @@
-from django.db.models import Sum
 from rest_framework import permissions, viewsets
-
-from apps.projects.models import Project
 
 from .models import Investment, Milestone, Repayment
 from .permissions import InvestmentPermission
@@ -22,20 +19,10 @@ class InvestmentViewSet(viewsets.ModelViewSet):
         return queryset.filter(investor=user) | queryset.filter(project__entrepreneur=user)
 
     def perform_create(self, serializer):
-        investment = serializer.save(investor=self.request.user)
-        if investment.status == Investment.Status.CONFIRMED:
-            self._sync_project_totals(investment.project)
+        serializer.save(investor=self.request.user)
 
     def perform_update(self, serializer):
-        investment = serializer.save()
-        self._sync_project_totals(investment.project)
-
-    @staticmethod
-    def _sync_project_totals(project):
-        confirmed = project.investments.filter(status=Investment.Status.CONFIRMED)
-        total = confirmed.aggregate(total=Sum("amount"))["total"] or 0
-        count = confirmed.values("investor_id").distinct().count()
-        Project.objects.filter(pk=project.pk).update(funded_amount=total, investor_count=count)
+        serializer.save()
 
 
 class MilestoneViewSet(viewsets.ModelViewSet):

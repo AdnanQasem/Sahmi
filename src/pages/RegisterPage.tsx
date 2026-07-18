@@ -348,7 +348,7 @@ const RegisterPage = () => {
                         }`}
                       >
                         <Briefcase className="h-6 w-6 mx-auto mb-2" />
-                        <p className="font-medium text-sm">Fundraise</p>
+                        <p className="font-medium text-sm">Entrepreneur</p>
                       </motion.button>
                     </div>
                   </motion.div>
