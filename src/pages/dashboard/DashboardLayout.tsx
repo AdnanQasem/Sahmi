@@ -26,6 +26,9 @@ import {
   AlertCircle,
   Info,
   DollarSign,
+  Tags,
+  Flag,
+  HandCoins,
 } from "lucide-react";
 
 type UserRole = "investor" | "entrepreneur" | "admin";
@@ -127,6 +130,43 @@ const navItems: NavItem[] = [
     icon: LayoutDashboard,
     roles: ["investor", "entrepreneur", "admin"],
   },
+  // Admin routes
+  {
+    label: "Users",
+    href: "/users",
+    icon: Users,
+    roles: ["admin"],
+  },
+  {
+    label: "Projects",
+    href: "/projects",
+    icon: FolderOpen,
+    roles: ["admin"],
+  },
+  {
+    label: "Categories",
+    href: "/categories",
+    icon: Tags,
+    roles: ["admin"],
+  },
+  {
+    label: "Investments",
+    href: "/investments",
+    icon: DollarSign,
+    roles: ["admin"],
+  },
+  {
+    label: "Milestones",
+    href: "/milestones",
+    icon: Flag,
+    roles: ["admin"],
+  },
+  {
+    label: "Repayments",
+    href: "/repayments",
+    icon: HandCoins,
+    roles: ["admin"],
+  },
   // Investor routes
   {
     label: "Watched Projects",
@@ -169,7 +209,7 @@ const navItems: NavItem[] = [
     label: "Settings",
     href: "/settings",
     icon: Settings,
-    roles: ["investor", "entrepreneur", "admin"],
+    roles: ["investor", "entrepreneur"],
   },
 ];
 
@@ -185,7 +225,7 @@ const DashboardLayout = ({ children, roleBase }: DashboardLayoutProps) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
 
-  const role = user?.user_type as UserRole | undefined;
+  const role: UserRole | undefined = user?.is_staff ? "admin" : user?.user_type;
 
   const filteredNav = navItems.filter(
     (item) => role && item.roles.includes(role)
@@ -491,11 +531,13 @@ const DashboardLayout = ({ children, roleBase }: DashboardLayoutProps) => {
                   )}
                 </div>
 
-                <div className="border-t border-border p-2">
-                  <Button variant="ghost" size="sm" className="w-full cursor-pointer justify-center" asChild>
-                    <Link to={`${roleBase}/settings`}>Notification settings</Link>
-                  </Button>
-                </div>
+                {role !== "admin" && (
+                  <div className="border-t border-border p-2">
+                    <Button variant="ghost" size="sm" className="w-full cursor-pointer justify-center" asChild>
+                      <Link to={`${roleBase}/settings`}>Notification settings</Link>
+                    </Button>
+                  </div>
+                )}
               </PopoverContent>
             </Popover>
 

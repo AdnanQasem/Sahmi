@@ -16,10 +16,10 @@ export interface ProjectCategory {
 
 export interface UserSummary {
   id: string;
-  username: string;
+  username?: string;
   email: string;
   full_name: string;
-  user_type: "investor" | "entrepreneur" | "admin";
+  user_type?: "investor" | "entrepreneur" | "admin";
   business_name?: string;
 }
 
@@ -59,6 +59,7 @@ export interface Project {
   view_count?: number;
   rating?: string;
   reviews_count?: number;
+  deleted_at?: string | null;
   created_at: string;
   updated_at?: string;
 }
@@ -66,9 +67,22 @@ export interface Project {
 export interface ProjectListParams {
   search?: string;
   category?: string;
+  status?: Project["status"];
+  is_verified?: boolean;
   ordering?: string;
   page?: number;
   page_size?: number;
+}
+
+export interface ProjectModerationPayload {
+  status: Extract<Project["status"], "active" | "paused" | "closed" | "successful">;
+  verification_notes?: string;
+}
+
+export interface ProjectCategoryPayload {
+  name: string;
+  slug?: string;
+  description?: string;
 }
 
 export interface ProjectCreatePayload {
@@ -99,8 +113,22 @@ const toFormData = (payload: ProjectCreatePayload) => {
 
 const projectsService = {
   listCategories: async (): Promise<ProjectCategory[]> => {
-    const response = await api.get("categories/", { params: { page_size: 100, ordering: "name" } });
-    return Array.isArray(response) ? response : (response as PaginatedResponse<ProjectCategory>).results;
+    const response = (await api.get("categories/", {
+      params: { page_size: 100, ordering: "name" },
+    })) as unknown as ProjectCategory[] | PaginatedResponse<ProjectCategory>;
+    return Array.isArray(response) ? response : response.results;
+  },
+
+  createCategory: async (payload: ProjectCategoryPayload): Promise<ProjectCategory> => {
+    return await api.post("categories/", payload);
+  },
+
+  updateCategory: async (id: string, payload: ProjectCategoryPayload): Promise<ProjectCategory> => {
+    return await api.patch(`categories/${id}/`, payload);
+  },
+
+  deleteCategory: async (id: string): Promise<void> => {
+    await api.delete(`categories/${id}/`);
   },
 
   listProjects: async (params: ProjectListParams = {}): Promise<PaginatedResponse<Project>> => {
@@ -129,6 +157,22 @@ const projectsService = {
 
   deleteProject: async (slug: string): Promise<void> => {
     await api.delete(`projects/${slug}/`);
+  },
+
+  verifyProject: async (slug: string, verificationNotes = ""): Promise<Project> => {
+    return await api.post(`projects/${slug}/verify/`, {
+      verification_notes: verificationNotes,
+    });
+  },
+
+  rejectProject: async (slug: string, verificationNotes: string): Promise<Project> => {
+    return await api.post(`projects/${slug}/reject/`, {
+      verification_notes: verificationNotes,
+    });
+  },
+
+  setProjectStatus: async (slug: string, payload: ProjectModerationPayload): Promise<Project> => {
+    return await api.post(`projects/${slug}/set-status/`, payload);
   },
 
   getProjectPayments: async (slug: string): Promise<ConfirmedPayment[]> => {

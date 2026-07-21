@@ -16,12 +16,12 @@ class UserSerializer(serializers.ModelSerializer):
             "investor_tier", "total_invested", "total_returned", "average_roi",
             "risk_preference", "business_name", "business_registration_number",
             "business_established_date", "business_address", "total_funded",
-            "total_repaid", "reputation_score", "date_joined", "last_login",
+            "total_repaid", "reputation_score", "is_staff", "date_joined", "last_login",
         ]
         read_only_fields = [
-            "id", "is_verified", "is_kyc_verified", "total_invested", "total_returned",
-            "average_roi", "total_funded", "total_repaid", "reputation_score",
-            "date_joined", "last_login",
+            "id", "user_type", "is_verified", "is_kyc_verified", "total_invested",
+            "total_returned", "average_roi", "total_funded", "total_repaid",
+            "reputation_score", "is_staff", "date_joined", "last_login",
         ]
 
 
@@ -60,6 +60,17 @@ class RegisterSerializer(serializers.ModelSerializer):
         if not attrs.get("full_name"):
             raise serializers.ValidationError({"full_name": "Full name is required."})
         return attrs
+
+    def validate_user_type(self, value):
+        public_user_types = {
+            User.UserType.INVESTOR,
+            User.UserType.ENTREPRENEUR,
+        }
+        if value not in public_user_types:
+            raise serializers.ValidationError(
+                "Public registration is limited to investors and entrepreneurs."
+            )
+        return value
 
     def create(self, validated_data):
         password = validated_data.pop("password")
@@ -110,7 +121,17 @@ class EmailTokenObtainPairSerializer(TokenObtainPairSerializer):
             raise serializers.ValidationError({"email": "Email is required."})
         if not password:
             raise serializers.ValidationError({"password": "Password is required."})
-        user = authenticate(request=self.context.get("request"), username=email, password=password)
+        try:
+            authentication_email = User.objects.only("email").get(
+                email__iexact=email
+            ).email
+        except (User.DoesNotExist, User.MultipleObjectsReturned):
+            authentication_email = email
+        user = authenticate(
+            request=self.context.get("request"),
+            username=authentication_email,
+            password=password,
+        )
         if not user:
             raise serializers.ValidationError({"non_field_errors": ["Invalid email or password."]})
         if not user.is_active:

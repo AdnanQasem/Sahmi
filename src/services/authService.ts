@@ -6,6 +6,7 @@ export interface User {
   email: string;
   full_name: string;
   user_type: "investor" | "entrepreneur" | "admin";
+  is_staff: boolean;
   phone_number?: string;
   country?: string;
   city?: string;

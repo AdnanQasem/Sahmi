@@ -11,6 +11,20 @@ class IsEntrepreneur(BasePermission):
         return user.is_staff or getattr(user, "user_type", None) == "entrepreneur"
 
 
+class IsStaffOrReadOnly(BasePermission):
+    """Allow everyone to read categories, but reserve mutations for staff."""
+
+    def has_permission(self, request, view):
+        if request.method in SAFE_METHODS:
+            return True
+        user = request.user
+        return bool(
+            user
+            and user.is_authenticated
+            and (user.is_staff or user.is_superuser)
+        )
+
+
 class ProjectPermission(BasePermission):
     def has_permission(self, request, view):
         if request.method in SAFE_METHODS:

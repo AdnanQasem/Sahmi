@@ -8,11 +8,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import projectsService, { ProjectCreatePayload } from "@/services/projectsService";
 import { getFieldErrors, getErrorMessage } from "@/services/api";
+import { useAuth } from "@/hooks/useAuth";
 import { ArrowLeft } from "lucide-react";
 
 const EditProject = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const adminReturnPath = "/dashboard/admin#projects-section";
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [form, setForm] = useState<ProjectCreatePayload>({
     title: "",
@@ -62,7 +65,7 @@ const EditProject = () => {
     mutationFn: () => projectsService.updateProject(id as string, form),
     onSuccess: (project) => {
       toast.success("Project updated.");
-      navigate(`/projects/${project.slug}`);
+      navigate(user?.is_staff ? adminReturnPath : `/projects/${project.slug}`);
     },
     onError: (error) => {
       setFieldErrors(getFieldErrors(error));
@@ -91,7 +94,9 @@ const EditProject = () => {
       <section className="border-b border-border bg-card py-8">
         <div className="container">
           <Button variant="ghost" size="sm" asChild className="mb-4">
-            <Link to={`/projects/${id}`}><ArrowLeft className="mr-1 h-4 w-4" /> Back to Project</Link>
+            <Link to={user?.is_staff ? adminReturnPath : `/projects/${id}`}>
+              <ArrowLeft className="mr-1 h-4 w-4" /> {user?.is_staff ? "Back to Admin" : "Back to Project"}
+            </Link>
           </Button>
           <h1 className="mb-2 text-2xl font-bold text-foreground">Edit Project</h1>
           <p className="text-sm text-muted-foreground">Update the project details stored in the Django backend.</p>
@@ -160,7 +165,7 @@ const EditProject = () => {
 
         <div className="flex justify-end gap-3">
           <Button variant="outline" asChild>
-            <Link to="/dashboard/entrepreneur">Cancel</Link>
+            <Link to={user?.is_staff ? adminReturnPath : "/dashboard/entrepreneur"}>Cancel</Link>
           </Button>
           <Button type="submit" disabled={updateMutation.isPending}>
             {updateMutation.isPending ? "Saving..." : "Save Changes"}

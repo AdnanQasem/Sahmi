@@ -29,6 +29,41 @@ class ProjectDocumentSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "created_at"]
 
 
+class ProjectVerificationSerializer(serializers.Serializer):
+    verification_notes = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        trim_whitespace=True,
+        default="",
+    )
+
+
+class ProjectRejectionSerializer(serializers.Serializer):
+    verification_notes = serializers.CharField(
+        allow_blank=False,
+        trim_whitespace=True,
+    )
+
+
+class ProjectStatusSerializer(serializers.Serializer):
+    status = serializers.ChoiceField(
+        choices=[
+            Project.Status.PAUSED,
+            Project.Status.ACTIVE,
+            Project.Status.CLOSED,
+            Project.Status.SUCCESSFUL,
+        ]
+    )
+
+    def validate_status(self, value):
+        project = self.context["project"]
+        if value == Project.Status.ACTIVE and not project.is_verified:
+            raise serializers.ValidationError(
+                "An unverified project cannot be activated."
+            )
+        return value
+
+
 class ProjectCategoryRelatedField(serializers.PrimaryKeyRelatedField):
     def get_queryset(self):
         return ProjectCategory.objects.all()
@@ -70,10 +105,11 @@ class ProjectSerializer(serializers.ModelSerializer):
             "funding_percent", "created_at", "updated_at",
         ]
         read_only_fields = [
-            "id", "entrepreneur", "slug", "funded_amount", "is_verified", "verified_at",
-            "ai_classified_category", "ai_confidence_score", "ai_classification_at",
-            "ai_generated_summary", "milestone_count", "total_repaid", "view_count",
-            "investor_count", "rating", "reviews_count", "created_at", "updated_at",
+            "id", "entrepreneur", "slug", "funded_amount", "status", "is_verified",
+            "verified_at", "verification_notes", "ai_classified_category",
+            "ai_confidence_score", "ai_classification_at", "ai_generated_summary",
+            "milestone_count", "total_repaid", "view_count", "investor_count",
+            "rating", "reviews_count", "created_at", "updated_at",
         ]
 
     def get_days_left(self, obj):
@@ -115,5 +151,18 @@ class ProjectListSerializer(ProjectSerializer):
             "id", "title", "slug", "short_description", "category", "category_detail",
             "location", "goal_amount", "funded_amount", "minimum_investment",
             "expected_roi", "status", "is_verified", "cover_image", "investor_count",
-            "days_left", "funding_percent", "created_at",
+            "days_left", "funding_percent", "created_at", "updated_at",
         ]
+
+
+class AdminProjectOwnerSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserSerializer.Meta.model
+        fields = ["id", "email", "full_name", "business_name"]
+
+
+class AdminProjectListSerializer(ProjectListSerializer):
+    entrepreneur = AdminProjectOwnerSerializer(read_only=True)
+
+    class Meta(ProjectListSerializer.Meta):
+        fields = ["entrepreneur", *ProjectListSerializer.Meta.fields]

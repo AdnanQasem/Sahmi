@@ -20,6 +20,14 @@ import RegisterPage from "./pages/RegisterPage";
 import EditProject from "./pages/EditProject";
 import NotFound from "./pages/NotFound.tsx";
 import DashboardRedirect from "./pages/dashboard/DashboardRedirect";
+import AdminDashboard from "./pages/dashboard/AdminDashboard";
+import AdminProjectsPage from "./pages/dashboard/admin/AdminProjectsPage";
+import AdminCategoriesPage from "./pages/dashboard/admin/AdminCategoriesPage";
+import AdminUsersPage from "./pages/dashboard/admin/AdminUsersPage";
+import AdminInvestmentsPage from "./pages/dashboard/admin/AdminInvestmentsPage";
+import AdminMilestonesPage from "./pages/dashboard/admin/AdminMilestonesPage";
+import AdminRepaymentsPage from "./pages/dashboard/admin/AdminRepaymentsPage";
+import AdminProjectEditPage from "./pages/dashboard/admin/AdminProjectEditPage";
 import InvestorDashboard from "./pages/dashboard/InvestorDashboard";
 import InvestorTransactionsPage from "./pages/dashboard/InvestorTransactionsPage";
 import EntrepreneurDashboard from "./pages/dashboard/EntrepreneurDashboard";
@@ -42,6 +50,17 @@ const App = () => (
             {/* Dashboard routes — full-page layout with sidebar, no Navbar/Footer */}
             <Route element={<ProtectedRoute />}>
               <Route path="/dashboard" element={<DashboardRedirect />} />
+            </Route>
+            <Route element={<ProtectedRoute requireStaff redirectTo="/dashboard" />}>
+              <Route path="/dashboard/admin" element={<AdminDashboard />} />
+              <Route path="/dashboard/admin/projects" element={<AdminProjectsPage />} />
+              <Route path="/dashboard/admin/projects/new" element={<AdminProjectEditPage />} />
+              <Route path="/dashboard/admin/projects/:projectId/edit" element={<AdminProjectEditPage />} />
+              <Route path="/dashboard/admin/categories" element={<AdminCategoriesPage />} />
+              <Route path="/dashboard/admin/users" element={<AdminUsersPage />} />
+              <Route path="/dashboard/admin/investments" element={<AdminInvestmentsPage />} />
+              <Route path="/dashboard/admin/milestones" element={<AdminMilestonesPage />} />
+              <Route path="/dashboard/admin/repayments" element={<AdminRepaymentsPage />} />
             </Route>
             <Route element={<ProtectedRoute allowedUserTypes={["investor", "admin"]} redirectTo="/dashboard" />}>
               <Route path="/dashboard/investor" element={<InvestorDashboard />} />

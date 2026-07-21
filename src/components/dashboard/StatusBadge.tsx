@@ -87,6 +87,33 @@ const statusConfig: Record<
     className:
       "bg-success/20 text-success border-success/40",
   },
+  in_progress: {
+    label: "In progress",
+    className:
+      "bg-primary/15 text-primary border-primary/30",
+    pulse: true,
+  },
+  delayed: {
+    label: "Delayed",
+    className:
+      "bg-warning/15 text-warning border-warning/30",
+  },
+  paid: {
+    label: "Paid",
+    className:
+      "bg-success/20 text-success border-success/40",
+  },
+  overdue: {
+    label: "Overdue",
+    className:
+      "bg-destructive/15 text-destructive border-destructive/30",
+    pulse: true,
+  },
+  deleted: {
+    label: "Archived",
+    className:
+      "bg-destructive/10 text-destructive border-destructive/25",
+  },
 };
 
 const StatusBadge = ({ status }: StatusBadgeProps) => {

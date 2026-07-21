@@ -3,10 +3,11 @@ import { useAuth } from "@/hooks/useAuth";
 
 interface ProtectedRouteProps {
   allowedUserTypes?: Array<"investor" | "entrepreneur" | "admin">;
+  requireStaff?: boolean;
   redirectTo?: string;
 }
 
-const ProtectedRoute = ({ allowedUserTypes, redirectTo = "/" }: ProtectedRouteProps) => {
+const ProtectedRoute = ({ allowedUserTypes, requireStaff = false, redirectTo = "/" }: ProtectedRouteProps) => {
   const { isAuthenticated, loading, user } = useAuth();
   const location = useLocation();
 
@@ -20,6 +21,10 @@ const ProtectedRoute = ({ allowedUserTypes, redirectTo = "/" }: ProtectedRoutePr
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace state={{ from: location }} />;
+  }
+
+  if (requireStaff && !user?.is_staff) {
+    return <Navigate to={redirectTo} replace />;
   }
 
   if (allowedUserTypes?.length && (!user || !allowedUserTypes.includes(user.user_type))) {

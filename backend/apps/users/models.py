@@ -51,6 +51,8 @@ class User(AbstractUser):
     REQUIRED_FIELDS = ["username", "full_name"]
 
     def save(self, *args, **kwargs):
+        if self.email:
+            self.email = self.email.strip().lower()
         if not self.username:
             self.username = self.email
         if self.user_type == self.UserType.ADMIN:

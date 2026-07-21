@@ -6,14 +6,22 @@ from rest_framework.response import Response
 
 from .filters import ProjectFilter
 from .models import Project, ProjectCategory
-from .permissions import IsEntrepreneur, ProjectPermission
-from .serializers import ProjectCategorySerializer, ProjectListSerializer, ProjectSerializer
+from .permissions import IsEntrepreneur, IsStaffOrReadOnly, ProjectPermission
+from .serializers import (
+    AdminProjectListSerializer,
+    ProjectCategorySerializer,
+    ProjectListSerializer,
+    ProjectRejectionSerializer,
+    ProjectSerializer,
+    ProjectStatusSerializer,
+    ProjectVerificationSerializer,
+)
 
 
 class ProjectCategoryViewSet(viewsets.ModelViewSet):
     queryset = ProjectCategory.objects.all()
     serializer_class = ProjectCategorySerializer
-    permission_classes = [permissions.IsAdminUser | permissions.IsAuthenticatedOrReadOnly]
+    permission_classes = [IsStaffOrReadOnly]
     search_fields = ["name"]
     ordering_fields = ["name", "created_at"]
 
@@ -34,6 +42,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
     def get_serializer_class(self):
         if self.action == "list":
+            if self.request.user.is_authenticated and self.request.user.is_staff:
+                return AdminProjectListSerializer
             return ProjectListSerializer
         return ProjectSerializer
 
@@ -61,12 +71,39 @@ class ProjectViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"], permission_classes=[permissions.IsAdminUser])
     def verify(self, request, slug=None):
         project = self.get_object()
+        serializer = ProjectVerificationSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
         project.is_verified = True
         project.status = Project.Status.ACTIVE
         project.verified_by = request.user
         project.verified_at = timezone.now()
-        project.verification_notes = request.data.get("verification_notes", "")
+        project.verification_notes = serializer.validated_data["verification_notes"]
         project.save(update_fields=["is_verified", "status", "verified_by", "verified_at", "verification_notes", "updated_at"])
+        return Response(self.get_serializer(project).data)
+
+    @action(detail=True, methods=["post"], permission_classes=[permissions.IsAdminUser])
+    def reject(self, request, slug=None):
+        project = self.get_object()
+        serializer = ProjectRejectionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        project.is_verified = False
+        project.status = Project.Status.FAILED
+        project.verified_by = request.user
+        project.verified_at = timezone.now()
+        project.verification_notes = serializer.validated_data["verification_notes"]
+        project.save(update_fields=["is_verified", "status", "verified_by", "verified_at", "verification_notes", "updated_at"])
+        return Response(self.get_serializer(project).data)
+
+    @action(detail=True, methods=["post"], permission_classes=[permissions.IsAdminUser], url_path="set-status")
+    def set_status(self, request, slug=None):
+        project = self.get_object()
+        serializer = ProjectStatusSerializer(
+            data=request.data,
+            context={"project": project},
+        )
+        serializer.is_valid(raise_exception=True)
+        project.status = serializer.validated_data["status"]
+        project.save(update_fields=["status", "updated_at"])
         return Response(self.get_serializer(project).data)
 
     @action(detail=False, methods=["get"], permission_classes=[permissions.IsAuthenticated])

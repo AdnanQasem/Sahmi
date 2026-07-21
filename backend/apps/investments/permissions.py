@@ -11,3 +11,23 @@ class InvestmentPermission(BasePermission):
         if request.method in SAFE_METHODS:
             return obj.investor_id == request.user.id or obj.project.entrepreneur_id == request.user.id
         return obj.investor_id == request.user.id
+
+
+class MilestonePermission(BasePermission):
+    def has_permission(self, request, view):
+        return bool(request.user and request.user.is_authenticated)
+
+    def has_object_permission(self, request, view, obj):
+        return request.user.is_staff or obj.project.entrepreneur_id == request.user.id
+
+
+class RepaymentPermission(BasePermission):
+    def has_permission(self, request, view):
+        return bool(request.user and request.user.is_authenticated)
+
+    def has_object_permission(self, request, view, obj):
+        return bool(
+            request.user.is_staff
+            or obj.investment.investor_id == request.user.id
+            or obj.investment.project.entrepreneur_id == request.user.id
+        )
