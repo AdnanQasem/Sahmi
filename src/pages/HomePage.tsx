@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -135,6 +136,7 @@ const trustPoints = [
 
 
 const HomePage = () => {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const canCreateProject = !user || user.user_type === "entrepreneur" || user.user_type === "admin";
   const featuredProjectsQuery = useQuery({
@@ -158,7 +160,7 @@ const HomePage = () => {
         
         <div className="container relative z-10 py-24 md:py-40">
           <motion.div 
-            className="max-w-3xl text-left"
+            className="max-w-3xl text-start"
             variants={staggerContainer}
             initial="initial"
             animate="animate"
@@ -176,7 +178,7 @@ const HomePage = () => {
               variants={fadeInUp}
               className="mb-10 text-lg leading-relaxed text-foreground/90 md:text-xl font-medium max-w-2xl"
             >
-              Sahmi connects entrepreneurs with supporters through a transparent, simple, and trustworthy crowdfunding experience.
+              {t("home.subtitle")}
             </motion.p>
             
             <motion.div 
@@ -185,12 +187,12 @@ const HomePage = () => {
             >
               <Button size="xl" asChild className="shadow-lg hover:shadow-primary/20 transition-all hover:scale-105 active:scale-95">
                 <Link to="/projects">
-                  Explore Projects <ArrowRight className="ml-1 h-5 w-5" />
+                  {t("home.browse")} <ArrowRight className="ms-1 h-5 w-5" />
                 </Link>
               </Button>
               {canCreateProject && (
                 <Button size="xl" variant="outline" className="bg-background/50 backdrop-blur-sm border-primary/20 hover:bg-background/80 text-foreground shadow-sm hover:scale-105 active:scale-95" asChild>
-                  <Link to="/start-project">Start Your Project</Link>
+                  <Link to="/start-project">{t("home.start")}</Link>
                 </Button>
               )}
             </motion.div>
@@ -208,7 +210,7 @@ const HomePage = () => {
             whileInView="animate"
             viewport={{ once: true, margin: "-100px" }}
           >
-            {stats.map((stat) => (
+            {stats.map((stat, index) => (
               <motion.div 
                 key={stat.label} 
                 variants={fadeInUp}
@@ -218,7 +220,7 @@ const HomePage = () => {
                 <div className="text-3xl font-bold text-foreground md:text-4xl tabular-nums tracking-tight">
                   {stat.value}
                 </div>
-                <div className="text-sm font-medium text-muted-foreground uppercase tracking-widest mt-1">{stat.label}</div>
+                <div className="text-sm font-medium text-muted-foreground uppercase tracking-widest mt-1">{t(`home.stat${index + 1}`)}</div>
               </motion.div>
             ))}
           </motion.div>
@@ -258,14 +260,14 @@ const HomePage = () => {
               className="mb-6 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20"
             >
               <Lightbulb className="h-4 w-4 text-primary" />
-              <span className="text-sm font-semibold text-primary">Simple Process</span>
+              <span className="text-sm font-semibold text-primary">{t("home.howTitle")}</span>
             </motion.div>
             
             <h2 className="text-4xl font-bold tracking-tight text-foreground md:text-5xl lg:text-6xl mb-6">
-              How <span className="gradient-text">Sahmi</span> Works
+              {t("home.howTitle")}
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-              Three simple steps to transform ideas into reality with the power of community. No complexity, just impact.
+              {t("home.howSubtitle")}
             </p>
           </motion.div>
 
@@ -324,10 +326,10 @@ const HomePage = () => {
                       {/* Content */}
                       <div className="flex-1">
                         <h3 className="text-2xl font-bold text-foreground mb-4 group-hover:text-primary transition-colors duration-300">
-                          {step.title}
+                          {t(`home.process${index + 1}Title`)}
                         </h3>
                         <p className="text-muted-foreground leading-relaxed mb-6">
-                          {step.description}
+                          {t(`home.process${index + 1}Text`)}
                         </p>
                       </div>
 
@@ -346,7 +348,7 @@ const HomePage = () => {
                               <BadgeCheck className="h-3 w-3 text-primary" />
                             </div>
                             <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">
-                              {feature}
+                              {t(`home.process${index + 1}Feature${fIndex + 1}`)}
                             </span>
                           </motion.div>
                         ))}
@@ -354,7 +356,7 @@ const HomePage = () => {
 
                       {/* Arrow indicator */}
                       <motion.div
-                        className="absolute bottom-8 right-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="absolute bottom-8 end-8 opacity-0 group-hover:opacity-100 transition-opacity"
                         initial={{ x: -10 }}
                         whileHover={{ x: 0 }}
                       >
@@ -409,9 +411,9 @@ const HomePage = () => {
                 className="text-4xl font-bold tracking-tight text-foreground md:text-5xl lg:text-6xl"
                 style={{ fontFamily: "'Outfit', sans-serif" }}
               >
-                Featured <span className="gradient-text">Projects</span>
+                {t("home.featured")}
               </h2>
-              <p className="mt-4 text-lg text-muted-foreground">High-impact initiatives curated for the Sahmi community.</p>
+              <p className="mt-4 text-lg text-muted-foreground">{t("home.featuredSubtitle")}</p>
             </motion.div>
             <motion.div
               initial={{ opacity: 0, x: 20 }}
@@ -421,8 +423,8 @@ const HomePage = () => {
             >
               <Button variant="ghost" size="lg" className="group hidden hover:bg-muted md:flex text-primary font-bold" asChild>
                 <Link to="/projects">
-                  View All Projects
-                  <ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
+                  {t("home.browse")}
+                  <ArrowRight className="ms-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
                 </Link>
               </Button>
             </motion.div>
@@ -437,17 +439,17 @@ const HomePage = () => {
           >
             {featuredProjectsQuery.isLoading && (
               <motion.div variants={fadeInUp} className="col-span-full rounded-xl border border-border bg-card p-10 text-center text-sm text-muted-foreground">
-                Loading featured projects...
+                {t("projects.loading")}
               </motion.div>
             )}
             {featuredProjectsQuery.isError && (
               <motion.div variants={fadeInUp} className="col-span-full rounded-xl border border-border bg-card p-10 text-center text-sm text-muted-foreground">
-                Featured projects are unavailable right now.
+                {t("projects.loadError")}
               </motion.div>
             )}
             {!featuredProjectsQuery.isLoading && !featuredProjectsQuery.isError && featuredProjects.length === 0 && (
               <motion.div variants={fadeInUp} className="col-span-full rounded-xl border border-border bg-card p-10 text-center text-sm text-muted-foreground">
-                No featured projects are live yet.
+                {t("projects.noResults")}
               </motion.div>
             )}
             {featuredProjects.map((p) => (
@@ -459,7 +461,7 @@ const HomePage = () => {
           
           <div className="mt-12 text-center md:hidden">
             <Button size="xl" variant="outline" className="w-full" asChild>
-              <Link to="/projects">View All Projects</Link>
+              <Link to="/projects">{t("home.browse")}</Link>
             </Button>
           </div>
         </div>
@@ -474,8 +476,8 @@ const HomePage = () => {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
           >
-            <h2 className="text-4xl font-bold tracking-tight text-foreground md:text-5xl mb-6">Voices of <span className="gradient-text">Impact</span></h2>
-            <p className="text-lg text-muted-foreground">Join thousands of supporters making a difference across Palestine.</p>
+            <h2 className="text-4xl font-bold tracking-tight text-foreground md:text-5xl mb-6">{t("home.voices")}</h2>
+            <p className="text-lg text-muted-foreground">{t("home.voicesText")}</p>
           </motion.div>
 
           <motion.div 
@@ -489,21 +491,21 @@ const HomePage = () => {
               { name: "Sami Al-Haddad", role: "Investor", text: "Sahmi provided a transparent way for me to support local talent. The verification process gives me peace of mind." },
               { name: "Noor Mansour", role: "Entrepreneur", text: "Thanks to Sahmi, our solar project went from an idea to reality in three months. The community support is incredible." },
               { name: "Fatima Jaber", role: "Supporter", text: "I love tracking the progress of projects I've backed. The transparency here is unlike any other platform." }
-            ].map((t, idx) => (
+            ].map((testimonial, idx) => (
               <motion.div 
                 key={idx} 
                 variants={fadeInUp}
                 className="bg-background p-8 rounded-3xl border border-border shadow-sm hover:shadow-md transition-shadow relative"
               >
                 <Quote className="absolute top-6 right-6 h-10 w-10 text-primary/10" />
-                <p className="text-lg italic text-foreground/80 mb-8 relative z-10 leading-relaxed">"{t.text}"</p>
+                <p className="text-lg italic text-foreground/80 mb-8 relative z-10 leading-relaxed">"{t(`home.testimonial${idx + 1}Text`)}"</p>
                 <div className="flex items-center gap-4">
                   <div className="h-12 w-12 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center font-bold text-primary">
-                    {t.name[0]}
+                    {testimonial.name[0]}
                   </div>
                   <div>
-                    <div className="font-bold text-foreground">{t.name}</div>
-                    <div className="text-sm text-primary font-medium">{t.role}</div>
+                    <div className="font-bold text-foreground">{testimonial.name}</div>
+                    <div className="text-sm text-primary font-medium">{t(`home.testimonial${idx + 1}Role`)}</div>
                   </div>
                 </div>
               </motion.div>
@@ -525,9 +527,9 @@ const HomePage = () => {
               className="text-4xl font-bold tracking-tight text-foreground md:text-5xl mb-6"
               style={{ fontFamily: "'Outfit', sans-serif" }}
             >
-              Built on <span className="gradient-text">Trust</span>
+              {t("home.trust")}
             </h2>
-            <p className="text-lg text-muted-foreground">We prioritize security and transparency to ensure every contribution makes a real difference.</p>
+            <p className="text-lg text-muted-foreground">{t("home.trustText")}</p>
           </motion.div>
           
           <motion.div 
@@ -537,7 +539,7 @@ const HomePage = () => {
             whileInView="animate"
             viewport={{ once: true, margin: "-100px" }}
           >
-            {trustPoints.map((tp) => (
+            {trustPoints.map((tp, index) => (
               <motion.div 
                 key={tp.title} 
                 variants={fadeInUp}
@@ -547,8 +549,8 @@ const HomePage = () => {
                 <div className={`mb-8 flex h-20 w-20 items-center justify-center rounded-2xl ${tp.iconBgClass} ${tp.textClass} transition-all duration-300 group-hover:scale-110`}>
                   <tp.icon className="h-10 w-10" />
                 </div>
-                <h3 className="mb-4 text-2xl font-bold text-foreground">{tp.title}</h3>
-                <p className="text-lg leading-relaxed text-muted-foreground">{tp.desc}</p>
+                <h3 className="mb-4 text-2xl font-bold text-foreground">{t(`home.trust${index + 1}Title`)}</h3>
+                <p className="text-lg leading-relaxed text-muted-foreground">{t(`home.trust${index + 1}Text`)}</p>
               </motion.div>
             ))}
           </motion.div>
@@ -566,7 +568,7 @@ const HomePage = () => {
             transition={{ duration: 0.6 }}
           >
             <h2 className="mb-6 text-4xl font-bold text-primary-foreground md:text-5xl lg:text-6xl">
-              Ready to Make a <span className="text-teal-300 drop-shadow-md">Difference</span>?
+              {t("home.ready")}
             </h2>
             <p className="mb-10 text-xl text-primary-foreground/90 font-medium leading-relaxed">
               Whether you're an entrepreneur with a vision or a supporter looking to create impact, Sahmi is your platform.
@@ -574,13 +576,13 @@ const HomePage = () => {
             <div className="flex flex-col items-center gap-6 sm:flex-row sm:justify-center">
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                 <Button size="xl" className="bg-primary-foreground text-primary hover:bg-primary-white shadow-xl font-bold h-16 px-10 text-lg rounded-2xl" asChild>
-                  <Link to="/projects">Explore Projects</Link>
+                  <Link to="/projects">{t("home.browse")}</Link>
                 </Button>
               </motion.div>
               {canCreateProject && (
                 <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                   <Button size="xl" className="bg-transparent border-2 border-teal-300 text-teal-300 hover:bg-teal-300/10 shadow-sm font-bold h-16 px-10 text-lg rounded-2xl" asChild>
-                    <Link to="/start-project">Start Your Project</Link>
+                    <Link to="/start-project">{t("home.start")}</Link>
                   </Button>
                 </motion.div>
               )}

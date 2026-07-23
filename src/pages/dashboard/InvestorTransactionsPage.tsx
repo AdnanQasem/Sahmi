@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -39,6 +40,7 @@ const statusFilters = [
 ] as const;
 
 const InvestorTransactionsPage = () => {
+  const { t } = useTranslation();
   const [selectedTransaction, setSelectedTransaction] = useState<Investment | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<(typeof statusFilters)[number]["value"]>("all");
@@ -112,7 +114,7 @@ const InvestorTransactionsPage = () => {
                       <ReceiptText className="h-6 w-6 text-white" />
                     </div>
                     <div>
-                      <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Portfolio Performance</h1>
+                      <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{t("transactions.title")}</h1>
                       <p className="mt-1 text-sm font-medium text-white/70 max-w-md">
                         {transactions.length > 0 
                           ? `You hold ${transactions.length} active investments with an estimated projected ROI of ${totalROI > 0 ? '+' : ''}${totalROI.toFixed(1)}%.`
@@ -124,12 +126,12 @@ const InvestorTransactionsPage = () => {
                   <div className="flex flex-wrap items-center gap-3">
                     <div className="flex items-center gap-4 rounded-xl border border-white/10 bg-white/5 px-5 py-3 backdrop-blur-md">
                       <div>
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-white/60">Total Paid</p>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-white/60">{t("dashboard.totalPaid")}</p>
                         <p className="text-xl font-bold">{currency(totalPaid)}</p>
                       </div>
                       <div className="h-8 w-px bg-white/10" />
                       <div>
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-white/60">Expected</p>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-white/60">{t("dashboard.expected")}</p>
                         <p className="text-xl font-bold text-secondary-foreground">{currency(expectedReturns)}</p>
                       </div>
                     </div>
@@ -147,7 +149,7 @@ const InvestorTransactionsPage = () => {
                 <div className="mb-4 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Clock className="h-4 w-4 text-primary" />
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">Latest Activity</h3>
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">{t("dashboard.recentActivity")}</h3>
                   </div>
                   {latestTransaction && (
                     <button
@@ -175,7 +177,7 @@ const InvestorTransactionsPage = () => {
                         </h4>
                       </div>
                       <div className="text-right shrink-0">
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-0.5">Invested</p>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-0.5">{t("dashboard.invested")}</p>
                         <p className="text-lg font-black text-foreground">
                           {currency(amountOf(latestTransaction))}
                         </p>
@@ -184,7 +186,7 @@ const InvestorTransactionsPage = () => {
 
                     <div className="mt-4 grid grid-cols-2 gap-3 border-t border-border/50 pt-3">
                       <div>
-                        <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Expected Return</p>
+                        <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{t("dashboard.expectedReturn")}</p>
                         <p className="text-sm font-bold text-foreground">{currency(expectedOf(latestTransaction))}</p>
                       </div>
                       <div>
@@ -202,7 +204,7 @@ const InvestorTransactionsPage = () => {
                   </div>
                 ) : (
                   <div className="flex h-32 flex-col items-center justify-center rounded-xl border border-dashed border-border bg-background/30 p-6 text-center">
-                    <p className="text-xs font-medium text-muted-foreground">No recent activity to show</p>
+                    <p className="text-xs font-medium text-muted-foreground">{t("dashboard.noActivity")}</p>
                   </div>
                 )}
               </div>
@@ -217,7 +219,7 @@ const InvestorTransactionsPage = () => {
                 <SlidersHorizontal className="h-5 w-5" />
               </div>
               <div>
-                <h2 className="text-sm font-bold uppercase tracking-wider text-foreground">Controls</h2>
+                <h2 className="text-sm font-bold uppercase tracking-wider text-foreground">{t("common.filter")}</h2>
                 <p className="text-[11px] font-medium text-muted-foreground">{filteredTransactions.length} results found</p>
               </div>
             </div>
@@ -232,14 +234,14 @@ const InvestorTransactionsPage = () => {
                   <Input
                     value={searchQuery}
                     onChange={(event) => setSearchQuery(event.target.value)}
-                    placeholder="Project name or ID..."
+                    placeholder={t("transactions.search")}
                     className="pl-10 h-11 bg-background/50 border-border/50 transition-all focus:bg-background focus:ring-primary/20"
                   />
                 </div>
               </div>
 
               <div>
-                <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Filter by Status</p>
+                <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{t("transactions.allStatuses")}</p>
                 <div className="flex flex-col gap-1.5">
                   {statusFilters.map((option) => (
                     <button
@@ -279,7 +281,7 @@ const InvestorTransactionsPage = () => {
                   <ReceiptText className="h-5 w-5" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-black tracking-tight text-foreground">Transaction History</h2>
+                  <h2 className="text-xl font-black tracking-tight text-foreground">{t("transactions.title")}</h2>
                   <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
                     {investmentsQuery.isLoading
                       ? "Loading records..."
@@ -294,12 +296,12 @@ const InvestorTransactionsPage = () => {
                 <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-1 ring-primary/20">
                   <ReceiptText className="h-10 w-10 opacity-80" />
                 </div>
-                <h3 className="text-2xl font-black text-foreground">No transactions yet</h3>
+                <h3 className="text-2xl font-black text-foreground">{t("transactions.noResults")}</h3>
                 <p className="mt-3 text-sm font-medium text-muted-foreground max-w-md">
                   Your project payments will appear here after you make an investment.
                 </p>
                 <Button asChild className="mt-8 rounded-full px-8 py-6 text-sm font-bold shadow-lg shadow-primary/20 transition-transform hover:scale-105">
-                  <Link to="/projects">Explore Projects <ArrowRight className="ml-2 h-4 w-4" /></Link>
+                  <Link to="/projects">{t("home.browse")} <ArrowRight className="ml-2 h-4 w-4" /></Link>
                 </Button>
               </div>
             ) : filteredTransactions.length === 0 && !investmentsQuery.isLoading ? (
@@ -307,7 +309,7 @@ const InvestorTransactionsPage = () => {
                 <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-1 ring-primary/20">
                   <Search className="h-10 w-10 opacity-80" />
                 </div>
-                <h3 className="text-2xl font-black text-foreground">No matching transactions</h3>
+                <h3 className="text-2xl font-black text-foreground">{t("transactions.noResults")}</h3>
                 <p className="mt-3 text-sm font-medium text-muted-foreground max-w-md">
                   Try adjusting the search text or status filter to find what you're looking for.
                 </p>
@@ -320,7 +322,7 @@ const InvestorTransactionsPage = () => {
                 <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-1 ring-primary/20">
                   <ReceiptText className="h-10 w-10 opacity-80" />
                 </div>
-                <h3 className="text-2xl font-black text-foreground">Latest transaction is highlighted above</h3>
+                <h3 className="text-2xl font-black text-foreground">{t("dashboard.latestHighlighted")}</h3>
                 <p className="mt-3 text-sm font-medium text-muted-foreground max-w-md">
                   Additional matching transactions will appear in this list as you continue to invest.
                 </p>
@@ -390,7 +392,7 @@ const InvestorTransactionsPage = () => {
 
                           <div className="flex flex-row-reverse md:flex-col items-center md:items-end justify-between gap-4 border-t border-border/50 pt-4 md:border-t-0 md:pt-0">
                             <div className="text-right">
-                              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">Amount Paid</p>
+                              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">{t("dashboard.amountPaid")}</p>
                               <p className="text-2xl font-black text-foreground">{currency(amountOf(transaction))}</p>
                             </div>
                             <span className="inline-flex items-center justify-center h-10 w-10 rounded-full bg-primary/10 text-primary transition-all group-hover:bg-primary group-hover:text-primary-foreground group-hover:shadow-md group-hover:shadow-primary/20">

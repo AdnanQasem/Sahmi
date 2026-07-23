@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -178,6 +179,7 @@ const faqs = [
 ];
 
 const HowItWorksPage = () => {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const canCreateProject = !user || user.user_type === "entrepreneur" || user.user_type === "admin";
   const isInvestor = user?.user_type === "investor";
@@ -196,10 +198,10 @@ const HowItWorksPage = () => {
             className="mb-6 text-3xl font-bold tracking-tight text-foreground md:text-4xl"
             style={{ fontFamily: "'Outfit', sans-serif" }}
           >
-            For <span className="gradient-text">Entrepreneurs</span>
+            {t("info.entrepreneurs")}
           </h2>
           <p className="text-lg text-muted-foreground">
-            Turn your vision into reality with these four simple steps.
+            {t("info.entrepreneursText")}
           </p>
         </motion.div>
 
@@ -223,7 +225,7 @@ const HowItWorksPage = () => {
                 </div>
                 <div className="flex-1">
                   <div className={`mb-2 text-sm font-bold uppercase tracking-widest ${step.textClass}`}>
-                    Step 0{index + 1}
+                    {t("info.step", { number: `0${index + 1}` })}
                   </div>
                   <h3 className="mb-3 text-xl font-bold text-foreground">{step.title}</h3>
                   <p className="mb-4 text-muted-foreground">{step.description}</p>
@@ -259,10 +261,10 @@ const HowItWorksPage = () => {
             className="mb-6 text-3xl font-bold tracking-tight text-foreground md:text-4xl"
             style={{ fontFamily: "'Outfit', sans-serif" }}
           >
-            For <span className="gradient-text">Supporters</span>
+            {t("info.supporters")}
           </h2>
           <p className="text-lg text-muted-foreground">
-            Make a difference by supporting verified projects with confidence.
+            {t("info.supportersText")}
           </p>
         </motion.div>
 

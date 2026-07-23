@@ -7,6 +7,7 @@ export interface User {
   full_name: string;
   user_type: "investor" | "entrepreneur" | "admin";
   is_staff: boolean;
+  preferred_language: "en" | "ar";
   phone_number?: string;
   country?: string;
   city?: string;
@@ -71,6 +72,12 @@ const authService = {
       localStorage.removeItem("refreshToken");
       localStorage.removeItem("user");
     }
+  },
+
+  updateCurrentUser: async (payload: Partial<Pick<User, "preferred_language" | "full_name" | "phone_number" | "country" | "city" | "bio">>): Promise<User> => {
+    const user: User = await api.patch("auth/me/", payload);
+    localStorage.setItem("user", JSON.stringify(user));
+    return user;
   },
 
   getCurrentUser: async (): Promise<User> => {

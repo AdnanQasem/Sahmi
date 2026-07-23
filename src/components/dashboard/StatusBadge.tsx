@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import { useTranslation } from "react-i18next";
 
 type ProjectStatus =
   | "draft"
@@ -117,6 +118,7 @@ const statusConfig: Record<
 };
 
 const StatusBadge = ({ status }: StatusBadgeProps) => {
+  const { t } = useTranslation();
   const config = statusConfig[status] ?? {
     label: status.replace(/_/g, " "),
     className: "bg-muted text-muted-foreground",
@@ -144,7 +146,7 @@ const StatusBadge = ({ status }: StatusBadgeProps) => {
           transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
         />
       )}
-      <span className="relative">{config.label}</span>
+      <span className="relative">{t(`status.${status}`, { defaultValue: config.label })}</span>
     </motion.span>
   );
 };

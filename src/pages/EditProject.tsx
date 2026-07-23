@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
@@ -12,6 +13,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { ArrowLeft } from "lucide-react";
 
 const EditProject = () => {
+  const { t } = useTranslation();
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -82,7 +84,7 @@ const EditProject = () => {
   }
 
   if (projectQuery.isLoading) {
-    return <div className="container py-16 text-center text-sm text-muted-foreground">Loading project...</div>;
+    return <div className="container py-16 text-center text-sm text-muted-foreground">{t("common.loading")}</div>;
   }
 
   if (projectQuery.isError || !projectQuery.data) {
@@ -98,8 +100,8 @@ const EditProject = () => {
               <ArrowLeft className="mr-1 h-4 w-4" /> {user?.is_staff ? "Back to Admin" : "Back to Project"}
             </Link>
           </Button>
-          <h1 className="mb-2 text-2xl font-bold text-foreground">Edit Project</h1>
-          <p className="text-sm text-muted-foreground">Update the project details stored in the Django backend.</p>
+          <h1 className="mb-2 text-2xl font-bold text-foreground">{t("projects.editTitle")}</h1>
+          <p className="text-sm text-muted-foreground">{t("projects.formIntro")}</p>
         </div>
       </section>
 
@@ -113,12 +115,12 @@ const EditProject = () => {
         <div className="rounded-xl border border-border bg-card p-6 md:p-8">
           <div className="grid gap-5">
             <div>
-              <Label htmlFor="title">Project Title</Label>
+              <Label htmlFor="title">{t("projects.projectTitle")}</Label>
               <Input id="title" className="mt-1.5" value={form.title} onChange={(event) => updateForm("title", event.target.value)} />
               {fieldErrors.title && <p className="mt-1 text-xs text-destructive">{fieldErrors.title}</p>}
             </div>
             <div>
-              <Label htmlFor="category">Category</Label>
+              <Label htmlFor="category">{t("projects.category")}</Label>
               <select id="category" value={form.category} onChange={(event) => updateForm("category", event.target.value)} className="mt-1.5 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
                 {categoriesQuery.data?.map((category) => (
                   <option key={category.id} value={category.id}>{category.name}</option>
@@ -127,37 +129,37 @@ const EditProject = () => {
               {fieldErrors.category && <p className="mt-1 text-xs text-destructive">{fieldErrors.category}</p>}
             </div>
             <div>
-              <Label htmlFor="short_description">Short Description</Label>
+              <Label htmlFor="short_description">{t("projects.shortDescription")}</Label>
               <Textarea id="short_description" className="mt-1.5" rows={3} value={form.short_description} onChange={(event) => updateForm("short_description", event.target.value)} />
               {fieldErrors.short_description && <p className="mt-1 text-xs text-destructive">{fieldErrors.short_description}</p>}
             </div>
             <div>
-              <Label htmlFor="description">Full Story</Label>
+              <Label htmlFor="description">{t("projects.fullStory")}</Label>
               <Textarea id="description" className="mt-1.5" rows={8} value={form.description} onChange={(event) => updateForm("description", event.target.value)} />
               {fieldErrors.description && <p className="mt-1 text-xs text-destructive">{fieldErrors.description}</p>}
             </div>
             <div className="grid gap-5 md:grid-cols-2">
               <div>
-                <Label htmlFor="location">Location</Label>
+                <Label htmlFor="location">{t("projects.location")}</Label>
                 <Input id="location" className="mt-1.5" value={form.location} onChange={(event) => updateForm("location", event.target.value)} />
                 {fieldErrors.location && <p className="mt-1 text-xs text-destructive">{fieldErrors.location}</p>}
               </div>
               <div>
-                <Label htmlFor="goal_amount">Funding Goal</Label>
+                <Label htmlFor="goal_amount">{t("projects.goalAmount")}</Label>
                 <Input id="goal_amount" type="number" className="mt-1.5" value={form.goal_amount} onChange={(event) => updateForm("goal_amount", event.target.value)} />
                 {fieldErrors.goal_amount && <p className="mt-1 text-xs text-destructive">{fieldErrors.goal_amount}</p>}
               </div>
               <div>
-                <Label htmlFor="minimum_investment">Minimum Investment</Label>
+                <Label htmlFor="minimum_investment">{t("projects.minimumInvestment")}</Label>
                 <Input id="minimum_investment" type="number" className="mt-1.5" value={form.minimum_investment} onChange={(event) => updateForm("minimum_investment", event.target.value)} />
               </div>
               <div>
-                <Label htmlFor="expected_roi">Expected ROI (%)</Label>
+                <Label htmlFor="expected_roi">{t("projects.expectedRoi")} (%)</Label>
                 <Input id="expected_roi" type="number" className="mt-1.5" value={form.expected_roi} onChange={(event) => updateForm("expected_roi", event.target.value)} />
               </div>
             </div>
             <div>
-              <Label htmlFor="cover_image">Replace Cover Image</Label>
+              <Label htmlFor="cover_image">{t("projects.replaceCover")}</Label>
               <Input id="cover_image" type="file" accept="image/*" className="mt-1.5" onChange={(event) => updateForm("cover_image", event.target.files?.[0] ?? null)} />
             </div>
           </div>
@@ -165,7 +167,7 @@ const EditProject = () => {
 
         <div className="flex justify-end gap-3">
           <Button variant="outline" asChild>
-            <Link to={user?.is_staff ? adminReturnPath : "/dashboard/entrepreneur"}>Cancel</Link>
+            <Link to={user?.is_staff ? adminReturnPath : "/dashboard/entrepreneur"}>{t("common.cancel")}</Link>
           </Button>
           <Button type="submit" disabled={updateMutation.isPending}>
             {updateMutation.isPending ? "Saving..." : "Save Changes"}

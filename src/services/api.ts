@@ -1,4 +1,5 @@
 import axios, { InternalAxiosRequestConfig } from "axios";
+import i18n from "@/i18n";
 
 // Base API Configuration
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000/api/v1/";
@@ -20,6 +21,12 @@ const getErrorMessage = (error: unknown, fallback = "Something went wrong.") => 
   }
 
   const data = error.response?.data as any;
+  const code = data?.code ?? data?.error?.code;
+  if (typeof code === "string" && i18n.exists(`errors.codes.${code}`)) {
+    return i18n.t(`errors.codes.${code}`);
+  }
+  const statusKey: Record<number, string> = { 401: "unauthorized", 403: "forbidden", 404: "notFound" };
+  const translatedStatus = error.response?.status ? statusKey[error.response.status] : undefined;
   if (typeof data?.message === "string") {
     return data.message;
   }
@@ -41,6 +48,8 @@ const getErrorMessage = (error: unknown, fallback = "Something went wrong.") => 
       return first;
     }
   }
+  if (translatedStatus) return i18n.t(`errors.${translatedStatus}`);
+  if (!error.response) return i18n.t("errors.network");
   return fallback;
 };
 
@@ -50,6 +59,12 @@ const getFieldErrors = (error: unknown): Record<string, string> => {
   }
 
   const data = error.response?.data as any;
+  const code = data?.code ?? data?.error?.code;
+  if (typeof code === "string" && i18n.exists(`errors.codes.${code}`)) {
+    return i18n.t(`errors.codes.${code}`);
+  }
+  const statusKey: Record<number, string> = { 401: "unauthorized", 403: "forbidden", 404: "notFound" };
+  const translatedStatus = error.response?.status ? statusKey[error.response.status] : undefined;
   const source = data?.error && typeof data.error === "object" ? data.error : data;
   if (!source || typeof source !== "object") {
     return {};

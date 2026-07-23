@@ -2,6 +2,8 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import authService, { User } from "@/services/authService";
 import { getErrorMessage } from "@/services/api";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
+import { changeLanguage } from "@/i18n";
 
 interface AuthContextType {
   user: User | null;
@@ -15,6 +17,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
+  const { t } = useTranslation();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -24,6 +27,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (token) {
         try {
           const userData = await authService.getCurrentUser();
+          await changeLanguage(userData.preferred_language);
           setUser(userData);
         } catch (error) {
           console.error("Auth initialization failed:", error);
@@ -39,10 +43,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const login = async (email: string, password: string) => {
     try {
       const data = await authService.login(email, password);
+      await changeLanguage(data.preferred_language);
       setUser(data);
-      toast.success("Welcome back.");
+      toast.success(t("auth.welcomeBack"));
     } catch (error: any) {
-      const message = getErrorMessage(error, "Invalid credentials. Please try again.");
+      const message = getErrorMessage(error, t("auth.invalidCredentials"));
       toast.error(message);
       throw error;
     }
@@ -51,9 +56,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const register = async (data: any) => {
     try {
       await authService.register(data);
-      toast.success("Account created successfully! Please sign in.");
+      toast.success(t("auth.registrationSuccess"));
     } catch (error: any) {
-      const message = getErrorMessage(error, "Registration failed. Please check your details.");
+      const message = getErrorMessage(error, t("auth.registrationFailed"));
       toast.error(message);
       throw error;
     }
@@ -64,7 +69,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       await authService.logout();
     } finally {
       setUser(null);
-      toast.info("Signed out successfully.");
+      toast.info(t("auth.signedOut"));
     }
   };
 

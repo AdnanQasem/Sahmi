@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+import { formatCurrency, formatDate } from "@/i18n/format";
 import { useState, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams, Link, Navigate, useNavigate } from "react-router-dom";
@@ -36,6 +38,7 @@ const toProjectCard = (project: Project) => ({
 });
 
 const ProjectDetails = () => {
+  const { t } = useTranslation();
   const { id } = useParams();
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
@@ -147,7 +150,7 @@ const ProjectDetails = () => {
             }, 5000);
 
             void refreshProjectData();
-            toast.success(`Investment of $${Number(payment.amount).toLocaleString()} by ${payment.investor_name} has been confirmed.`);
+            toast.success(`Investment of ${formatCurrency(Number(payment.amount))} by ${payment.investor_name} has been confirmed.`);
           }
         } catch (err) {
           console.error("Error parsing SSE event data", err);
@@ -227,10 +230,10 @@ const ProjectDetails = () => {
     return (
       <div className="container flex min-h-[60vh] flex-col items-center justify-center text-center">
         <AlertTriangle className="mb-4 h-10 w-10 text-destructive" />
-        <h1 className="mb-2 text-2xl font-bold text-foreground">Project not found</h1>
-        <p className="mb-4 text-sm text-muted-foreground">The project may be private, deleted, or unavailable.</p>
+        <h1 className="mb-2 text-2xl font-bold text-foreground">{t("projects.notFound")}</h1>
+        <p className="mb-4 text-sm text-muted-foreground">{t("projects.unavailable")}</p>
         <Button asChild>
-          <Link to="/projects">Back to Projects</Link>
+          <Link to="/projects">{t("projects.backToProjects")}</Link>
         </Button>
       </div>
     );
@@ -261,7 +264,7 @@ const ProjectDetails = () => {
       <div className="border-b border-border bg-card">
         <div className="container flex items-center gap-3 py-3">
           <Button variant="ghost" size="sm" asChild>
-            <Link to="/projects"><ArrowLeft className="mr-1 h-4 w-4" /> Back to Projects</Link>
+            <Link to="/projects"><ArrowLeft className="me-1 h-4 w-4 rtl-flip" /> {t("projects.backToProjects")}</Link>
           </Button>
         </div>
       </div>
@@ -280,18 +283,18 @@ const ProjectDetails = () => {
                   <CheckCircle className="h-3 w-3" /> Verified
                 </Badge>
               )}
-              <Badge variant="outline">{project.status}</Badge>
+              <Badge variant="outline">{t(`status.${project.status}`, { defaultValue: project.status })}</Badge>
             </div>
             <h1 className="mb-2 text-3xl font-bold text-foreground">{project.title}</h1>
             <p className="mb-6 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-              <span>by <strong className="text-foreground">{founder}</strong></span>
+              <span>{t("projects.by", { name: "" })} <strong className="text-foreground">{founder}</strong></span>
               <span>|</span>
               <span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5" /> {project.location}</span>
             </p>
             {canManageProject && (
               <div className="mb-6 flex flex-wrap gap-3">
                 <Button variant="outline" size="sm" asChild>
-                  <Link to={`/projects/${project.slug}/edit`}>Edit Project</Link>
+                  <Link to={`/projects/${project.slug}/edit`}>{t("common.edit")}</Link>
                 </Button>
                 <Button
                   variant="destructive"
@@ -323,7 +326,7 @@ const ProjectDetails = () => {
 
               <TabsContent value="overview" className="space-y-6">
                 <div>
-                  <h3 className="mb-3 text-lg font-semibold text-foreground">About This Project</h3>
+                  <h3 className="mb-3 text-lg font-semibold text-foreground">{t("projects.overview")}</h3>
                   <p className="whitespace-pre-line leading-relaxed text-muted-foreground">{project.description}</p>
                 </div>
                 <div className="rounded-xl border border-border bg-card p-5">
@@ -331,9 +334,9 @@ const ProjectDetails = () => {
                     <FileText className="h-4 w-4 text-primary" /> Transparency Report
                   </h4>
                   <ul className="space-y-2 text-sm text-muted-foreground">
-                    <li className="flex items-start gap-2"><CheckCircle className="mt-0.5 h-4 w-4 text-success" /> Project status: {project.status}</li>
+                    <li className="flex items-start gap-2"><CheckCircle className="mt-0.5 h-4 w-4 text-success" /> {t("common.status")}: {t(`status.${project.status}`, { defaultValue: project.status })}</li>
                     <li className="flex items-start gap-2"><CheckCircle className="mt-0.5 h-4 w-4 text-success" /> Verification: {project.is_verified ? "Verified by Sahmi team" : "Pending review"}</li>
-                    <li className="flex items-start gap-2"><CheckCircle className="mt-0.5 h-4 w-4 text-success" /> Minimum investment: ${Number(project.minimum_investment).toLocaleString()}</li>
+                    <li className="flex items-start gap-2"><CheckCircle className="mt-0.5 h-4 w-4 text-success" /> Minimum investment: {formatCurrency(Number(project.minimum_investment))}</li>
                     <li className="flex items-start gap-2"><CheckCircle className="mt-0.5 h-4 w-4 text-success" /> Expected ROI: {Number(project.expected_roi).toFixed(2)}%</li>
                   </ul>
                 </div>
@@ -345,25 +348,25 @@ const ProjectDetails = () => {
 
               <TabsContent value="funding-plan">
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-foreground">Funding Details</h3>
+                  <h3 className="text-lg font-semibold text-foreground">{t("projects.fundingProgress")}</h3>
                   <div>
                     <div className="mb-1 flex justify-between text-sm">
-                      <span className="text-foreground">Funding progress</span>
+                      <span className="text-foreground">{t("projects.fundingProgress")}</span>
                       <span className="text-muted-foreground">{percent}%</span>
                     </div>
                     <Progress value={percent} className="h-2" />
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    Goal: ${Number(project.goal_amount).toLocaleString()} | Minimum investment: ${Number(project.minimum_investment).toLocaleString()} | Campaign duration: {project.funding_period_days} days
+                    Goal: {formatCurrency(Number(project.goal_amount))} | Minimum investment: {formatCurrency(Number(project.minimum_investment))} | Campaign duration: {project.funding_period_days} days
                   </p>
                 </div>
               </TabsContent>
 
               <TabsContent value="recent-payments" className="space-y-4">
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-foreground">Recent Payments & Backers</h3>
+                  <h3 className="text-lg font-semibold text-foreground">{t("projects.recentBackers")}</h3>
                   {paymentsQuery.isLoading ? (
-                    <div className="text-sm text-muted-foreground">Loading payments...</div>
+                    <div className="text-sm text-muted-foreground">{t("projects.loadingPayments")}</div>
                   ) : !paymentsQuery.data || paymentsQuery.data.length === 0 ? (
                     <div className="rounded-lg border border-border bg-card p-4 text-sm text-muted-foreground">
                       No confirmed payments yet. Be the first to back this project!
@@ -388,15 +391,15 @@ const ProjectDetails = () => {
                               <div>
                                 <div className="font-semibold text-foreground">{payment.investor_name}</div>
                                 <div className="text-xs text-muted-foreground flex items-center gap-1.5">
-                                  <span>{new Date(payment.date).toLocaleDateString()}</span>
+                                  <span>{formatDate(payment.date, { dateStyle: "medium" })}</span>
                                   <span>•</span>
-                                  <span className="capitalize">{payment.payment_method.replace("_", " ")}</span>
+                                  <span className="capitalize">{t(`payment.${payment.payment_method}`, { defaultValue: payment.payment_method })}</span>
                                 </div>
                               </div>
                             </div>
                             <div className="text-right">
-                              <div className="font-bold text-primary text-base">${Number(payment.amount).toLocaleString()}</div>
-                              <div className="text-xs text-success font-medium">Confirmed</div>
+                              <div className="font-bold text-primary text-base">{formatCurrency(Number(payment.amount))}</div>
+                              <div className="text-xs text-success font-medium">{t("status.confirmed")}</div>
                             </div>
                           </div>
                         );
@@ -419,7 +422,7 @@ const ProjectDetails = () => {
                   </div>
                   <div>
                     <h4 className="font-semibold text-foreground">{founder}</h4>
-                    <p className="text-sm text-muted-foreground">Project Founder</p>
+                    <p className="text-sm text-muted-foreground">{t("projects.founderLabel")}</p>
                     <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
                       {project.entrepreneur?.email}
                     </p>
@@ -440,21 +443,21 @@ const ProjectDetails = () => {
               <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
                 {project.status === "active" ? (
                   <>
-                    <div className="mb-1 text-3xl font-bold text-primary">${Number(project.funded_amount).toLocaleString()}</div>
-                    <div className="mb-4 text-sm text-muted-foreground">raised of ${Number(project.goal_amount).toLocaleString()} goal</div>
+                    <div className="mb-1 text-3xl font-bold text-primary">{formatCurrency(Number(project.funded_amount))}</div>
+                    <div className="mb-4 text-sm text-muted-foreground">raised of {formatCurrency(Number(project.goal_amount))} goal</div>
                     <Progress value={percent} className="mb-4 h-3" />
                     <div className="mb-6 grid grid-cols-3 gap-3 text-center text-sm">
                       <div>
                         <div className="font-bold text-foreground">{percent}%</div>
-                        <div className="text-xs text-muted-foreground">Funded</div>
+                        <div className="text-xs text-muted-foreground">{t("projects.funded")}</div>
                       </div>
                       <div>
                         <div className="font-bold text-foreground">{project.investor_count}</div>
-                        <div className="text-xs text-muted-foreground">Investors</div>
+                        <div className="text-xs text-muted-foreground">{t("projects.investors")}</div>
                       </div>
                       <div>
                         <div className="font-bold text-foreground">{project.days_left ?? 0}</div>
-                        <div className="text-xs text-muted-foreground">Days Left</div>
+                        <div className="text-xs text-muted-foreground">{t("projects.daysLeft")}</div>
                       </div>
                     </div>
                     <form className="space-y-3" onSubmit={handleInvest}>
@@ -464,7 +467,7 @@ const ProjectDetails = () => {
                         step="1"
                         value={amount}
                         onChange={(event) => setAmount(event.target.value)}
-                        placeholder={`Minimum $${Number(project.minimum_investment).toLocaleString()}`}
+                        placeholder={`Minimum ${formatCurrency(Number(project.minimum_investment))}`}
                         required
                       />
                       {fieldErrors.amount && <p className="text-xs text-destructive">{fieldErrors.amount}</p>}
@@ -475,11 +478,11 @@ const ProjectDetails = () => {
                     {showLoginPrompt && (
                       <Alert className="mt-4 border-primary/20 bg-gradient-to-br from-primary/20 via-primary/10 to-transparent text-foreground shadow-sm [&>svg]:text-primary">
                         <AlertTriangle className="h-4 w-4" />
-                        <AlertTitle className="text-primary">Login required</AlertTitle>
+                        <AlertTitle className="text-primary">{t("errors.unauthorized")}</AlertTitle>
                         <AlertDescription className="space-y-3">
-                          <p>Please log in before contributing.</p>
+                          <p>{t("errors.unauthorized")}</p>
                           <Button size="sm" className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground hover:from-primary hover:to-primary shadow-sm shadow-primary/20" asChild>
-                            <Link to="/login">Log in to contribute</Link>
+                            <Link to="/login">{t("projects.loginToInvest")}</Link>
                           </Button>
                         </AlertDescription>
                       </Alert>
@@ -492,13 +495,13 @@ const ProjectDetails = () => {
                         <Clock className="h-8 w-8 text-primary" />
                       </div>
                     </div>
-                    <h3 className="mb-2 text-lg font-semibold text-foreground">Coming Soon</h3>
-                    <p className="mb-4 text-sm text-muted-foreground">This project is preparing to launch and will be available for contributions shortly.</p>
+                    <h3 className="mb-2 text-lg font-semibold text-foreground">{t("projects.comingSoon")}</h3>
+                    <p className="mb-4 text-sm text-muted-foreground">{t("projects.comingSoonText")}</p>
                     <div className="rounded-lg bg-muted/50 p-4 text-sm">
-                      <p className="mb-1 font-medium text-foreground">Funding Goal</p>
-                      <p className="text-2xl font-bold text-primary">${Number(project.goal_amount).toLocaleString()}</p>
+                      <p className="mb-1 font-medium text-foreground">{t("projects.goalAmount")}</p>
+                      <p className="text-2xl font-bold text-primary">{formatCurrency(Number(project.goal_amount))}</p>
                     </div>
-                    <p className="mt-4 text-xs text-muted-foreground">You'll be able to contribute once the project becomes active.</p>
+                    <p className="mt-4 text-xs text-muted-foreground">{t("projects.activeContribution")}</p>
                   </div>
                 )}
                 <Button size="lg" variant="outline" className="mt-4 w-full" onClick={() => navigator.clipboard?.writeText(window.location.href)}>
@@ -507,11 +510,11 @@ const ProjectDetails = () => {
               </div>
 
               <div className="rounded-xl border border-border bg-card p-5">
-                <h4 className="mb-3 text-sm font-semibold text-foreground">Trust & Safety</h4>
+                <h4 className="mb-3 text-sm font-semibold text-foreground">{t("projects.trustSafety")}</h4>
                 <ul className="space-y-2 text-xs text-muted-foreground">
-                  <li className="flex items-center gap-2"><CheckCircle className="h-3.5 w-3.5 text-success" /> Backend-verified project data</li>
-                  <li className="flex items-center gap-2"><CheckCircle className="h-3.5 w-3.5 text-success" /> Authenticated investment requests</li>
-                  <li className="flex items-center gap-2"><CheckCircle className="h-3.5 w-3.5 text-success" /> Transparent funding totals</li>
+                  <li className="flex items-center gap-2"><CheckCircle className="h-3.5 w-3.5 text-success" /> {t("projects.verifiedData")}</li>
+                  <li className="flex items-center gap-2"><CheckCircle className="h-3.5 w-3.5 text-success" /> {t("projects.authenticatedRequests")}</li>
+                  <li className="flex items-center gap-2"><CheckCircle className="h-3.5 w-3.5 text-success" /> {t("projects.transparentTotals")}</li>
                 </ul>
               </div>
             </div>
@@ -520,7 +523,7 @@ const ProjectDetails = () => {
 
         {related.length > 0 && (
           <section className="mt-16 border-t border-border pt-12">
-            <h2 className="mb-6 text-2xl font-bold text-foreground">Related Projects</h2>
+            <h2 className="mb-6 text-2xl font-bold text-foreground">{t("home.featured")}</h2>
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {related.map((item) => (
                 <ProjectCard key={item.id} project={item} />

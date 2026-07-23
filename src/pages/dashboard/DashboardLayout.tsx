@@ -7,6 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import SahmiLogo from "@/components/SahmiLogo";
 import { useAuth } from "@/hooks/useAuth";
+import { useTranslation } from "react-i18next";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
+import { formatDate } from "@/i18n/format";
+import { translateNotificationType } from "@/i18n/labels";
 import {
   LayoutDashboard,
   Bell,
@@ -152,12 +156,21 @@ const navItems: NavItem[] = [
   },
 ];
 
+const navLabelKeys: Record<string, string> = {
+  Overview: "dashboard.overview", Users: "dashboard.users", Projects: "nav.projects",
+  Categories: "projects.category", Investments: "dashboard.myInvestments", Milestones: "settings.milestones",
+  Repayments: "transactions.title", "Watched Projects": "dashboard.watched", Transactions: "dashboard.transactions",
+  Project: "dashboard.project", Analytics: "dashboard.analytics", Investors: "dashboard.investors",
+  Messages: "dashboard.messages", Settings: "dashboard.settings",
+};
 interface DashboardLayoutProps {
   children: ReactNode;
   roleBase: string; // e.g. "/dashboard/investor"
 }
 
 const DashboardLayout = ({ children, roleBase }: DashboardLayoutProps) => {
+  const { t, i18n } = useTranslation();
+  const isRtl = i18n.resolvedLanguage === "ar";
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -175,8 +188,8 @@ const DashboardLayout = ({ children, roleBase }: DashboardLayoutProps) => {
     (item) => role && item.roles.includes(role)
   );
   const visibleNotifications: RecentNotification[] = (notificationsQuery.data?.results ?? []).map((notification) => ({
-    id: notification.id, title: notification.title, description: notification.body,
-    time: new Date(notification.created_at).toLocaleString(), icon: Info, tone: "info",
+    id: notification.id, title: translateNotificationType(t, notification.notification_type), description: notification.body,
+    time: formatDate(notification.created_at, { dateStyle: "medium", timeStyle: "short" }, isRtl ? "ar" : "en"), icon: Info, tone: "info",
     unread: !notification.read_at, roles: role ? [role] : [],
   }));
   const unreadCount = unreadQuery.data?.unread_count ?? visibleNotifications.filter((notification) => notification.unread).length;
@@ -214,12 +227,12 @@ const DashboardLayout = ({ children, roleBase }: DashboardLayoutProps) => {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-foreground truncate text-sm">
-                  {user?.full_name || "User"}
+                  {user?.full_name || t("common.user", { defaultValue: "User" })}
                 </p>
                 <div className="flex items-center gap-1.5 mt-0.5">
                   <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
                   <span className="text-xs font-medium text-primary capitalize">
-                    {role === "entrepreneur" ? "Project Owner" : role}
+                    {role ? t(`dashboard.${role}`) : ""}
                   </span>
                 </div>
               </div>
@@ -280,7 +293,7 @@ const DashboardLayout = ({ children, roleBase }: DashboardLayoutProps) => {
               key={item.href}
               to={fullHref}
               onClick={handleClick}
-              title={collapsed ? item.label : undefined}
+              title={collapsed ? t(navLabelKeys[item.label], { defaultValue: item.label }) : undefined}
               className={`group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 cursor-pointer ${isActive
                   ? "bg-primary/10 text-primary"
                   : "text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -290,7 +303,7 @@ const DashboardLayout = ({ children, roleBase }: DashboardLayoutProps) => {
                 className={`h-5 w-5 shrink-0 transition-colors ${isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
                   }`}
               />
-              {!collapsed && <span>{item.label}</span>}
+              {!collapsed && <span>{t(navLabelKeys[item.label], { defaultValue: item.label })}</span>}
             </Link>
           );
         })}
@@ -302,19 +315,19 @@ const DashboardLayout = ({ children, roleBase }: DashboardLayoutProps) => {
           to="/"
           className={`group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-all duration-200 cursor-pointer ${collapsed ? "justify-center" : ""
             }`}
-          title={collapsed ? "Go to website" : undefined}
+          title={collapsed ? t("dashboard.goToWebsite") : undefined}
         >
           <ExternalLink className="h-4 w-4 shrink-0" />
-          {!collapsed && <span>Go to Website</span>}
+          {!collapsed && <span>{t("dashboard.goToWebsite")}</span>}
         </Link>
         <button
           onClick={handleLogout}
           className={`group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-destructive/8 hover:text-destructive transition-all duration-200 cursor-pointer ${collapsed ? "justify-center" : ""
             }`}
-          title={collapsed ? "Log out" : undefined}
+          title={collapsed ? t("nav.logout") : undefined}
         >
           <LogOut className="h-4 w-4 shrink-0" />
-          {!collapsed && <span>Log Out</span>}
+          {!collapsed && <span>{t("nav.logout")}</span>}
         </button>
       </div>
     </div>
@@ -331,12 +344,9 @@ const DashboardLayout = ({ children, roleBase }: DashboardLayoutProps) => {
         {/* Collapse toggle */}
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="absolute left-0 top-20 translate-x-[calc(100%+1px)] z-20 hidden lg:flex h-6 w-6 items-center justify-center rounded-full border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted transition-all cursor-pointer shadow-sm"
-          style={{
-            left: collapsed ? "68px" : "240px",
-            position: "fixed",
-          }}
-          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          className="absolute top-20 z-20 hidden lg:flex h-6 w-6 items-center justify-center rounded-full border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted transition-all cursor-pointer shadow-sm"
+          style={{ [isRtl ? "right" : "left"]: collapsed ? "68px" : "240px", position: "fixed", transform: `translateX(${isRtl ? "50%" : "-50%"})` }}
+          aria-label={collapsed ? t("common.expand", { defaultValue: "Expand sidebar" }) : t("common.collapse", { defaultValue: "Collapse sidebar" })}
         >
           {collapsed ? (
             <ChevronRight className="h-3.5 w-3.5" />
@@ -359,15 +369,15 @@ const DashboardLayout = ({ children, roleBase }: DashboardLayoutProps) => {
               onClick={() => setSidebarOpen(false)}
             />
             <motion.aside
-              initial={{ x: -280 }}
+              initial={{ x: isRtl ? 280 : -280 }}
               animate={{ x: 0 }}
-              exit={{ x: -280 }}
+              exit={{ x: isRtl ? 280 : -280 }}
               transition={{ type: "spring", damping: 30, stiffness: 300 }}
-              className="fixed left-0 top-0 z-50 h-full w-72 border-r border-border bg-card shadow-xl lg:hidden"
+              className="fixed start-0 top-0 z-50 h-full w-72 border-r border-border bg-card shadow-xl lg:hidden"
             >
               <button
                 onClick={() => setSidebarOpen(false)}
-                className="absolute right-3 top-3 rounded-lg p-2 text-muted-foreground hover:bg-muted cursor-pointer"
+                className="absolute end-3 top-3 rounded-lg p-2 text-muted-foreground hover:bg-muted cursor-pointer"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -385,33 +395,29 @@ const DashboardLayout = ({ children, roleBase }: DashboardLayoutProps) => {
           <button
             onClick={() => setSidebarOpen(true)}
             className="rounded-lg p-2 text-muted-foreground hover:bg-muted lg:hidden cursor-pointer"
-            aria-label="Open menu"
+            aria-label={t("nav.menu")}
           >
             <Menu className="h-5 w-5" />
           </button>
 
           {/* Page greeting (desktop) */}
           <div className="hidden lg:block">
-            <p className="text-sm font-medium text-foreground">
-              Welcome back,{" "}
-              <span className="text-primary">
-                {user?.full_name?.split(" ")[0] || "User"}
-              </span>
-            </p>
+            <p className="text-sm font-medium text-foreground">{t("dashboard.welcome", { name: user?.full_name?.split(" ")[0] || "" })}</p>
           </div>
 
           {/* Right side actions */}
-          <div className="flex items-center gap-3 ml-auto">
+          <div className="ms-auto flex items-center gap-3">
+            <LanguageSwitcher compact />
             {/* Notifications */}
             <Popover>
               <PopoverTrigger asChild>
                 <button
                   className="relative flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
-                  aria-label={`Notifications${unreadCount ? `, ${unreadCount} unread` : ""}`}
+                  aria-label={t("notifications.title") + (unreadCount ? `, ${t("notifications.new", { count: unreadCount })}` : "")}
                 >
                   <Bell className="h-4 w-4" />
                   {unreadCount > 0 && (
-                    <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
+                    <span className="absolute -end-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
                       {unreadCount}
                     </span>
                   )}
@@ -424,12 +430,12 @@ const DashboardLayout = ({ children, roleBase }: DashboardLayoutProps) => {
               >
                 <div className="flex items-start justify-between gap-3 border-b border-border px-4 py-3">
                   <div>
-                    <h2 className="text-sm font-semibold text-foreground">Notifications</h2>
-                    <p className="mt-0.5 text-xs text-muted-foreground">Recent activity for your account</p>
+                    <h2 className="text-sm font-semibold text-foreground">{t("notifications.title")}</h2>
+                    <p className="mt-0.5 text-xs text-muted-foreground">{t("notifications.subtitle")}</p>
                   </div>
                   {unreadCount > 0 && (
                     <button type="button" onClick={() => markAllRead.mutate()} disabled={markAllRead.isPending} className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
-                      Mark all read
+                      {t("notifications.markAll")}
                     </button>
                   )}
                 </div>
@@ -457,7 +463,7 @@ const DashboardLayout = ({ children, roleBase }: DashboardLayoutProps) => {
                                 {notification.title}
                               </p>
                               {notification.unread && (
-                                <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-primary" aria-label="Unread" />
+                                <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-primary" aria-label={t("messages.unread", { count: 1 })} />
                               )}
                             </div>
                             <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
@@ -475,8 +481,8 @@ const DashboardLayout = ({ children, roleBase }: DashboardLayoutProps) => {
                       <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
                         <Bell className="h-4 w-4" />
                       </div>
-                      <p className="text-sm font-medium text-foreground">No notifications yet</p>
-                      <p className="mt-1 text-xs text-muted-foreground">Recent updates will appear here.</p>
+                      <p className="text-sm font-medium text-foreground">{t("notifications.empty")}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">{t("notifications.emptyText")}</p>
                     </div>
                   )}
                 </div>
@@ -484,7 +490,7 @@ const DashboardLayout = ({ children, roleBase }: DashboardLayoutProps) => {
                 {role !== "admin" && (
                   <div className="border-t border-border p-2">
                     <Button variant="ghost" size="sm" className="w-full cursor-pointer justify-center" asChild>
-                      <Link to={`${roleBase}/settings`}>Notification settings</Link>
+                      <Link to={`${roleBase}/settings`}>{t("notifications.settings")}</Link>
                     </Button>
                   </div>
                 )}
@@ -501,7 +507,7 @@ const DashboardLayout = ({ children, roleBase }: DashboardLayoutProps) => {
                   {user?.full_name || user?.email}
                 </p>
                 <p className="text-xs capitalize text-muted-foreground">
-                  {role === "entrepreneur" ? "Project Owner" : role}
+                  {role ? t(`dashboard.${role}`) : ""}
                 </p>
               </div>
             </div>

@@ -2,7 +2,9 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, Users, Clock } from "lucide-react";
+import { Users, Clock } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { formatCurrency, formatNumber, formatPercent } from "@/i18n/format";
 
 export interface ProjectData {
   id: string;
@@ -20,6 +22,7 @@ export interface ProjectData {
 }
 
 const ProjectCard = ({ project }: { project: ProjectData }) => {
+  const { t } = useTranslation();
   const percentFunded = Math.min(Math.round((project.raised / project.goal) * 100), 100);
 
   return (
@@ -34,7 +37,7 @@ const ProjectCard = ({ project }: { project: ProjectData }) => {
           className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
           loading="lazy"
         />
-        <div className="absolute left-3 top-3">
+        <div className="absolute start-3 top-3">
           <Badge variant="muted" className="bg-card/90 text-foreground backdrop-blur-sm">
             {project.category}
           </Badge>
@@ -45,7 +48,7 @@ const ProjectCard = ({ project }: { project: ProjectData }) => {
         <h3 className="mb-1 line-clamp-1 text-lg font-semibold text-foreground">
           {project.title}
         </h3>
-        <p className="mb-1 text-xs text-muted-foreground">by {project.founder}</p>
+        <p className="mb-1 text-xs text-muted-foreground">{t("projects.by", { name: project.founder })}</p>
         <p className="mb-4 line-clamp-2 text-sm leading-relaxed text-muted-foreground">
           {project.description}
         </p>
@@ -54,11 +57,11 @@ const ProjectCard = ({ project }: { project: ProjectData }) => {
           <div className="mb-4 pt-1">
             <div className="mb-2 flex items-end justify-between">
               <div className="flex items-baseline gap-1.5">
-                <span className="text-lg font-bold leading-none tracking-tight text-foreground">${project.raised.toLocaleString()}</span>
-                <span className="text-xs font-medium text-muted-foreground">of ${project.goal.toLocaleString()}</span>
+                <span className="text-lg font-bold leading-none tracking-tight text-foreground">{formatCurrency(project.raised)}</span>
+                <span className="text-xs font-medium text-muted-foreground">{t("projects.ofGoal", { goal: formatCurrency(project.goal) })}</span>
               </div>
               <span className="text-sm font-bold text-primary">
-                {percentFunded}%
+                {formatPercent(percentFunded)}
               </span>
             </div>
             
@@ -66,7 +69,7 @@ const ProjectCard = ({ project }: { project: ProjectData }) => {
             <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800/50">
               <div 
                 className="h-full rounded-full bg-primary transition-all duration-500 ease-out" 
-                style={{ width: `${percentFunded}%` }}
+                style={{ width: `${formatPercent(percentFunded)}` }}
               />
             </div>
           </div>
@@ -74,16 +77,16 @@ const ProjectCard = ({ project }: { project: ProjectData }) => {
           <div className="mb-4 flex items-center justify-between text-xs font-medium text-muted-foreground">
             <span className="flex items-center gap-1">
               <Users className="h-3.5 w-3.5" />
-              {project.supporters} supporters
+              {t("projects.supporters", { count: formatNumber(project.supporters) })}
             </span>
             <span className="flex items-center gap-1">
               <Clock className="h-3.5 w-3.5" />
-              {project.daysLeft} days left
+              {formatNumber(project.daysLeft)} {t("projects.daysLeft")}
             </span>
           </div>
 
           <Button size="sm" className="w-full" asChild>
-            <Link to={`/projects/${project.slug ?? project.id}`}>View Project</Link>
+            <Link to={`/projects/${project.slug ?? project.id}`}>{t("projects.viewProject")}</Link>
           </Button>
         </div>
       </div>

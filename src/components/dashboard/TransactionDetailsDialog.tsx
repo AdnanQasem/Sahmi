@@ -1,4 +1,6 @@
 import type { ElementType, ReactNode } from "react";
+import i18n from "@/i18n";
+import { formatCurrency, formatDate, formatNumber, formatPercent } from "@/i18n/format";
 import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -32,38 +34,19 @@ interface TransactionDetailsDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-export const currency = (value: number | string | null | undefined) => {
-  const amount = Number(value || 0);
-  return `$${amount.toLocaleString(undefined, {
-    minimumFractionDigits: amount % 1 === 0 ? 0 : 2,
-    maximumFractionDigits: 2,
-  })}`;
-};
+export const currency = (value: number | string | null | undefined) => formatCurrency(Number(value || 0));
+
 
 export const amountOf = (investment: Investment) => Number(investment.amount || 0);
 export const expectedOf = (investment: Investment) => Number(investment.expected_return || 0);
 export const actualOf = (investment: Investment) => Number(investment.actual_return || 0);
 
-export const formatDateTime = (value: string | null | undefined) => {
-  if (!value) return "Not available";
-  return new Intl.DateTimeFormat("en", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(new Date(value));
-};
+export const formatDateTime = (value: string | null | undefined) => value
+  ? formatDate(value, { dateStyle: "medium", timeStyle: "short" })
+  : i18n.t("common.empty");
 
-export const formatPaymentMethod = (value: Investment["payment_method"]) => {
-  const labels: Record<Investment["payment_method"], string> = {
-    card: "Card",
-    bank_transfer: "Bank transfer",
-    paypal: "PayPal",
-  };
-  return labels[value] ?? value;
-};
-
+export const formatPaymentMethod = (value: Investment["payment_method"]) =>
+  i18n.t(`payment.${value}`, { defaultValue: value });
 export const getProjectTitle = (investment: Investment) => investment.project_detail?.title ?? investment.project;
 
 const DetailItem = ({
@@ -127,7 +110,7 @@ const TransactionDetailsDialog = ({ investment, onOpenChange }: TransactionDetai
               <DetailItem icon={CalendarClock} label="Date and time" value={formatDateTime(investment.investment_date)} />
               <DetailItem icon={CreditCard} label="Payment method" value={formatPaymentMethod(investment.payment_method)} />
               <DetailItem icon={Hash} label="Transaction ID" value={investment.transaction_id || "Not provided"} />
-              <DetailItem icon={Package} label="Units" value={investment.quantity.toLocaleString()} />
+              <DetailItem icon={Package} label="Units" value={formatNumber(investment.quantity)} />
               <DetailItem icon={TrendingUp} label="Expected return" value={currency(expectedOf(investment))} />
               <DetailItem icon={Banknote} label="Actual return" value={currency(actualOf(investment))} />
               <DetailItem
@@ -141,7 +124,7 @@ const TransactionDetailsDialog = ({ investment, onOpenChange }: TransactionDetai
             <div className="grid gap-3 sm:grid-cols-2">
               <DetailItem icon={Briefcase} label="Project status" value={project?.status ? <StatusBadge status={project.status} /> : "Not available"} />
               <DetailItem icon={MapPin} label="Project location" value={project?.location || project?.location_governorate || "Not available"} />
-              <DetailItem icon={ReceiptText} label="Project ROI" value={project?.expected_roi ? `${Number(project.expected_roi).toLocaleString()}%` : "Not available"} />
+              <DetailItem icon={ReceiptText} label="Project ROI" value={project?.expected_roi ? formatPercent(Number(project.expected_roi)) : "Not available"} />
               <DetailItem icon={Banknote} label="Project funding goal" value={project?.goal_amount ? currency(project.goal_amount) : "Not available"} />
             </div>
 

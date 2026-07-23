@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useState, useRef } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
@@ -71,6 +72,7 @@ const testimonials = [
 ];
 
 const LoginPage = () => {
+  const { t } = useTranslation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -121,7 +123,7 @@ const LoginPage = () => {
         <motion.div variants={fadeInUp} className="mb-10">
           <Link to="/" className="inline-flex items-center gap-2 group">
             <SahmiLogo variant="icon" size="md" />
-            <span className="text-xl font-bold text-primary">Back to Home</span>
+            <span className="text-xl font-bold text-primary">{t("nav.home")}</span>
           </Link>
         </motion.div>
 
@@ -132,13 +134,13 @@ const LoginPage = () => {
               whileHover={{ scale: 1.05 }}
             >
               <Sparkles className="h-4 w-4 text-primary" />
-              <span className="text-xs font-medium text-primary">Welcome Back</span>
+              <span className="text-xs font-medium text-primary">{t("auth.loginTitle")}</span>
             </motion.div>
             <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-3">
-              Sign in to your account
+              {t("auth.loginTitle")}
             </h1>
             <p className="text-muted-foreground">
-              Enter your credentials to access your dashboard
+              {t("auth.loginSubtitle")}
             </p>
           </div>
 
@@ -153,15 +155,15 @@ const LoginPage = () => {
                 transition={{ delay: 0.3 }}
               >
                 <Label htmlFor="email" className="text-foreground font-medium">
-                  Email Address
+                  {t("auth.email")}
                 </Label>
                 <div className="relative mt-2">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                  <Mail className="absolute start-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                   <Input
                     id="email"
                     type="email"
                     placeholder="you@example.com"
-                    className="pl-10 h-12 rounded-xl border-border/60 focus:border-primary focus:ring-primary"
+                    className="ps-10 h-12 rounded-xl border-border/60 focus:border-primary focus:ring-primary"
                     value={email}
                     onChange={(event) => setEmail(event.target.value)}
                     autoComplete="email"
@@ -185,15 +187,15 @@ const LoginPage = () => {
                 transition={{ delay: 0.4 }}
               >
                 <Label htmlFor="password" className="text-foreground font-medium">
-                  Password
+                  {t("auth.password")}
                 </Label>
                 <div className="relative mt-2">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                  <Lock className="absolute start-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                   <Input
                     id="password"
                     type={showPassword ? "text" : "password"}
-                    placeholder="Enter your password"
-                    className="pl-10 pr-10 h-12 rounded-xl border-border/60 focus:border-primary focus:ring-primary"
+                    placeholder={t("auth.password")}
+                    className="ps-10 pe-10 h-12 rounded-xl border-border/60 focus:border-primary focus:ring-primary"
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
                     autoComplete="current-password"
@@ -202,7 +204,7 @@ const LoginPage = () => {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    className="absolute end-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                   >
                     {showPassword ? (
                       <EyeOff className="h-5 w-5" />
@@ -238,14 +240,14 @@ const LoginPage = () => {
                     htmlFor="remember"
                     className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
                   >
-                    Remember me
+                    {t("auth.remember", { defaultValue: "Remember me" })}
                   </label>
                 </div>
                 <Link
                   to="/forgot-password"
                   className="text-sm text-primary hover:text-primary/80 font-medium transition-colors"
                 >
-                  Forgot password?
+                  {t("auth.forgot")}
                 </Link>
               </motion.div>
 

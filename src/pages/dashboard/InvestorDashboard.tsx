@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+import { formatDate } from "@/i18n/format";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -47,7 +49,7 @@ import {
   Wallet,
 } from "lucide-react";
 
-const monthLabel = (value: string) => new Intl.DateTimeFormat("en", { month: "short" }).format(new Date(value));
+const monthLabel = (value: string) => formatDate(value, { month: "short" });
 
 const colors = [
   "hsl(174 78% 26%)",
@@ -95,6 +97,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 const InvestorDashboard = () => {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const [selectedTransaction, setSelectedTransaction] = useState<Investment | null>(null);
   const investmentsQuery = useQuery({
@@ -171,10 +174,10 @@ const InvestorDashboard = () => {
             </div>
             <div className="flex gap-2">
               <Button variant="outline" size="sm" asChild className="cursor-pointer">
-                <Link to="/projects"><Eye className="mr-1.5 h-4 w-4" /> Explore Projects</Link>
+                <Link to="/projects"><Eye className="mr-1.5 h-4 w-4" /> {t("home.browse")}</Link>
               </Button>
               <Button size="sm" asChild className="cursor-pointer">
-                <Link to="/projects">Invest Now <ArrowRight className="ml-1.5 h-4 w-4" /></Link>
+                <Link to="/projects">{t("projects.invest")} <ArrowRight className="ms-1.5 h-4 w-4 rtl-flip" /></Link>
               </Button>
             </div>
           </div>
@@ -244,7 +247,7 @@ const InvestorDashboard = () => {
                   </ResponsiveContainer>
                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                     <div className="text-center">
-                      <p className="text-xs text-muted-foreground">Total</p>
+                      <p className="text-xs text-muted-foreground">{t("dashboard.total")}</p>
                       <p className="text-lg font-bold text-foreground">100%</p>
                     </div>
                   </div>
@@ -274,7 +277,7 @@ const InvestorDashboard = () => {
                 </div>
               </div>
             ) : (
-              <EmptyState icon={BookMarked} title="No allocation yet" description="Make your first investment to see category allocation." ctaLabel="Explore Projects" ctaHref="/projects" />
+              <EmptyState icon={BookMarked} title="No allocation yet" description="Make your first investment to see category allocation." ctaLabel={t("home.browse")} ctaHref="/projects" />
             )}
           </div>
         </div>
@@ -285,7 +288,7 @@ const InvestorDashboard = () => {
           </div>
           {investments.length === 0 ? (
             <div className="p-6">
-              <EmptyState icon={Briefcase} title="No transactions yet" description="Start exploring verified Palestinian projects and make your first investment today." ctaLabel="Explore Projects" ctaHref="/projects" />
+              <EmptyState icon={Briefcase} title="No transactions yet" description="Start exploring verified Palestinian projects and make your first investment today." ctaLabel={t("home.browse")} ctaHref="/projects" />
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -362,7 +365,7 @@ const InvestorDashboard = () => {
                       </div>
                     </div>
                     <Button size="sm" variant="ghost" asChild className="h-8 text-xs text-primary hover:bg-primary/5">
-                      <Link to={`/projects/${project.slug}`}>View <ArrowRight className="ml-1 h-3 w-3" /></Link>
+                      <Link to={`/projects/${project.slug}`}>{t("common.view")} <ArrowRight className="ms-1 h-3 w-3 rtl-flip" /></Link>
                     </Button>
                   </div>
                   <FundingProgressBar raised={Number(project.funded_amount)} goal={Number(project.goal_amount)} size="sm" />
@@ -375,11 +378,11 @@ const InvestorDashboard = () => {
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="relative overflow-hidden rounded-2xl p-6 md:p-8" style={{ background: "linear-gradient(135deg, hsl(174 78% 26%), hsl(224 76% 48%))" }}>
           <div className="relative z-10 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h3 className="text-xl font-bold text-primary-foreground">Ready to grow your portfolio?</h3>
-              <p className="mt-1 text-sm text-primary-foreground/80">Discover verified Palestinian projects seeking investors like you.</p>
+              <h3 className="text-xl font-bold text-primary-foreground">{t("dashboard.portfolioCta")}</h3>
+              <p className="mt-1 text-sm text-primary-foreground/80">{t("dashboard.portfolioCtaText")}</p>
             </div>
             <Button size="sm" className="bg-primary-foreground text-primary hover:bg-primary-foreground/90 font-semibold" asChild>
-              <Link to="/projects">Explore Projects <ArrowRight className="ml-1.5 h-4 w-4" /></Link>
+              <Link to="/projects">{t("home.browse")} <ArrowRight className="ms-1.5 h-4 w-4 rtl-flip" /></Link>
             </Button>
           </div>
           <div className="absolute -right-12 -top-12 h-48 w-48 rounded-full bg-white/5" />

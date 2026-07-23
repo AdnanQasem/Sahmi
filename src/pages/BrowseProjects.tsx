@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import ProjectCard from "@/components/ProjectCard";
 import { Search, SlidersHorizontal } from "lucide-react";
 import projectsService, { Project } from "@/services/projectsService";
+import { useTranslation } from "react-i18next";
 
 const fallbackImage = "/placeholder.svg";
 
@@ -24,6 +25,7 @@ const toProjectCard = (project: Project) => ({
 });
 
 const BrowseProjects = () => {
+  const { t } = useTranslation();
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [sortBy, setSortBy] = useState("trending");
@@ -58,8 +60,8 @@ const BrowseProjects = () => {
       {/* Header */}
       <section className="border-b border-border bg-card py-10">
         <div className="container">
-          <h1 className="mb-2 text-3xl font-bold text-foreground">Explore Projects</h1>
-          <p className="text-muted-foreground">Discover verified projects creating real impact in Palestine.</p>
+          <h1 className="mb-2 text-3xl font-bold text-foreground">{t("projects.title")}</h1>
+          <p className="text-muted-foreground">{t("projects.subtitle")}</p>
         </div>
       </section>
 
@@ -67,12 +69,12 @@ const BrowseProjects = () => {
         {/* Search & Filters */}
         <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Search projects..."
+              placeholder={t("projects.searchPlaceholder")}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-10"
+              className="ps-10"
             />
           </div>
           <select
@@ -80,10 +82,10 @@ const BrowseProjects = () => {
             onChange={(e) => setSortBy(e.target.value)}
             className="h-10 rounded-lg border border-input bg-background px-3 text-sm text-foreground"
           >
-            <option value="trending">Trending</option>
-            <option value="newest">Newest</option>
-            <option value="most-funded">Most Funded</option>
-            <option value="ending-soon">Ending Soon</option>
+            <option value="trending">{t("projects.trending")}</option>
+            <option value="newest">{t("projects.newest")}</option>
+            <option value="most-funded">{t("projects.mostFunded")}</option>
+            <option value="ending-soon">{t("projects.endingSoon")}</option>
           </select>
         </div>
 
@@ -91,7 +93,7 @@ const BrowseProjects = () => {
         <div className="mb-8 flex flex-wrap gap-2">
           {categories.map((cat) => (
             <button
-              key={cat}
+              key={cat === "All" ? t("projects.allCategories") : cat}
               onClick={() => setSelectedCategory(cat === "All" ? "All" : categorySlugByName.get(cat) ?? cat)}
               className={`rounded-full px-4 py-2 text-sm font-medium transition-all ${
                 selectedCategorySlug === (cat === "All" ? "All" : categorySlugByName.get(cat))
@@ -99,7 +101,7 @@ const BrowseProjects = () => {
                   : "border border-border bg-card text-muted-foreground hover:border-primary hover:text-primary"
               }`}
             >
-              {cat}
+              {cat === "All" ? t("projects.allCategories") : cat}
             </button>
           ))}
         </div>
@@ -107,12 +109,12 @@ const BrowseProjects = () => {
         {/* Results */}
         {projectsQuery.isLoading ? (
           <div className="rounded-xl border border-border bg-card p-16 text-center text-sm text-muted-foreground">
-            Loading projects...
+            {t("projects.loading")}
           </div>
         ) : projectsQuery.isError ? (
           <div className="rounded-xl border border-border bg-card p-16 text-center">
-            <h3 className="mb-2 text-lg font-semibold text-foreground">Could not load projects</h3>
-            <p className="text-sm text-muted-foreground">Check the backend API and try again.</p>
+            <h3 className="mb-2 text-lg font-semibold text-foreground">{t("projects.loadError")}</h3>
+            <p className="text-sm text-muted-foreground">{t("errors.network")}</p>
             <Button variant="outline" className="mt-4" onClick={() => projectsQuery.refetch()}>
               Retry
             </Button>
@@ -126,8 +128,8 @@ const BrowseProjects = () => {
         ) : (
           <div className="rounded-xl border border-border bg-card p-16 text-center">
             <SlidersHorizontal className="mx-auto mb-4 h-10 w-10 text-muted-foreground" />
-            <h3 className="mb-2 text-lg font-semibold text-foreground">No projects found</h3>
-            <p className="text-sm text-muted-foreground">Try adjusting your search or filter criteria.</p>
+            <h3 className="mb-2 text-lg font-semibold text-foreground">{t("projects.noResults")}</h3>
+            <p className="text-sm text-muted-foreground">{t("projects.noResults")}</p>
             <Button variant="outline" className="mt-4" onClick={() => { setSearch(""); setSelectedCategory("All"); }}>
               Clear Filters
             </Button>

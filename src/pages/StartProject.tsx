@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
@@ -28,6 +29,7 @@ const initialForm: ProjectCreatePayload = {
 };
 
 const StartProject = () => {
+  const { t } = useTranslation();
   const [currentStep, setCurrentStep] = useState(0);
   const [form, setForm] = useState<ProjectCreatePayload>(initialForm);
   const [fundingBreakdown, setFundingBreakdown] = useState("");
@@ -110,8 +112,8 @@ const StartProject = () => {
     <div className="min-h-screen">
       <section className="border-b border-border bg-card py-8">
         <div className="container">
-          <h1 className="mb-2 text-2xl font-bold text-foreground">Start Your Project</h1>
-          <p className="text-sm text-muted-foreground">Share your vision with the world. It only takes a few minutes.</p>
+          <h1 className="mb-2 text-2xl font-bold text-foreground">{t("projects.startTitle")}</h1>
+          <p className="text-sm text-muted-foreground">{t("projects.formIntro")}</p>
         </div>
       </section>
 
@@ -145,19 +147,19 @@ const StartProject = () => {
         <div className="rounded-xl border border-border bg-card p-6 md:p-8">
           {currentStep === 0 && (
             <div className="space-y-5">
-              <h2 className="text-xl font-semibold text-foreground">Basic Information</h2>
-              <p className="text-sm text-muted-foreground">Tell us about your project fundamentals.</p>
+              <h2 className="text-xl font-semibold text-foreground">{t("projects.basicInfo")}</h2>
+              <p className="text-sm text-muted-foreground">{t("projects.fundamentalsHelp")}</p>
               <div className="space-y-4">
                 <div>
-                  <Label htmlFor="title">Project Title</Label>
+                  <Label htmlFor="title">{t("projects.projectTitle")}</Label>
                   <Input id="title" placeholder="e.g., Solar-Powered Water Purification" className="mt-1.5" value={form.title} onChange={(event) => updateForm("title", event.target.value)} />
-                  <p className="mt-1 text-xs text-muted-foreground">Choose a clear, descriptive title.</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{t("projects.titleHelp")}</p>
                   {fieldErrors.title && <p className="mt-1 text-xs text-destructive">{fieldErrors.title}</p>}
                 </div>
                 <div>
-                  <Label htmlFor="category">Category</Label>
+                  <Label htmlFor="category">{t("projects.category")}</Label>
                   <select id="category" value={form.category} onChange={(event) => updateForm("category", event.target.value)} className="mt-1.5 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
-                    <option value="">Select a category</option>
+                    <option value="">{t("projects.selectCategory")}</option>
                     {categoriesQuery.data?.map((category) => (
                       <option key={category.id} value={category.id}>{category.name}</option>
                     ))}
@@ -165,12 +167,12 @@ const StartProject = () => {
                   {fieldErrors.category && <p className="mt-1 text-xs text-destructive">{fieldErrors.category}</p>}
                 </div>
                 <div>
-                  <Label htmlFor="short_description">Short Description</Label>
+                  <Label htmlFor="short_description">{t("projects.shortDescription")}</Label>
                   <Textarea id="short_description" placeholder="A brief summary of your project (max 200 characters)" className="mt-1.5" rows={3} value={form.short_description} onChange={(event) => updateForm("short_description", event.target.value)} />
                   {fieldErrors.short_description && <p className="mt-1 text-xs text-destructive">{fieldErrors.short_description}</p>}
                 </div>
                 <div>
-                  <Label htmlFor="location">Location</Label>
+                  <Label htmlFor="location">{t("projects.location")}</Label>
                   <Input id="location" placeholder="e.g., Ramallah, West Bank" className="mt-1.5" value={form.location} onChange={(event) => updateForm("location", event.target.value)} />
                   {fieldErrors.location && <p className="mt-1 text-xs text-destructive">{fieldErrors.location}</p>}
                 </div>
@@ -180,17 +182,17 @@ const StartProject = () => {
 
           {currentStep === 1 && (
             <div className="space-y-5">
-              <h2 className="text-xl font-semibold text-foreground">Project Story</h2>
-              <p className="text-sm text-muted-foreground">Share the story behind your project. Why does it matter?</p>
+              <h2 className="text-xl font-semibold text-foreground">{t("projects.story")}</h2>
+              <p className="text-sm text-muted-foreground">{t("projects.storyHelp")}</p>
               <div className="space-y-4">
                 <div>
-                  <Label htmlFor="description">Full Story</Label>
+                  <Label htmlFor="description">{t("projects.fullStory")}</Label>
                   <Textarea id="description" placeholder="Tell supporters about your project, why it matters, and what impact it will create..." className="mt-1.5" rows={8} value={form.description} onChange={(event) => updateForm("description", event.target.value)} />
-                  <p className="mt-1 text-xs text-muted-foreground">Be genuine and detailed. Stories with clear impact tend to perform better.</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{t("projects.storyDetailHelp")}</p>
                   {fieldErrors.description && <p className="mt-1 text-xs text-destructive">{fieldErrors.description}</p>}
                 </div>
                 <div>
-                  <Label htmlFor="risks">Risks & Challenges</Label>
+                  <Label htmlFor="risks">{t("projects.risks")}</Label>
                   <Textarea id="risks" placeholder="What challenges might you face and how do you plan to address them?" className="mt-1.5" rows={4} value={risks} onChange={(event) => setRisks(event.target.value)} />
                 </div>
               </div>
@@ -199,33 +201,33 @@ const StartProject = () => {
 
           {currentStep === 2 && (
             <div className="space-y-5">
-              <h2 className="text-xl font-semibold text-foreground">Funding Goal</h2>
-              <p className="text-sm text-muted-foreground">Set a realistic and transparent funding target.</p>
+              <h2 className="text-xl font-semibold text-foreground">{t("projects.goalAmount")}</h2>
+              <p className="text-sm text-muted-foreground">{t("projects.fundingHelp")}</p>
               <div className="space-y-4">
                 <div>
-                  <Label htmlFor="goal_amount">Funding Goal (USD)</Label>
+                  <Label htmlFor="goal_amount">{t("projects.goalAmount")} ({t("common.currency")})</Label>
                   <Input id="goal_amount" type="number" placeholder="e.g., 25000" className="mt-1.5" value={form.goal_amount} onChange={(event) => updateForm("goal_amount", event.target.value)} />
-                  <p className="mt-1 text-xs text-muted-foreground">Set a clear, achievable amount.</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{t("projects.amountHelp")}</p>
                   {fieldErrors.goal_amount && <p className="mt-1 text-xs text-destructive">{fieldErrors.goal_amount}</p>}
                 </div>
                 <div>
-                  <Label htmlFor="minimum_investment">Minimum Investment (USD)</Label>
+                  <Label htmlFor="minimum_investment">{t("projects.minimumInvestment")} ({t("common.currency")})</Label>
                   <Input id="minimum_investment" type="number" className="mt-1.5" value={form.minimum_investment} onChange={(event) => updateForm("minimum_investment", event.target.value)} />
                   {fieldErrors.minimum_investment && <p className="mt-1 text-xs text-destructive">{fieldErrors.minimum_investment}</p>}
                 </div>
                 <div>
-                  <Label htmlFor="expected_roi">Expected ROI (%)</Label>
+                  <Label htmlFor="expected_roi">{t("projects.expectedRoi")} (%)</Label>
                   <Input id="expected_roi" type="number" className="mt-1.5" value={form.expected_roi} onChange={(event) => updateForm("expected_roi", event.target.value)} />
                   {fieldErrors.expected_roi && <p className="mt-1 text-xs text-destructive">{fieldErrors.expected_roi}</p>}
                 </div>
                 <div>
-                  <Label htmlFor="funding_period_days">Campaign Duration (Days)</Label>
+                  <Label htmlFor="funding_period_days">{t("projects.duration")}</Label>
                   <Input id="funding_period_days" type="number" placeholder="e.g., 30" className="mt-1.5" value={form.funding_period_days} onChange={(event) => updateForm("funding_period_days", event.target.value)} />
-                  <p className="mt-1 text-xs text-muted-foreground">Recommended: 30-60 days.</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{t("projects.durationHelp")}</p>
                   {fieldErrors.funding_period_days && <p className="mt-1 text-xs text-destructive">{fieldErrors.funding_period_days}</p>}
                 </div>
                 <div>
-                  <Label htmlFor="funding_breakdown">Funding Breakdown</Label>
+                  <Label htmlFor="funding_breakdown">{t("projects.breakdown")}</Label>
                   <Textarea id="funding_breakdown" placeholder="How will you allocate the funds? Be specific." className="mt-1.5" rows={4} value={fundingBreakdown} onChange={(event) => setFundingBreakdown(event.target.value)} />
                 </div>
               </div>
@@ -234,17 +236,17 @@ const StartProject = () => {
 
           {currentStep === 3 && (
             <div className="space-y-5">
-              <h2 className="text-xl font-semibold text-foreground">Media & Documents</h2>
-              <p className="text-sm text-muted-foreground">Upload visuals and documents that support your project.</p>
+              <h2 className="text-xl font-semibold text-foreground">{t("projects.media")}</h2>
+              <p className="text-sm text-muted-foreground">{t("projects.mediaHelp")}</p>
               <div className="space-y-4">
                 <div>
-                  <Label htmlFor="cover_image">Cover Image</Label>
+                  <Label htmlFor="cover_image">{t("projects.coverImage")}</Label>
                   <Input id="cover_image" type="file" accept="image/*" className="mt-1.5" onChange={(event) => updateForm("cover_image", event.target.files?.[0] ?? null)} />
-                  <p className="mt-1 text-xs text-muted-foreground">Recommended: 1200x675px, JPG or PNG</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{t("projects.imageHelp")}</p>
                   {fieldErrors.cover_image && <p className="mt-1 text-xs text-destructive">{fieldErrors.cover_image}</p>}
                 </div>
                 <div>
-                  <Label htmlFor="video_url">Video URL (Optional)</Label>
+                  <Label htmlFor="video_url">{t("projects.video")}</Label>
                   <Input id="video_url" placeholder="https://youtube.com/..." className="mt-1.5" value={form.video_url} onChange={(event) => updateForm("video_url", event.target.value)} />
                   {fieldErrors.video_url && <p className="mt-1 text-xs text-destructive">{fieldErrors.video_url}</p>}
                 </div>
@@ -254,20 +256,20 @@ const StartProject = () => {
 
           {currentStep === 4 && (
             <div className="space-y-5">
-              <h2 className="text-xl font-semibold text-foreground">Review & Submit</h2>
-              <p className="text-sm text-muted-foreground">Double-check everything before submitting.</p>
+              <h2 className="text-xl font-semibold text-foreground">{t("common.submit")}</h2>
+              <p className="text-sm text-muted-foreground">{t("projects.reviewText")}</p>
               <div className="rounded-lg border border-border bg-background p-5 text-sm text-muted-foreground">
-                <p>Your project will be reviewed by our team within 2-3 business days. We verify all projects for quality and transparency before they go live.</p>
+                <p>{t("projects.reviewNotice")}</p>
               </div>
               <div className="space-y-3">
                 <div className="flex items-start gap-2">
                   <input type="checkbox" id="terms" className="mt-1 rounded border-border" checked={acceptedTerms} onChange={(event) => setAcceptedTerms(event.target.checked)} />
-                  <label htmlFor="terms" className="text-sm text-muted-foreground">I agree to Sahmi's Terms & Conditions and confirm all information is accurate.</label>
+                  <label htmlFor="terms" className="text-sm text-muted-foreground">{t("projects.termsConfirm")}</label>
                 </div>
                 {fieldErrors.terms && <p className="text-xs text-destructive">{fieldErrors.terms}</p>}
                 <div className="flex items-start gap-2">
                   <input type="checkbox" id="transparency" className="mt-1 rounded border-border" checked={acceptedUpdates} onChange={(event) => setAcceptedUpdates(event.target.checked)} />
-                  <label htmlFor="transparency" className="text-sm text-muted-foreground">I commit to providing regular updates to my supporters.</label>
+                  <label htmlFor="transparency" className="text-sm text-muted-foreground">{t("projects.updatesCommitment")}</label>
                 </div>
                 {fieldErrors.transparency && <p className="text-xs text-destructive">{fieldErrors.transparency}</p>}
               </div>

@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useState, useRef } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -173,6 +174,7 @@ const faqs = [
 ];
 
 const ContactPage = () => {
+  const { t } = useTranslation();
   const [openFaq, setOpenFaq] = useState<number | null>(0);
   const [formState, setFormState] = useState({
     name: "",
@@ -250,15 +252,14 @@ const ContactPage = () => {
               className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 mb-8"
             >
               <MessageCircle className="h-4 w-4 text-primary" />
-              <span className="text-sm font-medium text-primary">Get in Touch</span>
+              <span className="text-sm font-medium text-primary">{t("info.contactBadge")}</span>
             </motion.div>
 
             <motion.h1
               variants={fadeInUp}
               className="mb-6 text-5xl font-extrabold leading-tight tracking-tight text-foreground md:text-6xl lg:text-7xl"
             >
-              Let&apos;s Start a{" "}
-              <span className="gradient-text">Conversation</span>
+              {t("info.contactTitle")}
             </motion.h1>
 
             <motion.p

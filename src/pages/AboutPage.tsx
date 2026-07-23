@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { motion, useScroll, useTransform } from "framer-motion";
 import { useRef } from "react";
@@ -138,6 +139,7 @@ const stats = [
 ];
 
 const AboutPage = () => {
+  const { t } = useTranslation();
   const heroRef = useRef(null);
   const { scrollYProgress } = useScroll({
     target: heroRef,
@@ -202,15 +204,14 @@ const AboutPage = () => {
               className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 mb-8"
             >
               <Sparkles className="h-4 w-4 text-primary" />
-              <span className="text-sm font-medium text-primary">Our Story</span>
+              <span className="text-sm font-medium text-primary">{t("info.aboutBadge")}</span>
             </motion.div>
 
             <motion.h1
               variants={fadeInUp}
               className="mb-8 text-5xl font-extrabold leading-tight tracking-tight text-foreground md:text-6xl lg:text-7xl"
             >
-              About{" "}
-              <span className="gradient-text">Sahmi</span>
+              {t("info.aboutTitle")}
             </motion.h1>
 
             <motion.p
@@ -233,7 +234,7 @@ const AboutPage = () => {
                 asChild
               >
                 <Link to="/start-project">
-                  Start Your Journey{" "}
+                  {t("info.startJourney")} {" "}
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Link>
               </Button>
@@ -243,7 +244,7 @@ const AboutPage = () => {
                 className="hover:scale-105 transition-transform"
                 asChild
               >
-                <Link to="/projects">Explore Projects</Link>
+                <Link to="/projects">{t("home.browse")}</Link>
               </Button>
             </motion.div>
           </motion.div>
@@ -709,7 +710,7 @@ const AboutPage = () => {
                   className="bg-primary-foreground text-primary hover:bg-primary-white shadow-xl font-bold h-16 px-10 text-lg rounded-2xl"
                   asChild
                 >
-                  <Link to="/projects">Explore Projects</Link>
+                  <Link to="/projects">{t("home.browse")}</Link>
                 </Button>
               </motion.div>
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>

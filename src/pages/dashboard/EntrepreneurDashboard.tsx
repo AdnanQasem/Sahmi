@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+import { formatCurrency, formatDate, formatNumber } from "@/i18n/format";
 import { Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
@@ -40,9 +42,9 @@ import {
   MessageSquare,
 } from "lucide-react";
 
-const currency = (value: number) => `$${Math.round(value).toLocaleString()}`;
-const monthLabel = (value: string) => new Intl.DateTimeFormat("en", { month: "short" }).format(new Date(value));
-const shortDate = (value: string) => new Intl.DateTimeFormat("en", { month: "short", day: "numeric" }).format(new Date(value));
+const currency = (value: number) => formatCurrency(Math.round(value));
+const monthLabel = (value: string) => formatDate(value, { month: "short" });
+const shortDate = (value: string) => formatDate(value, { month: "short", day: "numeric" });
 
 const amountOf = (investment: Investment) => Number(investment.amount || 0);
 const projectRaised = (project: Project) => Number(project.funded_amount || 0);
@@ -80,6 +82,7 @@ const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?:
 };
 
 const EntrepreneurDashboard = () => {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const navigate = useNavigate();
   const projectsQuery = useQuery({
@@ -188,7 +191,7 @@ const EntrepreneurDashboard = () => {
                 className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20"
               >
                 <Sparkles className="h-3.5 w-3.5 text-primary" />
-                <span className="text-xs font-medium text-primary">Entrepreneur Dashboard</span>
+                <span className="text-xs font-medium text-primary">{t("dashboard.entrepreneur")}</span>
               </motion.div>
               <motion.h1 
                 className="text-3xl sm:text-4xl font-bold text-foreground tracking-tight"
@@ -230,7 +233,7 @@ const EntrepreneurDashboard = () => {
                     transition={{ duration: 0.5 }}
                   />
                   <PlusSquare className="mr-2 h-4 w-4 group-hover:rotate-12 transition-transform duration-300" />
-                  <span className="relative">New Project</span>
+                  <span className="relative">{t("projects.startTitle")}</span>
                 </Link>
               </Button>
               {firstProject && (
@@ -405,7 +408,7 @@ const EntrepreneurDashboard = () => {
                           </span>
                           <span className="flex items-center gap-1.5 hover:text-primary transition-colors duration-200">
                             <Eye className="h-3.5 w-3.5" /> 
-                            <span className="font-medium">{(project.view_count ?? 0).toLocaleString()}</span> views
+                            <span className="font-medium">{formatNumber(project.view_count ?? 0)}</span> views
                           </span>
                         </div>
                         {project.status === "active" && (
@@ -420,7 +423,7 @@ const EntrepreneurDashboard = () => {
                             className="mt-3 flex items-center gap-2 text-xs text-warning bg-warning/10 px-3 py-1.5 rounded-full w-fit"
                           >
                             <AlertCircle className="h-3.5 w-3.5" /> 
-                            <span>Pending platform review</span>
+                            <span>{t("dashboard.pendingReview")}</span>
                           </motion.div>
                         )}
                       </div>
@@ -533,7 +536,7 @@ const EntrepreneurDashboard = () => {
                   <div className="p-2 rounded-lg bg-primary/10">
                     <MessageSquare className="h-5 w-5 text-primary" />
                   </div>
-                  <h3 className="font-semibold text-foreground">Recent Messages</h3>
+                  <h3 className="font-semibold text-foreground">{t("dashboard.messages")}</h3>
                 </div>
                 <Badge variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/20 border-0">2 New</Badge>
               </div>
@@ -566,7 +569,7 @@ const EntrepreneurDashboard = () => {
                               {msg.sender}
                             </p>
                             {msg.status === "premium" && (
-                              <Badge variant="secondary" className="px-1 py-0 h-4 text-[10px] bg-warning/10 text-warning border-0">Premium</Badge>
+                              <Badge variant="secondary" className="px-1 py-0 h-4 text-[10px] bg-warning/10 text-warning border-0">{t("dashboard.premium")}</Badge>
                             )}
                           </div>
                           <span className="text-xs text-muted-foreground shrink-0">{msg.time}</span>
@@ -583,7 +586,7 @@ const EntrepreneurDashboard = () => {
                 ))}
               </div>
               <Button variant="ghost" className="w-full mt-2 text-xs text-muted-foreground hover:text-primary transition-colors" asChild>
-                <Link to="/dashboard/entrepreneur/messages">View All Messages <ArrowRight className="ml-1.5 h-3.5 w-3.5" /></Link>
+                <Link to="/dashboard/entrepreneur/messages">{t("dashboard.messages")} <ArrowRight className="ms-1.5 h-3.5 w-3.5 rtl-flip" /></Link>
               </Button>
             </div>
           </motion.div>
