@@ -60,10 +60,17 @@ const authService = {
     return await api.post("auth/register/", userData);
   },
 
-  logout: () => {
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("refreshToken");
-    localStorage.removeItem("user");
+  logout: async () => {
+    const refresh = localStorage.getItem("refreshToken");
+    try {
+      if (refresh) {
+        await api.post("auth/logout/", { refresh });
+      }
+    } finally {
+      localStorage.removeItem("accessToken");
+      localStorage.removeItem("refreshToken");
+      localStorage.removeItem("user");
+    }
   },
 
   getCurrentUser: async (): Promise<User> => {

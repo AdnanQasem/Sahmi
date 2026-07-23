@@ -67,6 +67,11 @@ const getFieldErrors = (error: unknown): Record<string, string> => {
   }, {});
 };
 
+export const storeRefreshPayload = (data: { access?: string; refresh?: string }) => {
+  if (data.access) localStorage.setItem("accessToken", data.access);
+  if (data.refresh) localStorage.setItem("refreshToken", data.refresh);
+};
+
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
@@ -111,7 +116,7 @@ api.interceptors.response.use(
           const data = unwrapResponse(res.data);
 
           if (data?.access) {
-            localStorage.setItem("accessToken", data.access);
+            storeRefreshPayload(data);
             originalRequest.headers.Authorization = `Bearer ${data.access}`;
             return api(originalRequest);
           }

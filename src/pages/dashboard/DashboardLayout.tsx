@@ -1,4 +1,6 @@
 import { useState, ReactNode } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import notificationService from "@/services/notificationService";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -59,69 +61,6 @@ const notificationToneClasses: Record<NotificationTone, string> = {
   info: "bg-secondary/10 text-secondary",
   investment: "bg-primary/10 text-primary",
 };
-
-const recentNotifications: RecentNotification[] = [
-  {
-    id: "return-updated",
-    title: "Expected return updated",
-    description: "Olive Grove Co-op adjusted its latest return forecast.",
-    time: "10 min ago",
-    icon: TrendingUp,
-    tone: "investment",
-    unread: true,
-    roles: ["investor"],
-  },
-  {
-    id: "payment-confirmed",
-    title: "Payment confirmed",
-    description: "Your investment in Handmade Ceramics was marked confirmed.",
-    time: "1 hr ago",
-    icon: CheckCircle2,
-    tone: "success",
-    unread: true,
-    roles: ["investor"],
-  },
-  {
-    id: "funding-milestone",
-    title: "Funding milestone reached",
-    description: "Gaza Tech Hub crossed 75% of its funding goal.",
-    time: "Yesterday",
-    icon: DollarSign,
-    tone: "info",
-    unread: true,
-    roles: ["investor"],
-  },
-  {
-    id: "project-reviewed",
-    title: "Project review completed",
-    description: "Your latest project is now visible to investors.",
-    time: "18 min ago",
-    icon: CheckCircle2,
-    tone: "success",
-    unread: true,
-    roles: ["entrepreneur"],
-  },
-  {
-    id: "investor-message",
-    title: "New investor message",
-    description: "A potential investor asked about your funding timeline.",
-    time: "2 hrs ago",
-    icon: Info,
-    tone: "info",
-    unread: true,
-    roles: ["entrepreneur"],
-  },
-  {
-    id: "project-needs-attention",
-    title: "Project details need attention",
-    description: "Add recent financial updates before the next review.",
-    time: "Yesterday",
-    icon: AlertCircle,
-    tone: "warning",
-    unread: true,
-    roles: ["entrepreneur"],
-  },
-];
 
 const navItems: NavItem[] = [
   {
@@ -222,6 +161,11 @@ const DashboardLayout = ({ children, roleBase }: DashboardLayoutProps) => {
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const notificationsQuery = useQuery({ queryKey: ["notifications"], queryFn: notificationService.list, refetchInterval: 30_000 });
+  const unreadQuery = useQuery({ queryKey: ["notification-unread"], queryFn: notificationService.unreadCount, refetchInterval: 30_000 });
+  const markRead = useMutation({ mutationFn: notificationService.markRead, onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ["notifications"] }); void queryClient.invalidateQueries({ queryKey: ["notification-unread"] }); } });
+  const markAllRead = useMutation({ mutationFn: notificationService.markAllRead, onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ["notifications"] }); void queryClient.invalidateQueries({ queryKey: ["notification-unread"] }); } });
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
 
@@ -230,13 +174,15 @@ const DashboardLayout = ({ children, roleBase }: DashboardLayoutProps) => {
   const filteredNav = navItems.filter(
     (item) => role && item.roles.includes(role)
   );
-  const visibleNotifications = recentNotifications.filter(
-    (notification) => role && notification.roles.includes(role)
-  );
-  const unreadCount = visibleNotifications.filter((notification) => notification.unread).length;
+  const visibleNotifications: RecentNotification[] = (notificationsQuery.data?.results ?? []).map((notification) => ({
+    id: notification.id, title: notification.title, description: notification.body,
+    time: new Date(notification.created_at).toLocaleString(), icon: Info, tone: "info",
+    unread: !notification.read_at, roles: role ? [role] : [],
+  }));
+  const unreadCount = unreadQuery.data?.unread_count ?? visibleNotifications.filter((notification) => notification.unread).length;
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     navigate("/");
   };
 
@@ -482,9 +428,9 @@ const DashboardLayout = ({ children, roleBase }: DashboardLayoutProps) => {
                     <p className="mt-0.5 text-xs text-muted-foreground">Recent activity for your account</p>
                   </div>
                   {unreadCount > 0 && (
-                    <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
-                      {unreadCount} new
-                    </span>
+                    <button type="button" onClick={() => markAllRead.mutate()} disabled={markAllRead.isPending} className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
+                      Mark all read
+                    </button>
                   )}
                 </div>
 
@@ -496,7 +442,11 @@ const DashboardLayout = ({ children, roleBase }: DashboardLayoutProps) => {
                       return (
                         <div
                           key={notification.id}
-                          className="flex gap-3 rounded-lg px-2 py-3 transition-colors hover:bg-muted/60"
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => notification.unread && markRead.mutate(notification.id)}
+                          onKeyDown={(event) => { if (event.key === "Enter") notification.unread && markRead.mutate(notification.id); }}
+                          className="flex cursor-pointer gap-3 rounded-lg px-2 py-3 transition-colors hover:bg-muted/60"
                         >
                           <div className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${notificationToneClasses[notification.tone]}`}>
                             <NotificationIcon className="h-4 w-4" />

@@ -1,4 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import notificationService, { NotificationPreferences } from "@/services/notificationService";
+import { getErrorMessage } from "@/services/api";
 import { motion, AnimatePresence } from "framer-motion";
 import DashboardLayout from "./DashboardLayout";
 import { useAuth } from "@/hooks/useAuth";
@@ -108,14 +111,14 @@ const SettingsPage = () => {
   const [connected, setConnected] = useState<Record<string, boolean>>({});
   const [revokedSessions, setRevokedSessions] = useState<Record<number, boolean>>({});
 
-  const [notifications, setNotifications] = useState({
-    emailNotifications: true,
-    pushNotifications: true,
-    marketingEmails: false,
-    projectUpdates: true,
-    investorMessages: true,
-    fundingMilestones: true,
+  const [notifications, setNotifications] = useState<NotificationPreferences>({
+    in_app_enabled: true, email_enabled: false, message_notifications: true,
+    project_notifications: true, investment_notifications: true,
+    milestone_notifications: true, repayment_notifications: true,
   });
+  const preferencesQuery = useQuery({ queryKey: ["notification-preferences"], queryFn: notificationService.getPreferences });
+  useEffect(() => { if (preferencesQuery.data) setNotifications(preferencesQuery.data); }, [preferencesQuery.data]);
+  const savePreferences = useMutation({ mutationFn: notificationService.savePreferences });
 
   const getPasswordStrength = (password: string) => {
     if (!password) return { score: 0, label: "Not Entered", color: "bg-muted text-muted-foreground", width: "w-0" };
@@ -141,11 +144,19 @@ const SettingsPage = () => {
 
   const handleSave = async () => {
     setIsSaving(true);
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    setIsSaving(false);
-    toast.success("Settings saved successfully!", {
-      description: "Your preferences and profile details have been updated.",
-    });
+    try {
+      if (activeSection === "notifications") {
+        const saved = await savePreferences.mutateAsync(notifications);
+        setNotifications(saved);
+        toast.success("Notification preferences saved.");
+      } else {
+        toast.info("Only notification preferences are connected to the backend in this security scope.");
+      }
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Preferences could not be saved."));
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleConnect = (provider: string) => {
@@ -831,37 +842,37 @@ const SettingsPage = () => {
               {
                 title: "Project Updates",
                 description: "Get notified when projects you follow are updated",
-                key: "projectUpdates" as const,
+                key: "project_notifications" as const,
                 icon: Bell,
               },
               {
                 title: "Investor Messages",
                 description: "Receive messages from potential investors",
-                key: "investorMessages" as const,
+                key: "message_notifications" as const,
                 icon: Mail,
               },
               {
                 title: "Funding Milestones",
                 description: "Be notified when you reach funding goals",
-                key: "fundingMilestones" as const,
+                key: "milestone_notifications" as const,
                 icon: Check,
               },
               {
                 title: "Email Notifications",
                 description: "Receive email notifications for important updates",
-                key: "emailNotifications" as const,
+                key: "email_enabled" as const,
                 icon: Mail,
               },
               {
                 title: "Push Notifications",
                 description: "Get push notifications on your devices",
-                key: "pushNotifications" as const,
+                key: "in_app_enabled" as const,
                 icon: Bell,
               },
               {
-                title: "Marketing Emails",
-                description: "Receive tips and updates about Sahmi",
-                key: "marketingEmails" as const,
+                title: "Investment Updates",
+                description: "Receive updates about your investments",
+                key: "investment_notifications" as const,
                 icon: Mail,
               },
             ].map((item, index) => (

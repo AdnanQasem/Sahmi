@@ -8,7 +8,7 @@ interface AuthContextType {
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (data: any) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   isAuthenticated: boolean;
 }
 
@@ -27,7 +27,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setUser(userData);
         } catch (error) {
           console.error("Auth initialization failed:", error);
-          authService.logout();
+          await authService.logout();
         }
       }
       setLoading(false);
@@ -59,10 +59,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const logout = () => {
-    authService.logout();
-    setUser(null);
-    toast.info("Signed out successfully.");
+  const logout = async () => {
+    try {
+      await authService.logout();
+    } finally {
+      setUser(null);
+      toast.info("Signed out successfully.");
+    }
   };
 
   return (
