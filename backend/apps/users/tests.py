@@ -152,3 +152,26 @@ class JWTRotationAndLogoutTests(APITestCase):
         self.assertEqual(logout.status_code, status.HTTP_200_OK)
         rejected_new = self.client.post(reverse("refresh-token"), {"refresh": new_refresh}, format="json")
         self.assertEqual(rejected_new.status_code, status.HTTP_401_UNAUTHORIZED)
+class PreferredLanguageTests(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="language-user",
+            email="language@example.com",
+            full_name="Language User",
+            password="StrongPassword123!",
+        )
+        self.client.force_authenticate(self.user)
+
+    def test_authenticated_user_can_persist_supported_language(self):
+        response = self.client.patch(reverse("me"), {"preferred_language": "ar"}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["preferred_language"], "ar")
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.preferred_language, User.PreferredLanguage.ARABIC)
+        self.assertEqual(self.client.get(reverse("me")).data["preferred_language"], "ar")
+
+    def test_invalid_language_is_rejected_without_changing_preference(self):
+        response = self.client.patch(reverse("me"), {"preferred_language": "fr"}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.preferred_language, User.PreferredLanguage.ENGLISH)

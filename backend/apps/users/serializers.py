@@ -12,6 +12,7 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             "id", "username", "email", "full_name", "phone_number", "user_type",
+            "preferred_language",
             "profile_picture", "bio", "country", "city", "is_verified", "is_kyc_verified",
             "investor_tier", "total_invested", "total_returned", "average_roi",
             "risk_preference", "business_name", "business_registration_number",

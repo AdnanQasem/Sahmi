@@ -5,6 +5,10 @@ from django.db import models
 
 
 class User(AbstractUser):
+    class PreferredLanguage(models.TextChoices):
+        ENGLISH = "en", "English"
+        ARABIC = "ar", "Arabic"
+
     class UserType(models.TextChoices):
         INVESTOR = "investor", "Investor"
         ENTREPRENEUR = "entrepreneur", "Entrepreneur"
@@ -23,6 +27,9 @@ class User(AbstractUser):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     email = models.EmailField(unique=True)
+    preferred_language = models.CharField(
+        max_length=2, choices=PreferredLanguage.choices, default=PreferredLanguage.ENGLISH
+    )
     full_name = models.CharField(max_length=150)
     phone_number = models.CharField(max_length=32, blank=True)
     user_type = models.CharField(max_length=20, choices=UserType.choices, default=UserType.INVESTOR)
