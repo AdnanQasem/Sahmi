@@ -29,6 +29,14 @@ class ProjectDocumentSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "created_at"]
 
 
+class PublicProjectImageSerializer(serializers.ModelSerializer):
+    """Public-facing image serializer: only public ``image`` and ``alt_text``."""
+    class Meta:
+        model = ProjectImage
+        fields = ["id", "image", "alt_text"]
+        read_only_fields = fields
+
+
 class ProjectVerificationSerializer(serializers.Serializer):
     verification_notes = serializers.CharField(
         required=False,
@@ -64,6 +72,17 @@ class ProjectStatusSerializer(serializers.Serializer):
         return value
 
 
+class ProjectOwnerSummarySerializer(serializers.ModelSerializer):
+    """Public-safe entrepreneur summary used in the project detail endpoint."""
+
+    class Meta:
+        from apps.users.models import User
+
+        model = User
+        fields = ["id", "full_name", "business_name", "country", "city"]
+        read_only_fields = fields
+
+
 class ProjectCategoryRelatedField(serializers.PrimaryKeyRelatedField):
     def get_queryset(self):
         return ProjectCategory.objects.all()
@@ -81,6 +100,11 @@ class ProjectCategoryRelatedField(serializers.PrimaryKeyRelatedField):
 
 
 class ProjectSerializer(serializers.ModelSerializer):
+    """
+    Full serializer used by the owner (``entrepreneur``) and staff for create /
+    retrieve / update / destroy of their own project. ``entrepreneur`` is read-only.
+    """
+
     entrepreneur = UserSerializer(read_only=True)
     category = ProjectCategoryRelatedField(queryset=ProjectCategory.objects.all())
     category_detail = ProjectCategorySerializer(source="category", read_only=True)
@@ -143,6 +167,47 @@ class ProjectSerializer(serializers.ModelSerializer):
             start_date = validated_data.get("start_date") or instance.start_date or timezone.now()
             validated_data["end_date"] = start_date + timedelta(days=validated_data["funding_period_days"])
         return super().update(instance, validated_data)
+
+
+class PublicProjectSerializer(serializers.ModelSerializer):
+    """
+    Public-facing project serializer. Strips:
+    - document URLs (``business_plan``, ``financial_projections``, ``ownership_proof``)
+    - supporting document files and titles
+    - ``verification_notes`` (administrative)
+    - ``view_count`` and other internal telemetry
+    - direct ``entrepreneur`` user email / phone / kyc fields
+    """
+
+    entrepreneur = ProjectOwnerSummarySerializer(read_only=True)
+    category_detail = ProjectCategorySerializer(source="category", read_only=True)
+    images = PublicProjectImageSerializer(many=True, read_only=True)
+    days_left = serializers.SerializerMethodField()
+    funding_percent = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Project
+        fields = [
+            "id", "entrepreneur", "title", "slug", "description", "short_description",
+            "category_detail", "location", "location_governorate",
+            "goal_amount", "funded_amount", "minimum_investment", "expected_roi",
+            "funding_period_days", "start_date", "end_date", "status", "is_verified",
+            "verified_at", "cover_image", "images", "video_url",
+            "milestone_count", "repayment_status",
+            "next_repayment_date", "investor_count",
+            "days_left", "funding_percent", "created_at", "updated_at",
+        ]
+        read_only_fields = fields
+
+    def get_days_left(self, obj):
+        if not obj.end_date:
+            return None
+        return max((obj.end_date.date() - timezone.localdate()).days, 0)
+
+    def get_funding_percent(self, obj):
+        if not obj.goal_amount:
+            return 0
+        return round((obj.funded_amount / obj.goal_amount) * 100, 2)
 
 
 class ProjectListSerializer(ProjectSerializer):

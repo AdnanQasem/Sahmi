@@ -55,6 +55,10 @@ class User(AbstractUser):
             self.email = self.email.strip().lower()
         if not self.username:
             self.username = self.email
-        if self.user_type == self.UserType.ADMIN:
-            self.is_staff = True
+        # NOTE: We intentionally do NOT force ``is_staff = True`` when
+        # ``user_type == ADMIN`` here. Granting staff privileges is a
+        # server-controlled operation performed only by the admin endpoints
+        # (see ``apps/users/admin_views.py``) or a superuser at the Django
+        # admin. A model ``save()`` side effect would let any code path that
+        # touches ``user_type`` silently escalate privileges.
         super().save(*args, **kwargs)

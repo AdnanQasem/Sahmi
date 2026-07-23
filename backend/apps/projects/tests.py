@@ -223,3 +223,18 @@ class ProjectModerationTests(ProjectAPITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.project.refresh_from_db()
         self.assertEqual(self.project.status, Project.Status.DRAFT)
+
+class PublicProjectPrivacyTests(ProjectAPITestCase):
+    def test_public_detail_omits_private_owner_and_document_fields(self):
+        self.project.status = Project.Status.ACTIVE
+        self.project.is_verified = True
+        self.project.verification_notes = "internal review"
+        self.project.business_plan.name = "project-documents/private-plan.pdf"
+        self.project.save()
+        response = self.client.get(reverse("project-detail", args=[self.project.slug]))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        for field in ("verification_notes", "business_plan", "financial_projections", "ownership_proof", "supporting_documents"):
+            self.assertNotIn(field, response.data)
+        self.assertNotIn("email", response.data["entrepreneur"])
+        self.assertNotIn("phone_number", response.data["entrepreneur"])
+        self.assertNotIn("kyc_document", response.data["entrepreneur"])

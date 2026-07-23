@@ -12,6 +12,9 @@ urlpatterns = [
     path("api/v1/auth/", include("apps.users.urls")),
     path("api/v1/", include("apps.projects.urls")),
     path("api/v1/", include("apps.investments.urls")),
+    path("api/v1/", include("apps.messaging.urls")),
+    path("api/v1/", include("apps.audit.urls")),
+    path("api/v1/notifications/", include("apps.notifications.urls")),
 ]
 
 if settings.DEBUG:

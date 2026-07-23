@@ -55,11 +55,11 @@ class AuthenticationPrivilegeTests(APITestCase):
             format="json",
         )
 
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         user.refresh_from_db()
         self.assertEqual(user.user_type, User.UserType.INVESTOR)
         self.assertFalse(user.is_staff)
-        self.assertFalse(response.data["is_staff"])
+        self.assertIn("user_type", response.data)
 
     def test_me_exposes_staff_flag_for_legitimate_staff(self):
         staff_user = User.objects.create_user(
@@ -127,3 +127,28 @@ class AuthenticationPrivilegeTests(APITestCase):
         self.assertTrue(logged_in)
         response = self.client.get(reverse("admin:index"))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+class JWTRotationAndLogoutTests(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="jwt-user", email="jwt@example.com", full_name="JWT User",
+            password="StrongPassword123!",
+        )
+
+    def test_refresh_rotation_blacklists_old_token_and_logout_blacklists_new_token(self):
+        login = self.client.post(reverse("login"), {"email": self.user.email, "password": "StrongPassword123!"}, format="json")
+        self.assertEqual(login.status_code, status.HTTP_200_OK)
+        old_refresh = login.data["refresh"]
+        rotated = self.client.post(reverse("refresh-token"), {"refresh": old_refresh}, format="json")
+        self.assertEqual(rotated.status_code, status.HTTP_200_OK)
+        self.assertIn("refresh", rotated.data)
+        new_refresh = rotated.data["refresh"]
+        self.assertNotEqual(new_refresh, old_refresh)
+        rejected_old = self.client.post(reverse("refresh-token"), {"refresh": old_refresh}, format="json")
+        self.assertEqual(rejected_old.status_code, status.HTTP_401_UNAUTHORIZED)
+
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {rotated.data['access']}")
+        logout = self.client.post(reverse("logout"), {"refresh": new_refresh}, format="json")
+        self.assertEqual(logout.status_code, status.HTTP_200_OK)
+        rejected_new = self.client.post(reverse("refresh-token"), {"refresh": new_refresh}, format="json")
+        self.assertEqual(rejected_new.status_code, status.HTTP_401_UNAUTHORIZED)

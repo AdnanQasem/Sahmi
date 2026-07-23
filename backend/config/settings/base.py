@@ -20,6 +20,7 @@ INSTALLED_APPS = [
     "corsheaders",
     "rest_framework",
     "rest_framework_simplejwt",
+    "rest_framework_simplejwt.token_blacklist",
     "django_filters",
     "drf_spectacular",
     "apps.core",
@@ -27,6 +28,8 @@ INSTALLED_APPS = [
     "apps.projects",
     "apps.investments",
     "apps.notifications",
+    "apps.messaging",
+    "apps.audit",
 ]
 
 MIDDLEWARE = [
@@ -38,6 +41,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "apps.core.middleware.RequestIDMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -95,6 +99,28 @@ CORS_ALLOWED_ORIGINS = [
 ]
 CORS_ALLOW_CREDENTIALS = True
 
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
+    "AUTH_HEADER_TYPES": ("Bearer",),
+    "TOKEN_TYPE_CLAIM": "access",
+}
+
+# Throttling
+from datetime import timedelta as _td  # noqa: E402
+ANON_THROTTLE_RATE = config("DJANGO_ANON_THROTTLE_RATE", default="60/min")
+USER_THROTTLE_RATE = config("DJANGO_USER_THROTTLE_RATE", default="180/min")
+LOGIN_THROTTLE_RATE = config("DJANGO_LOGIN_THROTTLE_RATE", default="5/min")
+REGISTER_THROTTLE_RATE = config("DJANGO_REGISTER_THROTTLE_RATE", default="3/min")
+REFRESH_THROTTLE_RATE = config("DJANGO_REFRESH_THROTTLE_RATE", default="10/min")
+PASSWORD_CHANGE_THROTTLE_RATE = config("DJANGO_PASSWORD_CHANGE_THROTTLE_RATE", default="5/hour")
+MESSAGE_SEND_THROTTLE_RATE = config("DJANGO_MESSAGE_SEND_THROTTLE_RATE", default="30/min")
+CONVERSATION_CREATE_THROTTLE_RATE = config("DJANGO_CONVERSATION_CREATE_THROTTLE_RATE", default="10/hour")
+NOTIFICATION_READ_THROTTLE_RATE = config("DJANGO_NOTIFICATION_READ_THROTTLE_RATE", default="120/min")
+ADMIN_VERIFICATION_THROTTLE_RATE = config("DJANGO_ADMIN_VERIFICATION_THROTTLE_RATE", default="30/hour")
+
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": ("rest_framework_simplejwt.authentication.JWTAuthentication",),
     "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticatedOrReadOnly",),
@@ -107,12 +133,23 @@ REST_FRAMEWORK = {
         "rest_framework.filters.SearchFilter",
         "rest_framework.filters.OrderingFilter",
     ),
+    "DEFAULT_THROTTLE_CLASSES": (
+        "apps.core.throttling.AnonRateThrottle",
+        "apps.core.throttling.UserRateThrottle",
+    ),
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": ANON_THROTTLE_RATE,
+        "user": USER_THROTTLE_RATE,
+        "login": LOGIN_THROTTLE_RATE,
+        "register": REGISTER_THROTTLE_RATE,
+        "refresh": REFRESH_THROTTLE_RATE,
+        "password_change": PASSWORD_CHANGE_THROTTLE_RATE,
+        "message_send": MESSAGE_SEND_THROTTLE_RATE,
+        "conversation_create": CONVERSATION_CREATE_THROTTLE_RATE,
+        "notification_read": NOTIFICATION_READ_THROTTLE_RATE,
+        "admin_verification": ADMIN_VERIFICATION_THROTTLE_RATE,
+    },
     "EXCEPTION_HANDLER": "apps.core.exceptions.standard_exception_handler",
-}
-
-SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
 }
 
 SPECTACULAR_SETTINGS = {
