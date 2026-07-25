@@ -66,78 +66,15 @@ const scaleIn = {
 };
 
 const teamMembers = [
-  {
-    name: "Adnan Qasem",
-    role: "Co-Founder & CEO",
-    description: "Driving the vision to connect Palestinian entrepreneurs with global supporters.",
-    image: "",
-  },
-  {
-    name: "Ikrayyem Alabadla",
-    role: "Co-Founder",
-    description: "Ensuring platform transparency, trust, and technical execution.",
-    image: "",
-  },
-  {
-    name: "Abdullah Al Otti",
-    role: "Operations & Strategy",
-    description: "Streamlining the process of vetting and supporting new business ideas.",
-    image: "",
-  },
-  {
-    name: "Ahmed Qudaih",
-    role: "Community Growth",
-    description: "Building strong relationships with founders and the investor community.",
-    image: "",
-  },
-  {
-    name: "Mohammed Al Madhoon",
-    role: "Product Design",
-    description: "Creating a seamless, intuitive experience for all users on Sahmi.",
-    image: "",
-  },
-  {
-    name: "Moomen Jibril",
-    role: "Partnerships",
-    description: "Forging critical alliances with organizations to amplify impact.",
-    image: "",
-  },
+  { name: "Adnan Qasem", image: "" }, { name: "Ikrayyem Alabadla", image: "" },
+  { name: "Abdullah Al Otti", image: "" }, { name: "Ahmed Qudaih", image: "" },
+  { name: "Mohammed Al Madhoon", image: "" }, { name: "Moomen Jibril", image: "" },
 ];
 
 const contactInfo = [
-  {
-    icon: Mail,
-    title: "Email",
-    value: "support@sahmi.ps",
-    description: "We reply within 24 hours",
-    bgClass: "bg-primary/5",
-    borderClass: "border-primary/20",
-    iconBgClass: "bg-primary/10",
-    textClass: "text-primary",
-    href: "mailto:support@sahmi.ps",
-  },
-  {
-    icon: Phone,
-    title: "Phone",
-    value: "+970 2 298 0000",
-    description: "Sat - Thu 9am - 5pm GMT+2",
-    bgClass: "bg-secondary/5",
-    borderClass: "border-secondary/20",
-    iconBgClass: "bg-secondary/10",
-    textClass: "text-secondary",
-    href: "tel:+97022980000",
-  },
-  {
-    icon: MapPin,
-    title: "Office",
-    value: "Ramallah, Palestine",
-    description: "Al Masyoun, Al Jihad Street",
-    bgClass: "bg-accent/5",
-    borderClass: "border-accent/20",
-    iconBgClass: "bg-accent/10",
-    textClass: "text-accent",
-    href: "#",
-  },
+  { icon: Mail, value: "support@sahmi.ps", bgClass: "bg-primary/5", borderClass: "border-primary/20", iconBgClass: "bg-primary/10", textClass: "text-primary", href: "mailto:support@sahmi.ps" },
+  { icon: Phone, value: "+970 2 298 0000", bgClass: "bg-secondary/5", borderClass: "border-secondary/20", iconBgClass: "bg-secondary/10", textClass: "text-secondary", href: "tel:+97022980000" },
+  { icon: MapPin, value: null, bgClass: "bg-accent/5", borderClass: "border-accent/20", iconBgClass: "bg-accent/10", textClass: "text-accent", href: "#" },
 ];
 
 const socialLinks = [
@@ -146,33 +83,7 @@ const socialLinks = [
   { icon: Instagram, label: "Instagram", href: "#", color: "hover:bg-pink-500 hover:text-white" },
 ];
 
-const faqs = [
-  {
-    q: "How do I start a project on Sahmi?",
-    a: "Click 'Start Your Project' and follow our simple 5-step form. Our team will review your submission within 2-3 business days.",
-  },
-  {
-    q: "Is my contribution secure?",
-    a: "Yes. All transactions are processed through secure payment providers with bank-level encryption.",
-  },
-  {
-    q: "What happens if a project doesn't reach its goal?",
-    a: "If a project doesn't reach its minimum funding goal, all contributions are returned to supporters in full.",
-  },
-  {
-    q: "How are projects verified?",
-    a: "Our team verifies founder identity, reviews business plans, and checks funding allocations before listing any project.",
-  },
-  {
-    q: "Can I invest from outside Palestine?",
-    a: "Absolutely! Sahmi connects Palestinian entrepreneurs with global supporters. You can contribute from anywhere in the world.",
-  },
-  {
-    q: "How do I contact project founders?",
-    a: "Each project page has a messaging feature. You can also reach out to our support team for any inquiries.",
-  },
-];
-
+const faqIndexes = [0, 1, 2, 3, 4, 5];
 const ContactPage = () => {
   const { t } = useTranslation();
   const [openFaq, setOpenFaq] = useState<number | null>(0);
@@ -266,8 +177,7 @@ const ContactPage = () => {
               variants={fadeInUp}
               className="mx-auto text-xl leading-relaxed text-muted-foreground md:text-2xl max-w-2xl"
             >
-              Whether you have questions about projects, need support, or want to
-              partner with us, we&apos;re here to help.
+              {t("contact.heroText")}
             </motion.p>
           </motion.div>
         </motion.div>
@@ -285,7 +195,7 @@ const ContactPage = () => {
           >
             {contactInfo.map((info, index) => (
               <motion.a
-                key={info.title}
+                key={index}
                 href={info.href}
                 variants={fadeInUp}
                 whileHover={{ y: -8, transition: { duration: 0.3 } }}
@@ -298,10 +208,10 @@ const ContactPage = () => {
                   <info.icon className="h-7 w-7" />
                 </motion.div>
                 <h3 className="mb-2 text-lg font-semibold text-foreground">
-                  {info.title}
+                  {t(`contact.cards.${index}.title`)}
                 </h3>
-                <p className="text-xl font-bold text-foreground mb-2">{info.value}</p>
-                <p className="text-muted-foreground">{info.description}</p>
+                <p className="mb-2 text-xl font-bold text-foreground" dir={index < 2 ? "ltr" : "auto"}><bdi>{info.value ?? t(`contact.cards.${index}.value`)}</bdi></p>
+                <p className="text-muted-foreground">{t(`contact.cards.${index}.description`)}</p>
 
                 <div className="absolute inset-0 -z-10 bg-gradient-to-br from-primary/5 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
               </motion.a>
@@ -325,11 +235,10 @@ const ContactPage = () => {
               <div className="rounded-3xl border border-border bg-card p-8 md:p-10 shadow-lg">
                 <div className="mb-8">
                   <h2 className="text-3xl font-bold text-foreground mb-3">
-                    Send us a Message
+                    {t("contact.formTitle")}
                   </h2>
                   <p className="text-muted-foreground">
-                    Fill out the form below and we&apos;ll get back to you within 24
-                    hours.
+                    {t("contact.formText")}
                   </p>
                 </div>
 
@@ -342,11 +251,11 @@ const ContactPage = () => {
                       transition={{ delay: 0.1 }}
                     >
                       <Label htmlFor="name" className="text-foreground font-medium">
-                        Full Name
+                        {t("contact.fullName")}
                       </Label>
                       <Input
                         id="name"
-                        placeholder="John Doe"
+                        placeholder={t("contact.namePlaceholder")}
                         value={formState.name}
                         onChange={(e) =>
                           setFormState({ ...formState, name: e.target.value })
@@ -362,7 +271,7 @@ const ContactPage = () => {
                       transition={{ delay: 0.2 }}
                     >
                       <Label htmlFor="email" className="text-foreground font-medium">
-                        Email Address
+                        {t("contact.email")}
                       </Label>
                       <Input
                         id="email"
@@ -385,11 +294,11 @@ const ContactPage = () => {
                     transition={{ delay: 0.3 }}
                   >
                     <Label htmlFor="subject" className="text-foreground font-medium">
-                      Subject
+                      {t("contact.subject")}
                     </Label>
                     <Input
                       id="subject"
-                      placeholder="How can we help you?"
+                      placeholder={t("contact.subjectPlaceholder")}
                       value={formState.subject}
                       onChange={(e) =>
                         setFormState({ ...formState, subject: e.target.value })
@@ -406,11 +315,11 @@ const ContactPage = () => {
                     transition={{ delay: 0.4 }}
                   >
                     <Label htmlFor="message" className="text-foreground font-medium">
-                      Message
+                      {t("contact.message")}
                     </Label>
                     <Textarea
                       id="message"
-                      placeholder="Tell us about your inquiry..."
+                      placeholder={t("contact.messagePlaceholder")}
                       value={formState.message}
                       onChange={(e) =>
                         setFormState({ ...formState, message: e.target.value })
@@ -439,7 +348,7 @@ const ContactPage = () => {
                           animate={{ opacity: 1 }}
                         >
                           <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground" />
-                          Sending...
+                          {t("contact.sending")}
                         </motion.div>
                       ) : isSubmitted ? (
                         <motion.div
@@ -448,12 +357,12 @@ const ContactPage = () => {
                           animate={{ scale: 1, opacity: 1 }}
                         >
                           <CheckCircle className="h-5 w-5" />
-                          Message Sent!
+                          {t("contact.sent")}
                         </motion.div>
                       ) : (
                         <>
-                          Send Message
-                          <Send className="ml-2 h-5 w-5" />
+                          {t("contact.send")}
+                          <Send className="ms-2 h-5 w-5" />
                         </>
                       )}
                     </Button>
@@ -482,17 +391,16 @@ const ContactPage = () => {
                   </div>
                   <div>
                     <h3 className="text-xl font-bold text-foreground mb-2">
-                      Fast Response Time
+                      {t("contact.fastTitle")}
                     </h3>
                     <p className="text-muted-foreground leading-relaxed">
-                      We aim to respond to all inquiries within 24 hours during business
-                      days. For urgent matters, please use our live chat feature.
+                      {t("contact.fastText")}
                     </p>
                   </div>
                 </div>
               </motion.div>
 
-              {/* Global Support */}
+              {/* {t("contact.globalTitle")} */}
               <motion.div
                 className="rounded-3xl border border-border bg-card p-8 shadow-sm"
                 whileHover={{ y: -5 }}
@@ -504,7 +412,7 @@ const ContactPage = () => {
                   </div>
                   <div>
                     <h3 className="text-xl font-bold text-foreground mb-2">
-                      Global Support
+                      {t("contact.globalTitle")}
                     </h3>
                     <p className="text-muted-foreground leading-relaxed">
                       Our team speaks Arabic and English, and we support users from all
@@ -521,10 +429,10 @@ const ContactPage = () => {
                 transition={{ duration: 0.3 }}
               >
                 <h3 className="text-xl font-bold text-foreground mb-4">
-                  Connect With Us
+                  {t("contact.connectTitle")}
                 </h3>
                 <p className="text-muted-foreground mb-6">
-                  Follow us on social media for updates, success stories, and more.
+                  {t("contact.connectText")}
                 </p>
                 <div className="flex gap-3">
                   {socialLinks.map((social) => (
@@ -564,15 +472,14 @@ const ContactPage = () => {
               className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 mb-6"
             >
               <Users className="h-4 w-4 text-primary" />
-              <span className="text-sm font-medium text-primary">Our Team</span>
+              <span className="text-sm font-medium text-primary">{t("contact.teamBadge")}</span>
             </motion.div>
 
             <h2 className="text-4xl font-bold tracking-tight text-foreground md:text-5xl lg:text-6xl mb-6">
-              Meet The <span className="gradient-text">Team</span>
+              {t("contact.teamTitle")}
             </h2>
             <p className="text-lg text-muted-foreground">
-              The visionaries behind Sahmi, dedicated to empowering the next generation
-              of Palestinian entrepreneurs.
+              {t("contact.teamText")}
             </p>
           </motion.div>
 
@@ -618,10 +525,10 @@ const ContactPage = () => {
                   {member.name}
                 </h3>
                 <p className="mb-4 text-sm font-semibold text-primary uppercase tracking-widest">
-                  {member.role}
+                  {t(`contact.team.${index}.role`)}
                 </p>
                 <p className="text-sm leading-relaxed text-muted-foreground">
-                  {member.description}
+                  {t(`contact.team.${index}.description`)}
                 </p>
 
                 {/* Decorative Corner */}
@@ -648,15 +555,14 @@ const ContactPage = () => {
               viewport={{ once: true }}
             >
               <MessageCircle className="h-4 w-4 text-secondary" />
-              <span className="text-sm font-medium text-secondary">FAQ</span>
+              <span className="text-sm font-medium text-secondary">{t("contact.faqBadge")}</span>
             </motion.div>
 
             <h2 className="text-4xl font-bold tracking-tight text-foreground md:text-5xl mb-4">
-              Frequently Asked{" "}
-              <span className="gradient-text">Questions</span>
+              {t("contact.faqTitle")}
             </h2>
             <p className="text-lg text-muted-foreground">
-              Everything you need to know about using Sahmi.
+              {t("contact.faqText")}
             </p>
           </motion.div>
 
@@ -667,19 +573,19 @@ const ContactPage = () => {
             whileInView="animate"
             viewport={{ once: true }}
           >
-            {faqs.map((faq, index) => (
+            {faqIndexes.map((faqIndex) => (
               <motion.div
-                key={index}
+                key={faqIndex}
                 variants={fadeInUp}
                 className="rounded-2xl border border-border bg-card overflow-hidden"
               >
                 <button
-                  onClick={() => setOpenFaq(openFaq === index ? null : index)}
-                  className="w-full flex items-center justify-between p-6 text-left hover:bg-muted/50 transition-colors"
+                  onClick={() => setOpenFaq(openFaq === faqIndex ? null : faqIndex)}
+                  className="flex w-full items-center justify-between p-6 text-start hover:bg-muted/50 transition-colors"
                 >
-                  <span className="font-semibold text-foreground pr-4">{faq.q}</span>
+                  <span className="font-semibold text-foreground pr-4">{t(`contact.faqs.${faqIndex}.question`)}</span>
                   <motion.div
-                    animate={{ rotate: openFaq === index ? 180 : 0 }}
+                    animate={{ rotate: openFaq === faqIndex ? 180 : 0 }}
                     transition={{ duration: 0.3 }}
                     className="shrink-0"
                   >
@@ -689,14 +595,14 @@ const ContactPage = () => {
                 <motion.div
                   initial={false}
                   animate={{
-                    height: openFaq === index ? "auto" : 0,
-                    opacity: openFaq === index ? 1 : 0,
+                    height: openFaq === faqIndex ? "auto" : 0,
+                    opacity: openFaq === faqIndex ? 1 : 0,
                   }}
                   transition={{ duration: 0.3, ease: "easeInOut" }}
                   className="overflow-hidden"
                 >
                   <p className="px-6 pb-6 text-muted-foreground leading-relaxed">
-                    {faq.a}
+                    {t(`contact.faqs.${faqIndex}.answer`)}
                   </p>
                 </motion.div>
               </motion.div>
@@ -713,13 +619,13 @@ const ContactPage = () => {
           >
             <Heart className="mx-auto h-8 w-8 text-primary mb-4" />
             <h3 className="text-xl font-bold text-foreground mb-2">
-              Still have questions?
+              {t("contact.stillQuestions")}
             </h3>
             <p className="text-muted-foreground mb-6">
-              Can&apos;t find the answer you&apos;re looking for? Our team is happy to help.
+              {t("contact.stillText")}
             </p>
             <Button variant="outline" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
-              Contact Us <ArrowRight className="ml-2 h-4 w-4" />
+              {t("contact.contactUs")} <ArrowRight className="ms-2 h-4 w-4 rtl:rotate-180" />
             </Button>
           </motion.div>
         </div>
@@ -755,12 +661,10 @@ const ContactPage = () => {
             transition={{ duration: 0.8 }}
           >
             <h2 className="mb-6 text-4xl font-bold text-primary-foreground md:text-5xl lg:text-6xl">
-              Ready to Make an{" "}
-              <span className="text-teal-300 drop-shadow-md">Impact</span>?
+              {t("contact.ctaTitle")}
             </h2>
             <p className="mb-10 text-xl text-primary-foreground/90 font-medium leading-relaxed">
-              Join thousands of supporters and entrepreneurs creating positive change in
-              Palestinian communities.
+              {t("contact.ctaText")}
             </p>
             <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
@@ -768,7 +672,7 @@ const ContactPage = () => {
                   size="xl"
                   className="bg-primary-foreground text-primary hover:bg-primary-white shadow-xl font-bold h-16 px-10 text-lg rounded-2xl"
                 >
-                  Explore Projects
+                  {t("contact.explore")}
                 </Button>
               </motion.div>
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
@@ -776,7 +680,7 @@ const ContactPage = () => {
                   size="xl"
                   className="bg-transparent border-2 border-teal-300 text-teal-300 hover:bg-teal-300/10 shadow-sm font-bold h-16 px-10 text-lg rounded-2xl"
                 >
-                  Start Your Project
+                  {t("contact.start")}
                 </Button>
               </motion.div>
             </div>

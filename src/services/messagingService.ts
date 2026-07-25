@@ -48,6 +48,10 @@ export interface Page<T> {
 
 const messagingService = {
   listConversations: (): Promise<Page<Conversation>> => api.get("conversations/"),
+  searchUsers: (query: string): Promise<ParticipantUser[]> =>
+    api.get("conversations/user-search/", { params: { q: query } }),
+  createDirectConversation: (otherUserId: string): Promise<Conversation> =>
+    api.post("conversations/", { kind: "direct", other_user_id: otherUserId }),
   listMessages: (conversationId: string): Promise<Page<Message>> =>
     api.get(`conversations/${conversationId}/messages/`),
   sendMessage: (conversationId: string, body: string): Promise<Message> =>

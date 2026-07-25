@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { FormEvent, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { FileText, ImagePlus, Save, Trash2, Upload } from "lucide-react";
@@ -35,6 +36,7 @@ const ImageCard = ({
   onSave: (image: AdminProjectImage, altText: string) => void;
   onDelete: (image: AdminProjectImage) => void;
 }) => {
+  const { t } = useTranslation();
   const [altText, setAltText] = useState(image.alt_text || "");
 
   return (
@@ -44,7 +46,7 @@ const ImageCard = ({
       </div>
       <div className="space-y-3 p-4">
         <div className="space-y-1.5">
-          <Label htmlFor={"image-alt-" + image.id}>Alt text</Label>
+          <Label htmlFor={"image-alt-" + image.id}>{t("adminForm.altText")}</Label>
           <Input
             id={"image-alt-" + image.id}
             value={altText}
@@ -59,7 +61,7 @@ const ImageCard = ({
             disabled={pending || altText === image.alt_text}
             onClick={() => onSave(image, altText)}
           >
-            <Save className="h-3.5 w-3.5" /> Save
+            <Save className="h-3.5 w-3.5" /> {t("adminForm.save")}
           </Button>
           <Button
             size="icon"
@@ -69,7 +71,7 @@ const ImageCard = ({
             onClick={() => onDelete(image)}
           >
             <Trash2 className="h-4 w-4" />
-            <span className="sr-only">Delete image</span>
+            <span className="sr-only">{t("adminForm.deleteImage")}</span>
           </Button>
         </div>
       </div>
@@ -88,6 +90,7 @@ const DocumentRow = ({
   onSave: (document: AdminProjectDocument, title: string) => void;
   onDelete: (document: AdminProjectDocument) => void;
 }) => {
+  const { t } = useTranslation();
   const [title, setTitle] = useState(document.title);
 
   return (
@@ -97,7 +100,7 @@ const DocumentRow = ({
           <FileText className="h-4 w-4" />
         </div>
         <div className="min-w-0 flex-1 space-y-1.5">
-          <Label htmlFor={"document-title-" + document.id}>Document title</Label>
+          <Label htmlFor={"document-title-" + document.id}>{t("adminForm.documentTitle")}</Label>
           <Input
             id={"document-title-" + document.id}
             value={title}
@@ -110,7 +113,7 @@ const DocumentRow = ({
             rel="noreferrer"
             className="inline-block max-w-full truncate text-xs font-medium text-primary hover:underline"
           >
-            Open current file
+            {t("adminForm.openCurrentFile")}
           </a>
         </div>
       </div>
@@ -121,7 +124,7 @@ const DocumentRow = ({
           disabled={pending || !title.trim() || title === document.title}
           onClick={() => onSave(document, title.trim())}
         >
-          <Save className="h-3.5 w-3.5" /> Save
+          <Save className="h-3.5 w-3.5" /> {t("adminForm.save")}
         </Button>
         <Button
           size="icon"
@@ -131,7 +134,7 @@ const DocumentRow = ({
           onClick={() => onDelete(document)}
         >
           <Trash2 className="h-4 w-4" />
-          <span className="sr-only">Delete document</span>
+          <span className="sr-only">{t("adminForm.deleteDocument")}</span>
         </Button>
       </div>
     </article>
@@ -143,6 +146,7 @@ const AdminProjectAssetsPanel = ({
   images,
   documents,
 }: AdminProjectAssetsPanelProps) => {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imageAlt, setImageAlt] = useState("");
@@ -159,46 +163,46 @@ const AdminProjectAssetsPanel = ({
     mutationFn: ({ file, alt }: { file: File; alt: string }) =>
       adminProjectsService.createImage(projectId, file, alt),
     onSuccess: () => {
-      toast.success("Gallery image uploaded.");
+      toast.success(t("adminForm.uploadImageSuccess"));
       setImageFile(null);
       setImageAlt("");
       if (imageInputRef.current) imageInputRef.current.value = "";
       void refresh();
     },
-    onError: (error) => toast.error(getErrorMessage(error, "Could not upload this image.")),
+    onError: (error) => toast.error(getErrorMessage(error, t("adminForm.uploadImageFailed"))),
   });
 
   const updateImageMutation = useMutation({
     mutationFn: ({ image, alt }: { image: AdminProjectImage; alt: string }) =>
       adminProjectsService.updateImage(image.id, alt),
     onSuccess: () => {
-      toast.success("Image details updated.");
+      toast.success(t("adminForm.updateImageSuccess"));
       void refresh();
     },
-    onError: (error) => toast.error(getErrorMessage(error, "Could not update this image.")),
+    onError: (error) => toast.error(getErrorMessage(error, t("adminForm.updateImageFailed"))),
   });
 
   const createDocumentMutation = useMutation({
     mutationFn: ({ file, title }: { file: File; title: string }) =>
       adminProjectsService.createDocument(projectId, file, title),
     onSuccess: () => {
-      toast.success("Supporting document uploaded.");
+      toast.success(t("adminForm.uploadDocumentSuccess"));
       setDocumentFile(null);
       setDocumentTitle("");
       if (documentInputRef.current) documentInputRef.current.value = "";
       void refresh();
     },
-    onError: (error) => toast.error(getErrorMessage(error, "Could not upload this document.")),
+    onError: (error) => toast.error(getErrorMessage(error, t("adminForm.uploadDocumentFailed"))),
   });
 
   const updateDocumentMutation = useMutation({
     mutationFn: ({ document, title }: { document: AdminProjectDocument; title: string }) =>
       adminProjectsService.updateDocument(document.id, title),
     onSuccess: () => {
-      toast.success("Document title updated.");
+      toast.success(t("adminForm.updateDocumentSuccess"));
       void refresh();
     },
-    onError: (error) => toast.error(getErrorMessage(error, "Could not update this document.")),
+    onError: (error) => toast.error(getErrorMessage(error, t("adminForm.updateDocumentFailed"))),
   });
 
   const deleteMutation = useMutation({
@@ -207,11 +211,11 @@ const AdminProjectAssetsPanel = ({
         ? adminProjectsService.deleteImage(target.id)
         : adminProjectsService.deleteDocument(target.id),
     onSuccess: (_, target) => {
-      toast.success(target.kind === "image" ? "Gallery image deleted." : "Document deleted.");
+      toast.success(t(target.kind === "image" ? "adminForm.deleteImageSuccess" : "adminForm.deleteDocumentSuccess"));
       setDeleting(null);
       void refresh();
     },
-    onError: (error) => toast.error(getErrorMessage(error, "Could not delete this file.")),
+    onError: (error) => toast.error(getErrorMessage(error, t("adminForm.deleteFileFailed"))),
   });
 
   const submitImage = (event: FormEvent<HTMLFormElement>) => {
@@ -235,9 +239,9 @@ const AdminProjectAssetsPanel = ({
     <div className="space-y-8">
       <section className="space-y-5">
         <div>
-          <h3 className="text-lg font-semibold text-foreground">Gallery images</h3>
+          <h3 className="text-lg font-semibold text-foreground">{t("adminForm.galleryImages")}</h3>
           <p className="mt-1 text-sm text-muted-foreground">
-            Upload, describe, and remove the additional imagery shown on the project.
+            {t("adminForm.galleryHelp")}
           </p>
         </div>
         <form
@@ -245,7 +249,7 @@ const AdminProjectAssetsPanel = ({
           className="grid gap-3 rounded-2xl border border-dashed border-primary/30 bg-primary/5 p-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end"
         >
           <div className="space-y-2">
-            <Label htmlFor="new-gallery-image">Image file</Label>
+            <Label htmlFor="new-gallery-image">{t("adminForm.imageFile")}</Label>
             <Input
               ref={imageInputRef}
               id="new-gallery-image"
@@ -256,18 +260,18 @@ const AdminProjectAssetsPanel = ({
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="new-gallery-alt">Alt text</Label>
+            <Label htmlFor="new-gallery-alt">{t("adminForm.altText")}</Label>
             <Input
               id="new-gallery-alt"
               maxLength={160}
               value={imageAlt}
               onChange={(event) => setImageAlt(event.target.value)}
-              placeholder="Describe the image"
+              placeholder={t("adminForm.describeImage")}
             />
           </div>
           <Button type="submit" disabled={!imageFile || createImageMutation.isPending}>
             <ImagePlus className="h-4 w-4" />
-            {createImageMutation.isPending ? "Uploading..." : "Upload"}
+            {createImageMutation.isPending ? t("adminForm.uploading") : t("adminForm.upload")}
           </Button>
         </form>
         {images.length ? (
@@ -279,23 +283,23 @@ const AdminProjectAssetsPanel = ({
                 pending={assetBusy}
                 onSave={(target, alt) => updateImageMutation.mutate({ image: target, alt })}
                 onDelete={(target) =>
-                  setDeleting({ id: target.id, kind: "image", label: target.alt_text || "gallery image" })
+                  setDeleting({ id: target.id, kind: "image", label: target.alt_text || t("adminForm.galleryImage") })
                 }
               />
             ))}
           </div>
         ) : (
           <p className="rounded-xl bg-muted/40 p-6 text-center text-sm text-muted-foreground">
-            This project has no gallery images.
+            {t("adminForm.noGallery")}
           </p>
         )}
       </section>
 
       <section className="space-y-5 border-t border-border pt-8">
         <div>
-          <h3 className="text-lg font-semibold text-foreground">Supporting documents</h3>
+          <h3 className="text-lg font-semibold text-foreground">{t("adminForm.supportingDocuments")}</h3>
           <p className="mt-1 text-sm text-muted-foreground">
-            Manage additional files beyond the primary business and ownership documents.
+            {t("adminForm.documentsHelp")}
           </p>
         </div>
         <form
@@ -303,7 +307,7 @@ const AdminProjectAssetsPanel = ({
           className="grid gap-3 rounded-2xl border border-dashed border-secondary/30 bg-secondary/5 p-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end"
         >
           <div className="space-y-2">
-            <Label htmlFor="new-supporting-document">Document file</Label>
+            <Label htmlFor="new-supporting-document">{t("adminForm.documentFile")}</Label>
             <Input
               ref={documentInputRef}
               id="new-supporting-document"
@@ -313,13 +317,13 @@ const AdminProjectAssetsPanel = ({
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="new-document-title">Title</Label>
+            <Label htmlFor="new-document-title">{t("adminForm.title")}</Label>
             <Input
               id="new-document-title"
               maxLength={120}
               value={documentTitle}
               onChange={(event) => setDocumentTitle(event.target.value)}
-              placeholder="Document title"
+              placeholder={t("adminForm.documentTitle")}
               required
             />
           </div>
@@ -328,7 +332,7 @@ const AdminProjectAssetsPanel = ({
             disabled={!documentFile || !documentTitle.trim() || createDocumentMutation.isPending}
           >
             <Upload className="h-4 w-4" />
-            {createDocumentMutation.isPending ? "Uploading..." : "Upload"}
+            {createDocumentMutation.isPending ? t("adminForm.uploading") : t("adminForm.upload")}
           </Button>
         </form>
         {documents.length ? (
@@ -347,15 +351,15 @@ const AdminProjectAssetsPanel = ({
           </div>
         ) : (
           <p className="rounded-xl bg-muted/40 p-6 text-center text-sm text-muted-foreground">
-            This project has no supporting documents.
+            {t("adminForm.noDocuments")}
           </p>
         )}
       </section>
 
       <AdminDeleteDialog
         open={!!deleting}
-        title={"Delete " + (deleting?.label || "this file") + "?"}
-        description="The file will be permanently removed from this project. This cannot be undone."
+        title={t("adminForm.deleteFileTitle", { name: deleting?.label || t("adminForm.thisFile") })}
+        description={t("adminForm.deleteFileText")}
         pending={deleteMutation.isPending}
         onOpenChange={(open) => !open && setDeleting(null)}
         onConfirm={() => deleting && deleteMutation.mutate(deleting)}

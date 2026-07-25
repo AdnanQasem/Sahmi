@@ -152,7 +152,7 @@ const navItems: NavItem[] = [
     label: "Settings",
     href: "/settings",
     icon: Settings,
-    roles: ["investor", "entrepreneur"],
+    roles: ["investor", "entrepreneur", "admin"],
   },
 ];
 
@@ -390,7 +390,7 @@ const DashboardLayout = ({ children, roleBase }: DashboardLayoutProps) => {
       {/* Main content area */}
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Topbar */}
-        <header className="flex h-16 shrink-0 items-center justify-between border-b border-border bg-card px-4 md:px-6">
+        <header dir="ltr" className="flex h-16 shrink-0 items-center justify-between border-b border-border bg-card px-4 md:px-6">
           {/* Mobile hamburger */}
           <button
             onClick={() => setSidebarOpen(true)}
@@ -402,11 +402,11 @@ const DashboardLayout = ({ children, roleBase }: DashboardLayoutProps) => {
 
           {/* Page greeting (desktop) */}
           <div className="hidden lg:block">
-            <p className="text-sm font-medium text-foreground">{t("dashboard.welcome", { name: user?.full_name?.split(" ")[0] || "" })}</p>
+            <p dir={i18n.dir()} className="text-sm font-medium text-foreground">{t("dashboard.welcome", { name: user?.full_name?.split(" ")[0] || "" })}</p>
           </div>
 
           {/* Right side actions */}
-          <div className="ms-auto flex items-center gap-3">
+          <div dir="ltr" className="ml-auto flex items-center gap-3">
             <LanguageSwitcher compact />
             {/* Notifications */}
             <Popover>

@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+import { formatCurrency as formatLocaleCurrency } from "@/i18n/format";
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -23,15 +25,10 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import adminProjectsService from "@/services/adminProjectsService";
 
-const formatCurrency = (value: number) =>
-  new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    notation: "compact",
-    maximumFractionDigits: 1,
-  }).format(value);
+const formatCurrency = (value: number) => formatLocaleCurrency(value);
 
 const AdminDashboard = () => {
+  const { t } = useTranslation();
   const projectsQuery = useQuery({
     queryKey: ["admin", "projects"],
     queryFn: () => adminProjectsService.listProjects({ page_size: 100, ordering: "-created_at" }),
@@ -68,8 +65,8 @@ const AdminDashboard = () => {
       <div className="space-y-8">
         <AdminPageHeader
           icon={ShieldCheck}
-          title="Keep Sahmi running smoothly"
-          description="See what needs attention, then move into a focused workspace to manage projects and the platform catalogue."
+          title={t("admin.dashboardTitle")}
+          description={t("admin.dashboardDescription")}
           actions={
             <>
               <Button
@@ -81,20 +78,16 @@ const AdminDashboard = () => {
                 }}
                 disabled={isRefreshing}
               >
-                <RefreshCw className={"h-4 w-4 " + (isRefreshing ? "animate-spin" : "")} />
-                Refresh
-              </Button>
+                <RefreshCw className={"h-4 w-4 " + (isRefreshing ? "animate-spin" : "")} />{t("admin.refresh")}</Button>
               <Button asChild>
                 <Link to="/dashboard/admin/projects/new">
-                  <Plus className="h-4 w-4" />
-                  Add project
-                </Link>
+                  <Plus className="h-4 w-4" />{t("admin.addProject")}</Link>
               </Button>
             </>
           }
         />
 
-        <section aria-label="Platform overview">
+        <section aria-label={t("admin.platformOverview")}>
           {projectsQuery.isLoading ? (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
               {Array.from({ length: 4 }).map((_, index) => (
@@ -148,14 +141,10 @@ const AdminDashboard = () => {
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-destructive/10 text-destructive">
               <AlertCircle className="h-5 w-5" />
             </div>
-            <h2 className="mt-4 text-lg font-semibold text-foreground">Overview could not be loaded</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Check the backend connection and try loading the admin workspace again.
-            </p>
+            <h2 className="mt-4 text-lg font-semibold text-foreground">{t("admin.overviewError")}</h2>
+            <p className="mt-1 text-sm text-muted-foreground">{t("admin.connectionRetry")}</p>
             <Button variant="outline" className="mt-5" onClick={() => void projectsQuery.refetch()}>
-              <RefreshCw className="h-4 w-4" />
-              Try again
-            </Button>
+              <RefreshCw className="h-4 w-4" />{t("admin.tryAgain")}</Button>
           </section>
         ) : (
           <div className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(19rem,0.65fr)]">
@@ -164,14 +153,12 @@ const AdminDashboard = () => {
                 <div>
                   <div className="flex items-center gap-2">
                     <ClipboardCheck className="h-5 w-5 text-warning" />
-                    <h2 className="text-xl font-bold text-foreground">Needs your attention</h2>
+                    <h2 className="text-xl font-bold text-foreground">{t("admin.needsAttention")}</h2>
                   </div>
-                  <p className="mt-1 text-sm text-muted-foreground">The latest projects waiting for review.</p>
+                  <p className="mt-1 text-sm text-muted-foreground">{t("admin.reviewQueueText")}</p>
                 </div>
                 <Button variant="outline" size="sm" asChild>
-                  <Link to="/dashboard/admin/projects#review-queue">
-                    Open review queue
-                    <ArrowRight className="h-4 w-4" />
+                  <Link to="/dashboard/admin/projects#review-queue">{t("admin.openReviewQueue")}<ArrowRight className="h-4 w-4" />
                   </Link>
                 </Button>
               </div>
@@ -203,9 +190,7 @@ const AdminDashboard = () => {
                           {project.entrepreneur?.full_name || project.entrepreneur?.email || "Unknown owner"}
                         </p>
                       </div>
-                      <span className="hidden shrink-0 rounded-full bg-warning/15 px-2.5 py-1 text-[11px] font-semibold text-warning sm:inline-flex">
-                        Review
-                      </span>
+                      <span className="hidden shrink-0 rounded-full bg-warning/15 px-2.5 py-1 text-[11px] font-semibold text-warning sm:inline-flex">{t("admin.review")}</span>
                       <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
                     </Link>
                   ))}
@@ -216,10 +201,8 @@ const AdminDashboard = () => {
                     <CheckCircle2 className="h-5 w-5" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-foreground">All caught up</h3>
-                    <p className="mt-0.5 text-sm text-muted-foreground">
-                      There are no new project submissions waiting for review.
-                    </p>
+                    <h3 className="font-semibold text-foreground">{t("admin.allCaughtUp")}</h3>
+                    <p className="mt-0.5 text-sm text-muted-foreground">{t("admin.noSubmissions")}</p>
                   </div>
                 </div>
               )}
@@ -227,10 +210,8 @@ const AdminDashboard = () => {
 
             <section aria-labelledby="management-heading">
               <div className="mb-4">
-                <h2 id="management-heading" className="text-xl font-bold text-foreground">
-                  Management
-                </h2>
-                <p className="mt-1 text-sm text-muted-foreground">Choose a focused admin workspace.</p>
+                <h2 id="management-heading" className="text-xl font-bold text-foreground">{t("admin.management")}</h2>
+                <p className="mt-1 text-sm text-muted-foreground">{t("admin.chooseWorkspace")}</p>
               </div>
               <div className="space-y-3">
                 <Link
@@ -241,10 +222,8 @@ const AdminDashboard = () => {
                     <Users className="h-5 w-5" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <h3 className="font-semibold text-foreground">Users and roles</h3>
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                      Manage accounts, verification, access, and passwords.
-                    </p>
+                    <h3 className="font-semibold text-foreground">{t("admin.usersRoles")}</h3>
+                    <p className="mt-0.5 text-xs text-muted-foreground">{t("admin.manageUsersText")}</p>
                   </div>
                   <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
                 </Link>
@@ -256,7 +235,7 @@ const AdminDashboard = () => {
                     <FolderOpen className="h-5 w-5" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <h3 className="font-semibold text-foreground">Projects</h3>
+                    <h3 className="font-semibold text-foreground">{t("admin.projects")}</h3>
                     <p className="mt-0.5 text-xs text-muted-foreground">
                       Review and manage {projects.length} {projects.length === 1 ? "project" : "projects"}.
                     </p>
@@ -271,7 +250,7 @@ const AdminDashboard = () => {
                     <Tags className="h-5 w-5" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <h3 className="font-semibold text-foreground">Categories</h3>
+                    <h3 className="font-semibold text-foreground">{t("admin.categories")}</h3>
                     <p className="mt-0.5 text-xs text-muted-foreground">
                       Organize {categories.length} {categories.length === 1 ? "category" : "categories"}.
                     </p>
@@ -286,10 +265,8 @@ const AdminDashboard = () => {
                     <CircleDollarSign className="h-5 w-5" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <h3 className="font-semibold text-foreground">Investments</h3>
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                      Control every investment and return record.
-                    </p>
+                    <h3 className="font-semibold text-foreground">{t("admin.investments")}</h3>
+                    <p className="mt-0.5 text-xs text-muted-foreground">{t("admin.investmentsText")}</p>
                   </div>
                   <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
                 </Link>
@@ -301,10 +278,8 @@ const AdminDashboard = () => {
                     <Flag className="h-5 w-5" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <h3 className="font-semibold text-foreground">Milestones</h3>
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                      Maintain delivery targets and released funding.
-                    </p>
+                    <h3 className="font-semibold text-foreground">{t("admin.milestones")}</h3>
+                    <p className="mt-0.5 text-xs text-muted-foreground">{t("admin.milestonesManageText")}</p>
                   </div>
                   <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
                 </Link>
@@ -316,10 +291,8 @@ const AdminDashboard = () => {
                     <HandCoins className="h-5 w-5" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <h3 className="font-semibold text-foreground">Repayments</h3>
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                      Schedule and reconcile investor payments.
-                    </p>
+                    <h3 className="font-semibold text-foreground">{t("admin.repayments")}</h3>
+                    <p className="mt-0.5 text-xs text-muted-foreground">{t("admin.repaymentsManageText")}</p>
                   </div>
                   <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
                 </Link>

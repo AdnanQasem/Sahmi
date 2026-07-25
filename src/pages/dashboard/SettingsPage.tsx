@@ -2,12 +2,13 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import notificationService, { NotificationPreferences } from "@/services/notificationService";
 import { getErrorMessage } from "@/services/api";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, type Variants } from "framer-motion";
 import DashboardLayout from "./DashboardLayout";
 import { useAuth } from "@/hooks/useAuth";
 import { useTranslation } from "react-i18next";
 import authService from "@/services/authService";
 import { changeLanguage, SupportedLanguage } from "@/i18n";
+import { formatCurrency, formatNumber } from "@/i18n/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -44,7 +45,7 @@ import {
 
 type SettingsSection = "profile" | "account" | "security" | "notifications" | "billing";
 
-const containerVariants = {
+const containerVariants: Variants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
@@ -52,7 +53,7 @@ const containerVariants = {
   }
 };
 
-const itemVariants = {
+const itemVariants: Variants = {
   hidden: { opacity: 0, y: 15, scale: 0.98 },
   visible: { 
     opacity: 1, 
@@ -83,7 +84,8 @@ const tabVariants = {
 const SettingsPage = () => {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const roleBase = user?.user_type === "investor" ? "/dashboard/investor" : "/dashboard/entrepreneur";
+  const isAdmin = Boolean(user?.is_staff || user?.user_type === "admin");
+  const roleBase = isAdmin ? "/dashboard/admin" : user?.user_type === "investor" ? "/dashboard/investor" : "/dashboard/entrepreneur";
   const [activeSection, setActiveSection] = useState<SettingsSection>("profile");
   const [isSaving, setIsSaving] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -92,10 +94,10 @@ const SettingsPage = () => {
   const [formData, setFormData] = useState({
     fullName: user?.full_name || "",
     email: user?.email || "",
-    phone: "+966 50 123 4567",
-    bio: "Active investor focusing on tech startups, renewable energy, and fintech developments across the MENA region. Passionate about high-growth business models.",
-    location: "Riyadh, Saudi Arabia",
-    website: "https://sahmi.io",
+    phone: user?.phone_number || "",
+    bio: user?.bio || "",
+    location: [user?.city, user?.country].filter(Boolean).join(", "),
+    website: user?.website || "",
     currentPassword: "",
     newPassword: "",
     confirmPassword: "",
@@ -104,7 +106,7 @@ const SettingsPage = () => {
     marketingEmails: false,
     twoFactorEnabled: false,
     language: user?.preferred_language ?? "en",
-    timezone: "Asia/Riyadh (UTC+3)",
+    timezone: user?.timezone || "Asia/Riyadh (UTC+3)",
     recoveryEmail: "backup.investor@example.com",
     autoReinvest: false,
     defaultInvestment: "5000",
@@ -144,7 +146,7 @@ const SettingsPage = () => {
     }
   };
   const getPasswordStrength = (password: string) => {
-    if (!password) return { score: 0, label: "Not Entered", color: "bg-muted text-muted-foreground", width: "w-0" };
+    if (!password) return { score: 0, label: t("settings.notEntered"), color: "bg-muted text-muted-foreground", width: "w-0" };
     let score = 0;
     if (password.length >= 8) score += 1;
     if (/[A-Z]/.test(password)) score += 1;
@@ -152,9 +154,9 @@ const SettingsPage = () => {
     if (/[0-9]/.test(password)) score += 1;
     if (/[^A-Za-z0-9]/.test(password)) score += 1;
 
-    if (score <= 2) return { score, label: "Weak", color: "bg-destructive text-destructive-foreground", width: "w-1/3" };
-    if (score <= 4) return { score, label: "Medium", color: "bg-warning text-warning-foreground", width: "w-2/3" };
-    return { score, label: "Strong", color: "bg-success text-success-foreground", width: "w-full" };
+    if (score <= 2) return { score, label: t("settings.weak"), color: "bg-destructive text-destructive-foreground", width: "w-1/3" };
+    if (score <= 4) return { score, label: t("settings.medium"), color: "bg-warning text-warning-foreground", width: "w-2/3" };
+    return { score, label: t("settings.strong"), color: "bg-success text-success-foreground", width: "w-full" };
   };
 
   const sections = [
@@ -162,7 +164,7 @@ const SettingsPage = () => {
     { id: "account" as const, label: t("settings.account"), icon: Mail, description: t("settings.emailPhone") },
     { id: "security" as const, label: t("settings.security"), icon: Shield, description: t("settings.password2fa") },
     { id: "notifications" as const, label: t("settings.notifications"), icon: Bell, description: t("settings.alertPreferences") },
-    { id: "billing" as const, label: t("settings.billing"), icon: CreditCard, description: t("settings.paymentMethods") },
+    ...(!isAdmin ? [{ id: "billing" as const, label: t("settings.billing"), icon: CreditCard, description: t("settings.paymentMethods") }] : []),
   ];
 
   const handleSave = async () => {
@@ -171,10 +173,40 @@ const SettingsPage = () => {
       if (activeSection === "notifications") {
         const saved = await savePreferences.mutateAsync(notifications);
         setNotifications(saved);
-        toast.success(t("settings.saved"));
+      } else if (activeSection === "profile" || activeSection === "account") {
+        const locationParts = formData.location.split(",").map((part) => part.trim()).filter(Boolean);
+        await authService.updateCurrentUser({
+          full_name: formData.fullName.trim(),
+          phone_number: formData.phone.trim(),
+          bio: formData.bio.trim(),
+          city: locationParts[0] ?? "",
+          country: locationParts.slice(1).join(", "),
+          website: formData.website.trim(),
+          timezone: formData.timezone,
+        });
+      } else if (activeSection === "security") {
+        const accessToken = localStorage.getItem("accessToken");
+        if (!accessToken) {
+          const email = formData.email.trim();
+          if (!email) throw new Error(t("settings.preferencesError"));
+          await authService.requestPasswordReset(email);
+          toast.success(t("auth.resetEmailSent"));
+          return;
+        }
+        if (!formData.currentPassword || !formData.newPassword || !formData.confirmPassword) {
+          throw new Error(t("settings.preferencesError"));
+        }
+        await authService.changePassword({
+          current_password: formData.currentPassword,
+          new_password: formData.newPassword,
+          confirm_password: formData.confirmPassword,
+        });
+        setFormData((current) => ({ ...current, currentPassword: "", newPassword: "", confirmPassword: "" }));
       } else {
-        toast.info("Only notification preferences are connected to the backend in this security scope.");
+        toast.info(t("settings.backendScope"));
+        return;
       }
+      toast.success(t("settings.saved"));
     } catch (error) {
       toast.error(getErrorMessage(error, t("settings.preferencesError")));
     } finally {
@@ -186,18 +218,18 @@ const SettingsPage = () => {
     const isCurrentlyConnected = !!connected[provider];
     if (isCurrentlyConnected) {
       setConnected(prev => ({ ...prev, [provider]: false }));
-      toast.success(`Disconnected from ${provider}`, {
-        description: `Your Sahmi account is no longer linked to ${provider}.`
+      toast.success(t("settings.disconnected", { provider }), {
+        description: t("settings.disconnectedText", { provider })
       });
     } else {
-      const toastId = toast.loading(`Connecting to ${provider}...`, {
-        description: "Please authorize the connection in the pop-up window."
+      const toastId = toast.loading(t("settings.connecting", { provider }), {
+        description: t("settings.authorizePopup")
       });
       setTimeout(() => {
         setConnected(prev => ({ ...prev, [provider]: true }));
-        toast.success(`Successfully connected to ${provider}!`, {
+        toast.success(t("settings.connected", { provider }), {
           id: toastId,
-          description: `Your Sahmi account is now linked to ${provider}.`
+          description: t("settings.connectedText", { provider })
         });
       }, 1200);
     }
@@ -205,21 +237,21 @@ const SettingsPage = () => {
 
   const handleDeposit = () => {
     setWalletBalance(prev => prev + 5000);
-    toast.success("Deposit Successful", {
-      description: "Successfully deposited $5,000.00 into your Sahmi wallet."
+    toast.success(t("settings.depositSuccess"), {
+      description: t("settings.depositText", { amount: formatCurrency(5000) })
     });
   };
 
   const handleWithdraw = () => {
     if (walletBalance < 5000) {
-      toast.error("Insufficient Funds", {
-        description: "Your wallet balance is too low for this withdrawal (minimum $5,000.00)."
+      toast.error(t("settings.insufficient"), {
+        description: t("settings.insufficientText", { amount: formatCurrency(5000) })
       });
       return;
     }
     setWalletBalance(prev => prev - 5000);
-    toast.success("Withdrawal Initiated", {
-      description: "Your request to withdraw $5,000.00 has been sent for bank processing."
+    toast.success(t("settings.withdrawal"), {
+      description: t("settings.withdrawalText", { amount: formatCurrency(5000) })
     });
   };
 
@@ -227,8 +259,8 @@ const SettingsPage = () => {
     setDownloadingInvoice(prev => ({ ...prev, [index]: true }));
     await new Promise(resolve => setTimeout(resolve, 1500));
     setDownloadingInvoice(prev => ({ ...prev, [index]: false }));
-    toast.success("Invoice Downloaded", {
-      description: `Invoice for "${description}" has been saved as PDF.`
+    toast.success(t("settings.invoiceDownloaded"), {
+      description: t("settings.invoiceText", { description })
     });
   };
 
@@ -265,10 +297,10 @@ const SettingsPage = () => {
                 <p className="text-muted-foreground">{user?.email}</p>
                 <div className="flex items-center gap-2 mt-2">
                   <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20">
-                    {user?.user_type === "entrepreneur" ? "Project Owner" : "Investor"}
+                    {t(isAdmin ? "admin.header" : user?.user_type === "entrepreneur" ? "settings.projectOwner" : "settings.investor")}
                   </Badge>
                   <Badge variant="outline" className="bg-success/10 text-success border-success/20">
-                    Verified
+                    {t("settings.verified")}
                   </Badge>
                 </div>
               </div>
@@ -278,12 +310,12 @@ const SettingsPage = () => {
               <motion.div variants={itemVariants} className="space-y-2">
                 <label className="text-sm font-medium text-foreground">{t("settings.fullName")}</label>
                 <div className="relative group">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                  <User className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                   <Input
                     value={formData.fullName}
                     onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                    className="pl-10 h-11 bg-background border-border focus:border-primary focus:ring-primary/20 transition-all"
-                    placeholder="Your full name"
+                    className="ps-10 h-11 bg-background border-border focus:border-primary focus:ring-primary/20 transition-all"
+                    placeholder={t("settings.namePlaceholder")}
                   />
                 </div>
               </motion.div>
@@ -291,12 +323,12 @@ const SettingsPage = () => {
               <motion.div variants={itemVariants} className="space-y-2">
                 <label className="text-sm font-medium text-foreground">{t("settings.emailAddress")}</label>
                 <div className="relative group">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                  <Mail className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                   <Input
                     type="email"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="pl-10 h-11 bg-background border-border focus:border-primary focus:ring-primary/20 transition-all"
+                    className="ps-10 h-11 bg-background border-border focus:border-primary focus:ring-primary/20 transition-all"
                     placeholder="your@email.com"
                   />
                 </div>
@@ -305,11 +337,11 @@ const SettingsPage = () => {
               <motion.div variants={itemVariants} className="space-y-2">
                 <label className="text-sm font-medium text-foreground">{t("settings.phoneNumber")}</label>
                 <div className="relative group">
-                  <Smartphone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                  <Smartphone className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                   <Input
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    className="pl-10 h-11 bg-background border-border focus:border-primary focus:ring-primary/20 transition-all"
+                    className="ps-10 h-11 bg-background border-border focus:border-primary focus:ring-primary/20 transition-all"
                     placeholder="+1 (555) 000-0000"
                   />
                 </div>
@@ -318,12 +350,12 @@ const SettingsPage = () => {
               <motion.div variants={itemVariants} className="space-y-2">
                 <label className="text-sm font-medium text-foreground">{t("settings.location")}</label>
                 <div className="relative group">
-                  <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                  <Globe className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                   <Input
                     value={formData.location}
                     onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                    className="pl-10 h-11 bg-background border-border focus:border-primary focus:ring-primary/20 transition-all"
-                    placeholder="City, Country"
+                    className="ps-10 h-11 bg-background border-border focus:border-primary focus:ring-primary/20 transition-all"
+                    placeholder={t("settings.locationPlaceholder")}
                   />
                 </div>
               </motion.div>
@@ -331,11 +363,11 @@ const SettingsPage = () => {
               <motion.div variants={itemVariants} className="space-y-2 sm:col-span-2">
                 <label className="text-sm font-medium text-foreground">{t("settings.website")}</label>
                 <div className="relative group">
-                  <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                  <Globe className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                   <Input
                     value={formData.website}
                     onChange={(e) => setFormData({ ...formData, website: e.target.value })}
-                    className="pl-10 h-11 bg-background border-border focus:border-primary focus:ring-primary/20 transition-all"
+                    className="ps-10 h-11 bg-background border-border focus:border-primary focus:ring-primary/20 transition-all"
                     placeholder="https://yourwebsite.com"
                   />
                 </div>
@@ -348,7 +380,7 @@ const SettingsPage = () => {
                   onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
                   rows={3}
                   className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all resize-none"
-                  placeholder="Tell us about yourself..."
+                  placeholder={t("settings.bioPlaceholder")}
                 />
               </motion.div>
             </div>
@@ -373,7 +405,7 @@ const SettingsPage = () => {
                 <div>
                   <h4 className="font-medium text-foreground">{t("settings.emailChange")}</h4>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Changing your email will require verification from both your current and new email addresses.
+                    {t("settings.emailChangeText")}
                   </p>
                 </div>
               </div>
@@ -383,15 +415,15 @@ const SettingsPage = () => {
               <motion.div variants={itemVariants} className="space-y-2">
                 <label className="text-sm font-medium text-foreground">{t("settings.primaryEmail")}</label>
                 <div className="relative group">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                  <Mail className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                   <Input
                     type="email"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="pl-10 pr-20 h-11 bg-background border-border focus:border-primary focus:ring-primary/20 transition-all"
+                    className="ps-10 pe-20 h-11 bg-background border-border focus:border-primary focus:ring-primary/20 transition-all"
                   />
-                  <Badge variant="secondary" className="absolute right-3 top-1/2 -translate-y-1/2 bg-success/10 text-success border-success/20 text-xs">
-                    Verified
+                  <Badge variant="secondary" className="absolute end-3 top-1/2 -translate-y-1/2 bg-success/10 text-success border-success/20 text-xs">
+                    {t("settings.verified")}
                   </Badge>
                 </div>
               </motion.div>
@@ -399,11 +431,11 @@ const SettingsPage = () => {
               <motion.div variants={itemVariants} className="space-y-2">
                 <label className="text-sm font-medium text-foreground">{t("settings.phoneNumber")}</label>
                 <div className="relative group">
-                  <Smartphone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                  <Smartphone className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                   <Input
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    className="pl-10 h-11 bg-background border-border focus:border-primary focus:ring-primary/20 transition-all"
+                    className="ps-10 h-11 bg-background border-border focus:border-primary focus:ring-primary/20 transition-all"
                     placeholder="+1 (555) 000-0000"
                   />
                 </div>
@@ -413,35 +445,35 @@ const SettingsPage = () => {
               <motion.div variants={itemVariants} className="space-y-2">
                 <label htmlFor="preferred-language" className="text-sm font-medium text-foreground">{t("settings.language")}</label>
                 <div className="relative group">
-                  <Languages className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                  <Languages className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                   <select
                     id="preferred-language"
                     value={formData.language}
                     onChange={(e) => void handleLanguageChange(e.target.value as SupportedLanguage)}
-                    className="w-full pl-10 pr-10 h-11 rounded-lg border border-border bg-background text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all appearance-none cursor-pointer"
+                    className="w-full ps-10 pe-10 h-11 rounded-lg border border-border bg-background text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all appearance-none cursor-pointer"
                   >
                     <option value="en">{t("language.english")}</option>
                     <option value="ar">{t("language.arabic")}</option>
                   </select>
-                  <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground rotate-90 pointer-events-none" />
+                  <ChevronRight className="absolute end-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground rotate-90 pointer-events-none" />
                 </div>
               </motion.div>
 
               <motion.div variants={itemVariants} className="space-y-2">
                 <label className="text-sm font-medium text-foreground">{t("settings.timezone")}</label>
                 <div className="relative group">
-                  <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                  <Clock className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                   <select
                     value={formData.timezone}
                     onChange={(e) => setFormData({ ...formData, timezone: e.target.value })}
-                    className="w-full pl-10 pr-10 h-11 rounded-lg border border-border bg-background text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all appearance-none cursor-pointer"
+                    className="w-full ps-10 pe-10 h-11 rounded-lg border border-border bg-background text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all appearance-none cursor-pointer"
                   >
-                    <option value="Asia/Riyadh (UTC+3)">Riyadh, Saudi Arabia (UTC+3)</option>
-                    <option value="Asia/Dubai (UTC+4)">Dubai, UAE (UTC+4)</option>
-                    <option value="Europe/London (GMT)">London, UK (GMT)</option>
-                    <option value="America/New_York (EST)">New York, USA (EST)</option>
+                    <option value="Asia/Riyadh (UTC+3)">{t("settings.riyadh")}</option>
+                    <option value="Asia/Dubai (UTC+4)">{t("settings.dubai")}</option>
+                    <option value="Europe/London (GMT)">{t("settings.london")}</option>
+                    <option value="America/New_York (EST)">{t("settings.newYork")}</option>
                   </select>
-                  <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground rotate-90 pointer-events-none" />
+                  <ChevronRight className="absolute end-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground rotate-90 pointer-events-none" />
                 </div>
               </motion.div>
             </div>
@@ -455,7 +487,7 @@ const SettingsPage = () => {
                   </div>
                   <div>
                     <h4 className="font-semibold text-foreground flex items-center gap-2">
-                      Verification Level: Tier 2
+                      {t("settings.verificationLevel")}
                       <Badge className="bg-success/15 text-success border-success/20 text-[10px] font-semibold py-0">{t("settings.approved")}</Badge>
                     </h4>
                     <p className="text-xs text-muted-foreground">{t("settings.tierHelp")}</p>
@@ -465,20 +497,20 @@ const SettingsPage = () => {
                   type="button" 
                   variant="outline" 
                   size="sm"
-                  onClick={() => toast.info("Verification Request Submitted", {
-                    description: "Our compliance team will review your account credentials for Tier 3 upgrade."
+                  onClick={() => toast.info(t("settings.requestSubmitted"), {
+                    description: t("settings.requestSubmittedText")
                   })}
                   className="bg-card hover:bg-primary/5 hover:text-primary hover:border-primary/30"
                 >
-                  Request Tier 3 Upgrade
+                  {t("settings.requestTier3")}
                 </Button>
               </div>
 
               <div className="grid gap-3 grid-cols-1 sm:grid-cols-3 pt-2 border-t border-border/60">
                 {[
-                  { label: "Identity Verified", status: true },
-                  { label: "Accreditation Checked", status: true },
-                  { label: "Proof of Funds Verified", status: true },
+                  { label: t("settings.identityVerified"), status: true },
+                  { label: t("settings.accreditationChecked"), status: true },
+                  { label: t("settings.fundsVerified"), status: true },
                 ].map((tier, idx) => (
                   <div key={idx} className="flex items-center gap-2 text-xs">
                     <div className="h-4 w-4 rounded-full bg-success/10 flex items-center justify-center text-success shrink-0">
@@ -514,7 +546,7 @@ const SettingsPage = () => {
                             )}
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            {isLinked ? "Sign in enabled through this provider" : "Not connected"}
+                            {t(isLinked ? "settings.signInEnabled" : "settings.notConnected")}
                           </p>
                         </div>
                       </div>
@@ -524,7 +556,7 @@ const SettingsPage = () => {
                         onClick={() => handleConnect(provider)}
                         className={isLinked ? "text-destructive hover:bg-destructive/10 hover:text-destructive" : "hover:bg-primary/5 hover:border-primary/30"}
                       >
-                        {isLinked ? "Disconnect" : "Connect"}
+                        {t(isLinked ? "settings.disconnect" : "settings.connect")}
                       </Button>
                     </motion.div>
                   );
@@ -542,16 +574,16 @@ const SettingsPage = () => {
                 <Button 
                   type="button" 
                   variant="outline" 
-                  onClick={() => toast.warning("Confirm Deactivation", {
-                    description: "To confirm temporary deactivation, please contact support@sahmi.io.",
+                  onClick={() => toast.warning(t("settings.confirmDeactivation"), {
+                    description: t("settings.confirmDeactivationText"),
                     action: {
-                      label: "Contact Support",
+                      label: t("settings.contactSupport"),
                       onClick: () => window.open("mailto:support@sahmi.io")
                     }
                   })}
                   className="text-muted-foreground hover:text-foreground border-muted-foreground/30 hover:bg-muted"
                 >
-                  Deactivate Account
+                  {t("settings.deactivateAccount")}
                 </Button>
               </div>
             </motion.div>
@@ -572,24 +604,24 @@ const SettingsPage = () => {
             <motion.div variants={itemVariants} className="space-y-4">
               <h4 className="font-medium text-foreground flex items-center gap-2">
                 <Lock className="h-4 w-4 text-primary" />
-                Change Password
+                {t("settings.changePassword")}
               </h4>
               <div className="grid gap-4">
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-foreground">{t("settings.currentPassword")}</label>
                   <div className="relative group">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                    <Lock className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                     <Input
                       type={showPassword ? "text" : "password"}
                       value={formData.currentPassword}
                       onChange={(e) => setFormData({ ...formData, currentPassword: e.target.value })}
-                      className="pl-10 pr-10 h-11 bg-background border-border focus:border-primary focus:ring-primary/20 transition-all"
+                      className="ps-10 pe-10 h-11 bg-background border-border focus:border-primary focus:ring-primary/20 transition-all"
                       placeholder="••••••••"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                      className="absolute end-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                     >
                       {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
@@ -599,18 +631,18 @@ const SettingsPage = () => {
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-foreground">{t("settings.newPassword")}</label>
                   <div className="relative group">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                    <Lock className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                     <Input
                       type={showNewPassword ? "text" : "password"}
                       value={formData.newPassword}
                       onChange={(e) => setFormData({ ...formData, newPassword: e.target.value })}
-                      className="pl-10 pr-10 h-11 bg-background border-border focus:border-primary focus:ring-primary/20 transition-all"
+                      className="ps-10 pe-10 h-11 bg-background border-border focus:border-primary focus:ring-primary/20 transition-all"
                       placeholder="••••••••"
                     />
                     <button
                       type="button"
                       onClick={() => setShowNewPassword(!showNewPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                      className="absolute end-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                     >
                       {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
@@ -625,7 +657,7 @@ const SettingsPage = () => {
                     >
                       <div className="flex justify-between items-center text-xs">
                         <span className="text-muted-foreground flex items-center gap-1">
-                          <Activity className="h-3.5 w-3.5 text-primary" /> Password Strength:
+                          <Activity className="h-3.5 w-3.5 text-primary" /> {t("settings.passwordStrength")}
                         </span>
                         <span className={`font-semibold capitalize ${
                           strength.score <= 2 ? "text-destructive" : strength.score <= 4 ? "text-warning" : "text-success"
@@ -677,12 +709,12 @@ const SettingsPage = () => {
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-foreground">{t("settings.confirmPassword")}</label>
                   <div className="relative group">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                    <Lock className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                     <Input
                       type="password"
                       value={formData.confirmPassword}
                       onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                      className="pl-10 h-11 bg-background border-border focus:border-primary focus:ring-primary/20 transition-all"
+                      className="ps-10 h-11 bg-background border-border focus:border-primary focus:ring-primary/20 transition-all"
                       placeholder="••••••••"
                     />
                   </div>
@@ -692,17 +724,17 @@ const SettingsPage = () => {
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-foreground">{t("settings.recoveryEmail")}</label>
                   <div className="relative group">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                    <Mail className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                     <Input
                       type="email"
                       value={formData.recoveryEmail}
                       onChange={(e) => setFormData({ ...formData, recoveryEmail: e.target.value })}
-                      className="pl-10 h-11 bg-background border-border focus:border-primary focus:ring-primary/20 transition-all"
+                      className="ps-10 h-11 bg-background border-border focus:border-primary focus:ring-primary/20 transition-all"
                       placeholder="recovery@email.com"
                     />
                   </div>
-                  <p className="text-[11px] text-muted-foreground pl-1">
-                    Used to securely reset your credentials if you lose access to your primary email.
+                  <p className="text-[11px] text-muted-foreground ps-1">
+                    {t("settings.recoveryHelp")}
                   </p>
                 </div>
               </div>
@@ -711,7 +743,7 @@ const SettingsPage = () => {
             <motion.div variants={itemVariants} className="pt-4 border-t border-border space-y-4">
               <h4 className="font-medium text-foreground flex items-center gap-2">
                 <Shield className="h-4 w-4 text-primary" />
-                Two-Factor Authentication
+                {t("settings.twoFactor")}
               </h4>
               <div className="flex items-center justify-between p-4 rounded-xl border border-border bg-muted/30">
                 <div className="flex items-center gap-4">
@@ -730,12 +762,12 @@ const SettingsPage = () => {
                     const nextVal = !formData.twoFactorEnabled;
                     setFormData({ ...formData, twoFactorEnabled: nextVal });
                     if (nextVal) {
-                      toast.success("Two-Factor Authentication enabled!", {
-                        description: "Your account is now protected with a secondary authenticator app."
+                      toast.success(t("settings.twoFactorOn"), {
+                        description: t("settings.twoFactorOnText")
                       });
                     } else {
-                      toast.warning("Two-Factor Authentication disabled", {
-                        description: "Your account security has been downgraded."
+                      toast.warning(t("settings.twoFactorOff"), {
+                        description: t("settings.twoFactorOffText")
                       });
                     }
                   }}
@@ -770,7 +802,7 @@ const SettingsPage = () => {
             <motion.div variants={itemVariants} className="pt-4 border-t border-border space-y-4">
               <h4 className="font-medium text-foreground flex items-center gap-2">
                 <Smartphone className="h-4 w-4 text-primary" />
-                Active Sessions
+                {t("settings.activeSessions")}
               </h4>
               <div className="space-y-3">
                 {[
@@ -796,7 +828,7 @@ const SettingsPage = () => {
                             {session.device}
                             {session.current && (
                               <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20 text-xs">
-                                Current
+                                {t("settings.current")}
                               </Badge>
                             )}
                           </p>
@@ -809,11 +841,11 @@ const SettingsPage = () => {
                           size="sm" 
                           onClick={() => {
                             setRevokedSessions(prev => ({ ...prev, [index]: true }));
-                            toast.success(`Session on ${session.device} revoked successfully!`);
+                            toast.success(t("settings.sessionRevoked", { device: session.device }));
                           }}
                           className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                         >
-                          Revoke
+                          {t("settings.revoke")}
                         </Button>
                       )}
                     </motion.div>
@@ -826,7 +858,7 @@ const SettingsPage = () => {
             <motion.div variants={itemVariants} className="pt-4 border-t border-border space-y-4">
               <h4 className="font-medium text-foreground flex items-center gap-2">
                 <History className="h-4 w-4 text-primary" />
-                Security Login History
+                {t("settings.loginHistory")}
               </h4>
               <div className="overflow-hidden rounded-xl border border-border/80">
                 <div className="bg-muted/30 divide-y divide-border/60">
@@ -838,7 +870,7 @@ const SettingsPage = () => {
                     <div key={idx} className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-3 text-xs gap-2">
                       <div className="space-y-0.5">
                         <p className="font-semibold text-foreground">{log.timestamp}</p>
-                        <p className="text-muted-foreground">IP: {log.ip} • Method: {log.method}</p>
+                        <p className="text-muted-foreground">{t("settings.ipMethod", { ip: log.ip, method: log.method })}</p>
                       </div>
                       <Badge className="bg-success/10 text-success border-success/20 text-[10px] py-0 px-2">
                         {log.status}
@@ -887,8 +919,8 @@ const SettingsPage = () => {
                 icon: Mail,
               },
               {
-                title: "Push Notifications",
-                description: "Get push notifications on your devices",
+                title: t("settings.pushNotifications"),
+                description: t("settings.pushText"),
                 key: "in_app_enabled" as const,
                 icon: Bell,
               },
@@ -948,16 +980,16 @@ const SettingsPage = () => {
               <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div className="space-y-1">
                   <span className="text-xs text-primary-foreground/75 uppercase tracking-wider font-semibold flex items-center gap-1.5">
-                    <Coins className="h-4 w-4" /> Sahmi Investment Wallet
+                    <Coins className="h-4 w-4" /> {t("settings.wallet")}
                   </span>
                   <div className="flex items-baseline gap-2 mt-1">
                     <h3 className="text-3xl font-extrabold tracking-tight">
-                      ${walletBalance.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                      {formatCurrency(walletBalance)}
                     </h3>
                     <span className="text-xs text-primary-foreground/80 font-medium">USD</span>
                   </div>
                   <p className="text-xs text-primary-foreground/70">
-                    Use these funds to instantly commit to raising projects.
+                    {t("settings.walletHelp")}
                   </p>
                 </div>
                 <div className="flex gap-2 shrink-0">
@@ -966,7 +998,7 @@ const SettingsPage = () => {
                     onClick={handleDeposit}
                     className="bg-white text-primary hover:bg-white/95 font-semibold shadow-md flex items-center gap-1.5 h-10 px-4 rounded-xl transition-all"
                   >
-                    <ArrowDownRight className="h-4 w-4" /> Deposit Funds
+                    <ArrowDownRight className="h-4 w-4" /> {t("settings.deposit")}
                   </Button>
                   <Button 
                     type="button" 
@@ -974,7 +1006,7 @@ const SettingsPage = () => {
                     variant="outline"
                     className="bg-transparent border-white/30 text-white hover:bg-white/10 hover:text-white font-semibold flex items-center gap-1.5 h-10 px-4 rounded-xl transition-all"
                   >
-                    <ArrowUpRight className="h-4 w-4" /> Withdraw
+                    <ArrowUpRight className="h-4 w-4" /> {t("settings.withdraw")}
                   </Button>
                 </div>
               </div>
@@ -985,10 +1017,10 @@ const SettingsPage = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <h4 className="font-semibold text-foreground flex items-center gap-2">
-                    <Activity className="h-4 w-4 text-primary" /> Auto-Invest Configuration
+                    <Activity className="h-4 w-4 text-primary" /> {t("settings.autoInvest")}
                   </h4>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Automatically invest available wallet funds into newly launched green initiatives.
+                    {t("settings.autoInvestText")}
                   </p>
                 </div>
                 <motion.button
@@ -998,11 +1030,11 @@ const SettingsPage = () => {
                     const nextVal = !formData.autoReinvest;
                     setFormData(prev => ({ ...prev, autoReinvest: nextVal }));
                     if (nextVal) {
-                      toast.success("Auto-Invest Enabled!", {
-                        description: `Automatically allocating $${Number(formData.defaultInvestment).toLocaleString()} per project.`
+                      toast.success(t("settings.autoEnabled"), {
+                        description: t("settings.autoEnabledText", { amount: formatCurrency(formData.defaultInvestment) })
                       });
                     } else {
-                      toast.info("Auto-Invest Disabled");
+                      toast.info(t("settings.autoDisabled"));
                     }
                   }}
                   className={`relative h-7 w-14 rounded-full transition-colors duration-300 shrink-0 ${
@@ -1025,7 +1057,7 @@ const SettingsPage = () => {
                   className="pt-3 border-t border-border/60 space-y-3"
                 >
                   <label className="text-xs font-semibold text-foreground uppercase tracking-wider block">
-                    Default Ticket Size per Project
+                    {t("settings.defaultTicket")}
                   </label>
                   <div className="flex gap-2">
                     {["1000", "5000", "10000"].map((size) => {
@@ -1036,7 +1068,7 @@ const SettingsPage = () => {
                           type="button"
                           onClick={() => {
                             setFormData(prev => ({ ...prev, defaultInvestment: size }));
-                            toast.success(`Investment size updated to $${Number(size).toLocaleString()}`);
+                            toast.success(t("settings.investmentSize", { amount: formatCurrency(size) }));
                           }}
                           className={`flex-1 py-2 px-3 text-xs font-semibold rounded-xl border transition-all ${
                             isActive
@@ -1044,7 +1076,7 @@ const SettingsPage = () => {
                               : "bg-background hover:bg-muted border-border text-muted-foreground"
                           }`}
                         >
-                          ${Number(size).toLocaleString()}
+                          {formatNumber(Number(size))}
                         </button>
                       );
                     })}
@@ -1056,7 +1088,7 @@ const SettingsPage = () => {
             <motion.div variants={itemVariants} className="space-y-4">
               <h4 className="font-medium text-foreground flex items-center gap-2">
                 <CreditCard className="h-4 w-4 text-primary" />
-                Payment Methods
+                {t("settings.paymentMethodsTitle")}
               </h4>
               <div className="space-y-3">
                 {[
@@ -1077,29 +1109,29 @@ const SettingsPage = () => {
                           {card.type} •••• {card.last4}
                           {card.primary && (
                             <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20 text-xs">
-                              Primary
+                              {t("settings.primary")}
                             </Badge>
                           )}
                         </p>
-                        <p className="text-sm text-muted-foreground">Expires {card.exp}</p>
+                        <p className="text-sm text-muted-foreground">{t("settings.expires", { date: card.exp })}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
                       {!card.primary && (
                         <Button variant="outline" size="sm" className="hover:bg-primary/5 hover:border-primary/30">
-                          Set Primary
+                          {t("settings.setPrimary")}
                         </Button>
                       )}
                       <Button variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10 hover:text-destructive">
-                        Remove
+                        {t("settings.remove")}
                       </Button>
                     </div>
                   </motion.div>
                 ))}
               </div>
               <Button variant="outline" className="w-full hover:bg-primary/5 hover:border-primary/30 transition-all">
-                <CreditCard className="mr-2 h-4 w-4" />
-                Add New Payment Method
+                <CreditCard className="me-2 h-4 w-4" />
+                {t("settings.addPayment")}
               </Button>
             </motion.div>
 
@@ -1109,11 +1141,11 @@ const SettingsPage = () => {
                 <table className="w-full">
                   <thead className="bg-muted/50">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wide">{t("common.date")}</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wide">{t("common.description")}</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wide">{t("common.amount")}</th>
+                      <th className="px-4 py-3 text-start text-xs font-medium text-muted-foreground uppercase tracking-wide">{t("common.date")}</th>
+                      <th className="px-4 py-3 text-start text-xs font-medium text-muted-foreground uppercase tracking-wide">{t("common.description")}</th>
+                      <th className="px-4 py-3 text-start text-xs font-medium text-muted-foreground uppercase tracking-wide">{t("common.amount")}</th>
                       <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wide">{t("common.status")}</th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wide">{t("settings.invoice")}</th>
+                      <th className="px-4 py-3 text-end text-xs font-medium text-muted-foreground uppercase tracking-wide">{t("settings.invoice")}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
@@ -1137,7 +1169,7 @@ const SettingsPage = () => {
                             {item.status}
                           </Badge>
                         </td>
-                        <td className="px-4 py-3 text-right">
+                        <td className="px-4 py-3 text-end">
                           <Button
                             variant="ghost"
                             size="sm"
@@ -1190,7 +1222,7 @@ const SettingsPage = () => {
                 onClick={() => setActiveSection(section.id)}
                 whileHover={{ x: 4 }}
                 whileTap={{ scale: 0.98 }}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all duration-300 ${
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-start transition-all duration-300 ${
                   activeSection === section.id
                     ? "bg-primary/10 text-primary border border-primary/20"
                     : "text-muted-foreground hover:bg-muted hover:text-foreground border border-transparent"
@@ -1229,7 +1261,7 @@ const SettingsPage = () => {
               transition={{ delay: 0.5 }}
             >
               <Button variant="outline" className="hover:bg-muted transition-colors">
-                Cancel
+                {t("common.cancel")}
               </Button>
               <motion.button
                 whileHover={{ scale: 1.02 }}
@@ -1248,7 +1280,7 @@ const SettingsPage = () => {
                   {isSaving ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin" />
-                      Saving...
+                      {t("common.saving")}
                     </>
                   ) : (
                     <>
@@ -1272,14 +1304,14 @@ const SettingsPage = () => {
             <div>
               <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
                 <AlertCircle className="h-5 w-5 text-destructive" />
-                Danger Zone
+                {t("settings.dangerZone")}
               </h3>
               <p className="text-sm text-muted-foreground mt-1">
-                Permanently delete your account and all associated data. This action cannot be undone.
+                {t("settings.dangerText")}
               </p>
             </div>
             <Button variant="destructive" className="hover:bg-destructive/90">
-              Delete Account
+              {t("settings.deleteAccount")}
             </Button>
           </div>
         </motion.div>

@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+import { formatCurrency as formatLocaleCurrency, formatDate } from "@/i18n/format";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -48,15 +50,10 @@ import { getErrorMessage } from "@/services/api";
 type StatusFilter = "all" | Project["status"];
 type VerificationFilter = "all" | "verified" | "pending";
 
-const formatCurrency = (value: number) =>
-  new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    notation: "compact",
-    maximumFractionDigits: 1,
-  }).format(value);
+const formatCurrency = (value: number) => formatLocaleCurrency(value);
 
 const AdminProjectsPage = () => {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
@@ -121,24 +118,24 @@ const AdminProjectsPage = () => {
     mutationFn: ({ project, notes }: { project: Project; notes: string }) =>
       adminProjectsService.verifyProject(project.id, notes),
     onSuccess: (_, variables) => {
-      toast.success(variables.project.title + " is now live.");
+      toast.success(t("admin.projectLive", { title: variables.project.title }));
       setReviewProject(null);
       setReviewNotes("");
       refreshAdminData();
     },
-    onError: (error) => toast.error(getErrorMessage(error, "Could not approve this project.")),
+    onError: (error) => toast.error(getErrorMessage(error, t("admin.approveProjectFailed"))),
   });
 
   const rejectMutation = useMutation({
     mutationFn: ({ project, notes }: { project: Project; notes: string }) =>
       adminProjectsService.rejectProject(project.id, notes),
     onSuccess: (_, variables) => {
-      toast.success(variables.project.title + " was returned to the project owner.");
+      toast.success(t("admin.projectReturned", { title: variables.project.title }));
       setReviewProject(null);
       setReviewNotes("");
       refreshAdminData();
     },
-    onError: (error) => toast.error(getErrorMessage(error, "Could not reject this project.")),
+    onError: (error) => toast.error(getErrorMessage(error, t("admin.rejectProjectFailed"))),
   });
 
   const statusMutation = useMutation({
@@ -153,20 +150,20 @@ const AdminProjectsPage = () => {
         status,
       }),
     onSuccess: (_, variables) => {
-      toast.success(variables.project.title + " is now " + variables.status + ".");
+      toast.success(t("admin.projectStatusChanged", { title: variables.project.title, status: t(`status.${variables.status}`) }));
       refreshAdminData();
     },
-    onError: (error) => toast.error(getErrorMessage(error, "Could not update project status.")),
+    onError: (error) => toast.error(getErrorMessage(error, t("admin.statusUpdateFailed"))),
   });
 
   const deleteProjectMutation = useMutation({
     mutationFn: (project: Project) => adminProjectsService.deleteProject(project.id),
     onSuccess: (_, project) => {
-      toast.success(project.title + " was deleted.");
+      toast.success(t("admin.deleted", { item: project.title }));
       setProjectToDelete(null);
       refreshAdminData();
     },
-    onError: (error) => toast.error(getErrorMessage(error, "Could not delete this project.")),
+    onError: (error) => toast.error(getErrorMessage(error, t("admin.deleteFailed", { item: t("admin.projectItem") }))),
   });
 
   const clearFilters = () => {
@@ -187,8 +184,8 @@ const AdminProjectsPage = () => {
         <AdminPageHeader
           icon={FolderOpen}
           eyebrow="Project administration"
-          title="Projects and reviews"
-          description="Review submissions, update campaign status, edit project details, or remove projects from one focused workspace."
+          title={t("admin.dashboardProjectsTitle")}
+          description={t("admin.dashboardProjectsText")}
           actions={
             <>
               <Button
@@ -205,14 +202,10 @@ const AdminProjectsPage = () => {
                     "h-4 w-4 " +
                     (projectsQuery.isFetching || categoriesQuery.isFetching ? "animate-spin" : "")
                   }
-                />
-                Refresh
-              </Button>
+                />{t("admin.refresh")}</Button>
               <Button asChild>
                 <Link to="/dashboard/admin/projects/new">
-                  <Plus className="h-4 w-4" />
-                  Add project
-                </Link>
+                  <Plus className="h-4 w-4" />{t("admin.addProject")}</Link>
               </Button>
             </>
           }
@@ -223,14 +216,10 @@ const AdminProjectsPage = () => {
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-destructive/10 text-destructive">
               <AlertCircle className="h-5 w-5" />
             </div>
-            <h2 className="mt-4 text-lg font-semibold text-foreground">Projects could not be loaded</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Check the backend connection and try loading the workspace again.
-            </p>
+            <h2 className="mt-4 text-lg font-semibold text-foreground">{t("admin.projectsLoadError")}</h2>
+            <p className="mt-1 text-sm text-muted-foreground">{t("admin.connectionRetry")}</p>
             <Button variant="outline" className="mt-5" onClick={() => void projectsQuery.refetch()}>
-              <RefreshCw className="h-4 w-4" />
-              Try again
-            </Button>
+              <RefreshCw className="h-4 w-4" />{t("admin.tryAgain")}</Button>
           </section>
         ) : (
           <>
@@ -238,16 +227,14 @@ const AdminProjectsPage = () => {
               <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                 <div>
                   <div className="flex items-center gap-2">
-                    <h2 className="text-xl font-bold text-foreground">Review queue</h2>
+                    <h2 className="text-xl font-bold text-foreground">{t("admin.reviewQueue")}</h2>
                     {pendingProjects.length > 0 && (
                       <span className="rounded-full bg-warning/15 px-2.5 py-0.5 text-xs font-bold text-warning">
                         {pendingProjects.length}
                       </span>
                     )}
                   </div>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    New submissions waiting for verification and publication.
-                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">{t("admin.newSubmissions")}</p>
                 </div>
               </div>
 
@@ -283,10 +270,7 @@ const AdminProjectsPage = () => {
                               <h3 className="mt-2 line-clamp-1 font-semibold text-foreground">{project.title}</h3>
                             </div>
                             <span className="shrink-0 text-[11px] text-muted-foreground">
-                              {new Date(project.created_at).toLocaleDateString(undefined, {
-                                day: "numeric",
-                                month: "short",
-                              })}
+                              {formatDate(project.created_at, { day: "numeric", month: "short" })}
                             </span>
                           </div>
                           <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
@@ -304,9 +288,7 @@ const AdminProjectsPage = () => {
                                 {formatCurrency(Number(project.goal_amount))}
                               </p>
                             </div>
-                            <Button size="sm" onClick={() => openReview(project)}>
-                              Review
-                            </Button>
+                            <Button size="sm" onClick={() => openReview(project)}>{t("admin.review")}</Button>
                           </div>
                         </div>
                       </div>
@@ -319,10 +301,8 @@ const AdminProjectsPage = () => {
                     <CheckCircle2 className="h-5 w-5" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-foreground">All caught up</h3>
-                    <p className="mt-0.5 text-sm text-muted-foreground">
-                      There are no new project submissions waiting for review.
-                    </p>
+                    <h3 className="font-semibold text-foreground">{t("admin.allCaughtUp")}</h3>
+                    <p className="mt-0.5 text-sm text-muted-foreground">{t("admin.noSubmissions")}</p>
                   </div>
                 </div>
               )}
@@ -333,10 +313,8 @@ const AdminProjectsPage = () => {
                 <div className="border-b border-border p-5 sm:p-6">
                   <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
                     <div>
-                      <h2 className="text-xl font-bold text-foreground">Project management</h2>
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        Search, edit, moderate, or remove any project on the platform.
-                      </p>
+                      <h2 className="text-xl font-bold text-foreground">{t("admin.projectManagement")}</h2>
+                      <p className="mt-1 text-sm text-muted-foreground">{t("admin.manageProjectsText")}</p>
                     </div>
                     <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                       <div className="relative min-w-0 sm:w-64">
@@ -344,44 +322,44 @@ const AdminProjectsPage = () => {
                         <Input
                           value={search}
                           onChange={(event) => setSearch(event.target.value)}
-                          placeholder="Search projects or owners"
+                          placeholder={t("admin.searchProjects")}
                           className="pl-9"
-                          aria-label="Search projects or owners"
+                          aria-label={t("admin.searchProjects")}
                         />
                       </div>
                       <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as StatusFilter)}>
-                        <SelectTrigger className="sm:w-36" aria-label="Filter by project status">
-                          <SelectValue placeholder="All statuses" />
+                        <SelectTrigger className="sm:w-36" aria-label={t("admin.filterProjectStatus")}>
+                          <SelectValue placeholder={t("admin.allStatuses")} />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="all">All statuses</SelectItem>
-                          <SelectItem value="draft">Draft</SelectItem>
-                          <SelectItem value="active">Active</SelectItem>
-                          <SelectItem value="paused">Paused</SelectItem>
-                          <SelectItem value="closed">Closed</SelectItem>
-                          <SelectItem value="successful">Successful</SelectItem>
-                          <SelectItem value="failed">Failed</SelectItem>
+                          <SelectItem value="all">{t("admin.allStatuses")}</SelectItem>
+                          <SelectItem value="draft">{t("status.draft")}</SelectItem>
+                          <SelectItem value="active">{t("status.active")}</SelectItem>
+                          <SelectItem value="paused">{t("status.paused")}</SelectItem>
+                          <SelectItem value="closed">{t("status.closed")}</SelectItem>
+                          <SelectItem value="successful">{t("status.successful")}</SelectItem>
+                          <SelectItem value="failed">{t("status.failed")}</SelectItem>
                         </SelectContent>
                       </Select>
                       <Select
                         value={verificationFilter}
                         onValueChange={(value) => setVerificationFilter(value as VerificationFilter)}
                       >
-                        <SelectTrigger className="sm:w-36" aria-label="Filter by verification">
-                          <SelectValue placeholder="Verification" />
+                        <SelectTrigger className="sm:w-36" aria-label={t("admin.filterVerification")}>
+                          <SelectValue placeholder={t("admin.verification")} />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="all">All reviews</SelectItem>
-                          <SelectItem value="verified">Verified</SelectItem>
-                          <SelectItem value="pending">Unverified</SelectItem>
+                          <SelectItem value="all">{t("admin.allReviews")}</SelectItem>
+                          <SelectItem value="verified">{t("admin.verified")}</SelectItem>
+                          <SelectItem value="pending">{t("admin.unverified")}</SelectItem>
                         </SelectContent>
                       </Select>
                       <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                        <SelectTrigger className="sm:w-40" aria-label="Filter by category">
-                          <SelectValue placeholder="All categories" />
+                        <SelectTrigger className="sm:w-40" aria-label={t("admin.filterCategory")}>
+                          <SelectValue placeholder={t("admin.allCategories")} />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="all">All categories</SelectItem>
+                          <SelectItem value="all">{t("admin.allCategories")}</SelectItem>
                           {categories.map((category) => (
                             <SelectItem key={category.id} value={category.id}>
                               {category.name}
@@ -403,9 +381,7 @@ const AdminProjectsPage = () => {
                       type="button"
                       onClick={clearFilters}
                       className="w-fit cursor-pointer font-semibold text-primary transition-colors hover:text-primary-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    >
-                      Clear filters
-                    </button>
+                    >{t("projects.clearFilters")}</button>
                   )}
                 </div>
 
@@ -444,9 +420,7 @@ const AdminProjectsPage = () => {
                           : "New project submissions will appear here as soon as they are created."}
                       </p>
                       {hasFilters && (
-                        <Button variant="outline" size="sm" className="mt-4" onClick={clearFilters}>
-                          Clear filters
-                        </Button>
+                        <Button variant="outline" size="sm" className="mt-4" onClick={clearFilters}>{t("projects.clearFilters")}</Button>
                       )}
                     </div>
                   )}
@@ -488,7 +462,7 @@ const AdminProjectsPage = () => {
                   <div className="mb-2 flex h-11 w-11 items-center justify-center rounded-xl bg-destructive/10 text-destructive">
                     <Trash2 className="h-5 w-5" />
                   </div>
-                  <AlertDialogTitle>Delete this project?</AlertDialogTitle>
+                  <AlertDialogTitle>{t("admin.deleteProjectQuestion")}</AlertDialogTitle>
                   <AlertDialogDescription>
                     <strong className="font-semibold text-foreground">{projectToDelete?.title}</strong> will be
                     permanently removed from Sahmi together with its linked investments, milestones, files,
@@ -496,7 +470,7 @@ const AdminProjectsPage = () => {
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                  <AlertDialogCancel disabled={deleteProjectMutation.isPending}>Cancel</AlertDialogCancel>
+                  <AlertDialogCancel disabled={deleteProjectMutation.isPending}>{t("common.cancel")}</AlertDialogCancel>
                   <AlertDialogAction
                     className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                     disabled={deleteProjectMutation.isPending}

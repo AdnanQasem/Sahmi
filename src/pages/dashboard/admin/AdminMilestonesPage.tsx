@@ -1,3 +1,6 @@
+import { useTranslation } from "react-i18next";
+import i18n from "@/i18n";
+import { formatCurrency as formatLocaleCurrency, formatDate, formatNumber } from "@/i18n/format";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Edit3, Flag, Plus, Search, Trash2 } from "lucide-react";
@@ -34,22 +37,15 @@ import adminFinanceService, {
 
 const PAGE_SIZE = 12;
 
-const currency = (value: string | number) =>
-  new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 2,
-  }).format(Number(value) || 0);
+const currency = (value: string | number) => formatLocaleCurrency(Number(value) || 0);
 
-const date = (value: string) =>
-  new Intl.DateTimeFormat("en-US", { dateStyle: "medium" }).format(
-    new Date(value + (value.length === 10 ? "T00:00:00" : "")),
-  );
+const date = (value: string) => formatDate(value + (value.length === 10 ? "T00:00:00" : ""), { dateStyle: "medium" });
 
 const projectName = (milestone: AdminMilestone) =>
-  milestone.project_detail?.title || milestone.project_title || "Unknown project";
+  milestone.project_detail?.title || milestone.project_title || i18n.t("admin.unknownProject");
 
 const AdminMilestonesPage = () => {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
@@ -95,24 +91,24 @@ const AdminMilestonesPage = () => {
         ? adminFinanceService.updateMilestone(milestone.id, payload)
         : adminFinanceService.createMilestone(payload),
     onSuccess: (_, variables) => {
-      toast.success(variables.milestone ? "Milestone updated." : "Milestone created.");
+      toast.success(t(variables.milestone ? "admin.updated" : "admin.created", { item: t("admin.milestoneItem") }));
       setDialogOpen(false);
       setEditing(null);
       refresh();
     },
-    onError: (error) => toast.error(getErrorMessage(error, "Could not save this milestone.")),
+    onError: (error) => toast.error(getErrorMessage(error, t("admin.saveFailed", { item: t("admin.milestoneItem") }))),
   });
 
   const deleteMutation = useMutation({
     mutationFn: (milestone: AdminMilestone) =>
       adminFinanceService.deleteMilestone(milestone.id),
     onSuccess: (_, milestone) => {
-      toast.success(milestone.title + " was deleted.");
+      toast.success(t("admin.deleted", { item: milestone.title }));
       setDeleting(null);
       if (records.length === 1 && page > 1) setPage((current) => current - 1);
       refresh();
     },
-    onError: (error) => toast.error(getErrorMessage(error, "Could not delete this milestone.")),
+    onError: (error) => toast.error(getErrorMessage(error, t("admin.deleteFailed", { item: t("admin.milestoneItem") }))),
   });
 
   const openCreate = () => {
@@ -133,31 +129,29 @@ const AdminMilestonesPage = () => {
       <div className="space-y-8">
         <AdminPageHeader
           icon={Flag}
-          title="Project milestones"
-          description="Control delivery schedules, progress states, project percentages, and the funding released at every stage."
+          title={t("admin.milestonesTitle")}
+          description={t("admin.milestonesText")}
           actions={
             <Button onClick={openCreate}>
-              <Plus className="h-4 w-4" />
-              New milestone
-            </Button>
+              <Plus className="h-4 w-4" />{t("admin.newMilestone")}</Button>
           }
         />
 
         <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
           <div className="flex flex-col gap-4 border-b border-border p-5 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <h2 className="font-semibold text-foreground">Delivery schedule</h2>
+              <h2 className="font-semibold text-foreground">{t("admin.deliverySchedule")}</h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                {data ? data.count.toLocaleString() + " milestones" : "Loading milestones..."}
+                {data ? t("admin.milestoneRecords", { count: data.count }) : t("admin.loadingMilestones")}
               </p>
             </div>
             <div className="grid gap-2 sm:grid-cols-3 lg:w-[42rem]">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
-                  aria-label="Search milestones"
+                  aria-label={t("admin.searchMilestonesLabel")}
                   className="pl-9"
-                  placeholder="Search milestones"
+                  placeholder={t("admin.searchMilestones")}
                   value={search}
                   onChange={(event) => {
                     setSearch(event.target.value);
@@ -172,13 +166,13 @@ const AdminMilestonesPage = () => {
                   setPage(1);
                 }}
               >
-                <SelectTrigger aria-label="Filter milestones by status"><SelectValue placeholder="Status" /></SelectTrigger>
+                <SelectTrigger aria-label={t("admin.filterMilestoneStatus")}><SelectValue placeholder={t("admin.status")} /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All statuses</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="in_progress">In progress</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                  <SelectItem value="delayed">Delayed</SelectItem>
+                  <SelectItem value="all">{t("admin.allStatuses")}</SelectItem>
+                  <SelectItem value="pending">{t("status.pending")}</SelectItem>
+                  <SelectItem value="in_progress">{t("status.in_progress")}</SelectItem>
+                  <SelectItem value="completed">{t("status.completed")}</SelectItem>
+                  <SelectItem value="delayed">{t("status.delayed")}</SelectItem>
                 </SelectContent>
               </Select>
               <Select
@@ -188,9 +182,9 @@ const AdminMilestonesPage = () => {
                   setPage(1);
                 }}
               >
-                <SelectTrigger aria-label="Filter milestones by project"><SelectValue placeholder="Project" /></SelectTrigger>
+                <SelectTrigger aria-label={t("admin.filterMilestoneProject")}><SelectValue placeholder={t("dashboard.project")} /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All projects</SelectItem>
+                  <SelectItem value="all">{t("admin.allProjects")}</SelectItem>
                   {(projectsQuery.data || []).map((option) => (
                     <SelectItem key={option.id} value={option.id}>{option.title}</SelectItem>
                   ))}
@@ -207,16 +201,14 @@ const AdminMilestonesPage = () => {
             </div>
           ) : milestonesQuery.isError ? (
             <div className="p-10 text-center">
-              <p className="font-medium text-destructive">Milestones could not be loaded.</p>
-              <Button className="mt-4" variant="outline" onClick={() => void milestonesQuery.refetch()}>
-                Try again
-              </Button>
+              <p className="font-medium text-destructive">{t("admin.milestonesLoadError")}</p>
+              <Button className="mt-4" variant="outline" onClick={() => void milestonesQuery.refetch()}>{t("admin.tryAgain")}</Button>
             </div>
           ) : records.length === 0 ? (
             <div className="p-12 text-center">
               <Flag className="mx-auto h-10 w-10 text-muted-foreground/50" />
-              <h3 className="mt-4 font-semibold text-foreground">No milestones found</h3>
-              <p className="mt-1 text-sm text-muted-foreground">Adjust the filters or add a delivery target.</p>
+              <h3 className="mt-4 font-semibold text-foreground">{t("admin.noMilestones")}</h3>
+              <p className="mt-1 text-sm text-muted-foreground">{t("admin.adjustOrMilestone")}</p>
             </div>
           ) : (
             <>
@@ -224,12 +216,12 @@ const AdminMilestonesPage = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Milestone / project</TableHead>
-                      <TableHead>Progress</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Target</TableHead>
-                      <TableHead>Funding released</TableHead>
-                      <TableHead className="w-24 text-right">Actions</TableHead>
+                      <TableHead>{t("admin.milestoneProject")}</TableHead>
+                      <TableHead>{t("admin.progress")}</TableHead>
+                      <TableHead>{t("common.status")}</TableHead>
+                      <TableHead>{t("admin.target")}</TableHead>
+                      <TableHead>{t("admin.fundingReleased")}</TableHead>
+                      <TableHead className="w-24 text-right">{t("admin.actions")}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -243,7 +235,7 @@ const AdminMilestonesPage = () => {
                         </TableCell>
                         <TableCell>
                           <p className="font-semibold text-foreground">
-                            {Number(milestone.percentage_of_project).toLocaleString()}%
+                            <bdi dir="ltr">{formatNumber(milestone.percentage_of_project)}%</bdi>
                           </p>
                           <p className="text-xs text-muted-foreground">Order {milestone.order}</p>
                         </TableCell>
@@ -256,7 +248,7 @@ const AdminMilestonesPage = () => {
                           <div className="flex justify-end gap-1">
                             <Button variant="ghost" size="icon" onClick={() => openEdit(milestone)}>
                               <Edit3 className="h-4 w-4" />
-                              <span className="sr-only">Edit milestone</span>
+                              <span className="sr-only">{t("admin.editMilestone")}</span>
                             </Button>
                             <Button
                               variant="ghost"
@@ -265,7 +257,7 @@ const AdminMilestonesPage = () => {
                               onClick={() => setDeleting(milestone)}
                             >
                               <Trash2 className="h-4 w-4" />
-                              <span className="sr-only">Delete milestone</span>
+                              <span className="sr-only">{t("admin.deleteMilestone")}</span>
                             </Button>
                           </div>
                         </TableCell>
@@ -287,13 +279,13 @@ const AdminMilestonesPage = () => {
                     </div>
                     <div className="grid grid-cols-2 gap-3 rounded-xl bg-muted/40 p-3 text-sm">
                       <div>
-                        <p className="text-xs text-muted-foreground">Target</p>
+                        <p className="text-xs text-muted-foreground">{t("admin.target")}</p>
                         <p className="mt-1 font-medium text-foreground">{date(milestone.target_date)}</p>
                       </div>
                       <div>
-                        <p className="text-xs text-muted-foreground">Project share</p>
+                        <p className="text-xs text-muted-foreground">{t("admin.projectShare")}</p>
                         <p className="mt-1 font-semibold text-foreground">
-                          {Number(milestone.percentage_of_project).toLocaleString()}%
+                          <bdi dir="ltr">{formatNumber(milestone.percentage_of_project)}%</bdi>
                         </p>
                       </div>
                     </div>
@@ -303,8 +295,7 @@ const AdminMilestonesPage = () => {
                       </p>
                       <div className="flex gap-1">
                         <Button variant="outline" size="sm" onClick={() => openEdit(milestone)}>
-                          <Edit3 className="h-4 w-4" /> Edit
-                        </Button>
+                          <Edit3 className="h-4 w-4" />{t("common.edit")}</Button>
                         <Button
                           variant="outline"
                           size="icon"
@@ -312,7 +303,7 @@ const AdminMilestonesPage = () => {
                           onClick={() => setDeleting(milestone)}
                         >
                           <Trash2 className="h-4 w-4" />
-                          <span className="sr-only">Delete milestone</span>
+                          <span className="sr-only">{t("admin.deleteMilestone")}</span>
                         </Button>
                       </div>
                     </div>
@@ -344,8 +335,8 @@ const AdminMilestonesPage = () => {
 
       <AdminDeleteDialog
         open={!!deleting}
-        title="Delete this milestone?"
-        description="This permanently removes the delivery target and its recorded progress. This cannot be undone."
+        title={t("admin.deleteMilestoneQuestion")}
+        description={t("admin.deleteMilestoneText")}
         pending={deleteMutation.isPending}
         onOpenChange={(open) => !open && setDeleting(null)}
         onConfirm={() => deleting && deleteMutation.mutate(deleting)}

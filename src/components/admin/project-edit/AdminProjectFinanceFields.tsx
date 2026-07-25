@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { AlertTriangle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,31 +14,33 @@ import type { AdminProjectSectionProps } from "./AdminProjectFormTypes";
 
 const decimalFields: Array<{
   key: keyof AdminProjectPayload;
-  label: string;
+  labelKey: string;
   min?: string;
   max?: string;
 }> = [
-  { key: "goal_amount", label: "Funding goal *", min: "0.01" },
-  { key: "funded_amount", label: "Funded amount" },
-  { key: "minimum_investment", label: "Minimum investment", min: "0.01" },
-  { key: "expected_roi", label: "Expected ROI (%)", max: "100" },
-  { key: "total_repaid", label: "Total repaid" },
-  { key: "rating", label: "Rating", max: "5" },
+  { key: "goal_amount", labelKey: "adminForm.fundingGoal", min: "0.01" },
+  { key: "funded_amount", labelKey: "adminForm.fundedAmount" },
+  { key: "minimum_investment", labelKey: "adminForm.minimumInvestment", min: "0.01" },
+  { key: "expected_roi", labelKey: "adminForm.expectedRoiPercent", max: "100" },
+  { key: "total_repaid", labelKey: "adminForm.totalRepaid" },
+  { key: "rating", labelKey: "adminForm.rating", max: "5" },
 ];
 
-const counterFields: Array<{ key: keyof AdminProjectPayload; label: string }> = [
-  { key: "milestone_count", label: "Milestone count" },
-  { key: "view_count", label: "View count" },
-  { key: "investor_count", label: "Investor count" },
-  { key: "reviews_count", label: "Review count" },
+const counterFields: Array<{ key: keyof AdminProjectPayload; labelKey: string }> = [
+  { key: "milestone_count", labelKey: "adminForm.milestoneCount" },
+  { key: "view_count", labelKey: "adminForm.viewCount" },
+  { key: "investor_count", labelKey: "adminForm.investorCount" },
+  { key: "reviews_count", labelKey: "adminForm.reviewCount" },
 ];
 
-const AdminProjectFinanceFields = ({ form, update, errors }: AdminProjectSectionProps) => (
+const AdminProjectFinanceFields = ({ form, update, errors }: AdminProjectSectionProps) => {
+  const { t } = useTranslation();
+  return (
   <div className="space-y-6">
     <div>
-      <h2 className="text-lg font-semibold text-foreground">Funding and repayment controls</h2>
+      <h2 className="text-lg font-semibold text-foreground">{t("adminForm.financeControls")}</h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        Authoritative campaign amounts, dates, counters, and operational totals.
+        {t("adminForm.financeHelp")}
       </p>
     </div>
     <div className="flex gap-3 rounded-xl border border-warning/20 bg-warning/5 p-4 text-sm">
@@ -50,7 +53,7 @@ const AdminProjectFinanceFields = ({ form, update, errors }: AdminProjectSection
     <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
       {decimalFields.map((field) => (
         <div className="space-y-2" key={field.key}>
-          <Label htmlFor={"admin-project-" + field.key}>{field.label}</Label>
+          <Label htmlFor={"admin-project-" + field.key}>{t(field.labelKey)}</Label>
           <Input
             id={"admin-project-" + field.key}
             type="number"
@@ -68,7 +71,7 @@ const AdminProjectFinanceFields = ({ form, update, errors }: AdminProjectSection
       ))}
 
       <div className="space-y-2">
-        <Label htmlFor="admin-project-period">Funding period (days)</Label>
+        <Label htmlFor="admin-project-period">{t("adminForm.fundingPeriod")}</Label>
         <Input
           id="admin-project-period"
           type="number"
@@ -79,7 +82,7 @@ const AdminProjectFinanceFields = ({ form, update, errors }: AdminProjectSection
         />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="admin-project-start">Start date</Label>
+        <Label htmlFor="admin-project-start">{t("adminForm.startDate")}</Label>
         <Input
           id="admin-project-start"
           type="datetime-local"
@@ -89,7 +92,7 @@ const AdminProjectFinanceFields = ({ form, update, errors }: AdminProjectSection
         />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="admin-project-end">End date</Label>
+        <Label htmlFor="admin-project-end">{t("adminForm.endDate")}</Label>
         <Input
           id="admin-project-end"
           type="datetime-local"
@@ -98,24 +101,24 @@ const AdminProjectFinanceFields = ({ form, update, errors }: AdminProjectSection
         />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="admin-project-status">Campaign status</Label>
+        <Label htmlFor="admin-project-status">{t("adminForm.campaignStatus")}</Label>
         <Select
           value={form.status || "draft"}
           onValueChange={(value) => update("status", value as AdminProject["status"])}
         >
           <SelectTrigger id="admin-project-status"><SelectValue /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="draft">Draft</SelectItem>
-            <SelectItem value="active">Active</SelectItem>
-            <SelectItem value="paused">Paused</SelectItem>
-            <SelectItem value="closed">Closed</SelectItem>
-            <SelectItem value="successful">Successful</SelectItem>
-            <SelectItem value="failed">Failed</SelectItem>
+            <SelectItem value="draft">{t("status.draft")}</SelectItem>
+            <SelectItem value="active">{t("status.active")}</SelectItem>
+            <SelectItem value="paused">{t("status.paused")}</SelectItem>
+            <SelectItem value="closed">{t("status.closed")}</SelectItem>
+            <SelectItem value="successful">{t("status.successful")}</SelectItem>
+            <SelectItem value="failed">{t("status.failed")}</SelectItem>
           </SelectContent>
         </Select>
       </div>
       <div className="space-y-2">
-        <Label htmlFor="admin-project-repayment-status">Repayment status</Label>
+        <Label htmlFor="admin-project-repayment-status">{t("adminForm.repaymentStatus")}</Label>
         <Select
           value={form.repayment_status || "on_track"}
           onValueChange={(value) =>
@@ -124,14 +127,14 @@ const AdminProjectFinanceFields = ({ form, update, errors }: AdminProjectSection
         >
           <SelectTrigger id="admin-project-repayment-status"><SelectValue /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="on_track">On track</SelectItem>
-            <SelectItem value="delayed">Delayed</SelectItem>
-            <SelectItem value="completed">Completed</SelectItem>
+            <SelectItem value="on_track">{t("status.on_track")}</SelectItem>
+            <SelectItem value="delayed">{t("status.delayed")}</SelectItem>
+            <SelectItem value="completed">{t("status.completed")}</SelectItem>
           </SelectContent>
         </Select>
       </div>
       <div className="space-y-2">
-        <Label htmlFor="admin-project-next-repayment">Next repayment date</Label>
+        <Label htmlFor="admin-project-next-repayment">{t("adminForm.nextRepayment")}</Label>
         <Input
           id="admin-project-next-repayment"
           type="date"
@@ -141,7 +144,7 @@ const AdminProjectFinanceFields = ({ form, update, errors }: AdminProjectSection
       </div>
       {counterFields.map((field) => (
         <div className="space-y-2" key={field.key}>
-          <Label htmlFor={"admin-project-" + field.key}>{field.label}</Label>
+          <Label htmlFor={"admin-project-" + field.key}>{t(field.labelKey)}</Label>
           <Input
             id={"admin-project-" + field.key}
             type="number"
@@ -153,6 +156,7 @@ const AdminProjectFinanceFields = ({ form, update, errors }: AdminProjectSection
       ))}
     </div>
   </div>
-);
+  );
+};
 
 export default AdminProjectFinanceFields;

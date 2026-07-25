@@ -52,25 +52,8 @@ const slideInRight = {
   transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] },
 };
 
-const features = [
-  { icon: Shield, text: "Bank-level security" },
-  { icon: Users, text: "10K+ active users" },
-  { icon: TrendingUp, text: "$2.4M+ raised" },
-];
-
-const testimonials = [
-  {
-    quote: "Sahmi helped me launch my startup when traditional funding seemed impossible.",
-    author: "Noor Al-Huda",
-    role: "Founder, Gaza Tech",
-  },
-  {
-    quote: "The transparency and community here is unlike any other platform I've used.",
-    author: "Sami K.",
-    role: "Investor",
-  },
-];
-
+const features = [Shield, Users, TrendingUp];
+const testimonials = [{ author: "Noor Al-Huda" }, { author: "Sami K." }];
 const LoginPage = () => {
   const { t } = useTranslation();
   const [email, setEmail] = useState("");
@@ -280,13 +263,9 @@ const LoginPage = () => {
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                     >
-                      <Loader2 className="h-5 w-5 animate-spin" />
-                      Signing in...
-                    </motion.div>
+                      <Loader2 className="h-5 w-5 animate-spin" />{t("auth.loggingIn")}</motion.div>
                   ) : (
-                    <span className="flex items-center gap-2">
-                      Sign In
-                      <ArrowRight className="h-5 w-5" />
+                    <span className="flex items-center gap-2">{t("auth.login")}<ArrowRight className="h-5 w-5" />
                     </span>
                   )}
                 </Button>
@@ -302,9 +281,7 @@ const LoginPage = () => {
             <Link
               to="/register"
               className="font-semibold text-primary hover:text-primary/80 transition-colors inline-flex items-center gap-1"
-            >
-              Create one
-              <motion.span whileHover={{ x: 2 }}>
+            >{t("auth.createAccount")}<motion.span whileHover={{ x: 2 }}>
                 <ArrowRight className="h-4 w-4" />
               </motion.span>
             </Link>
@@ -356,12 +333,10 @@ const LoginPage = () => {
             transition={{ delay: 0.5, duration: 0.6 }}
           >
             <h2 className="text-4xl xl:text-5xl font-bold mb-6 leading-tight">
-              Empowering Palestinian{" "}
-              <span className="text-teal-200">Entrepreneurs</span>
+              {t("auth.loginHero")}
             </h2>
             <p className="text-lg text-white/80 mb-10 max-w-md leading-relaxed">
-              Join our community of innovators and supporters. Together, we're building
-              a brighter future for Palestine.
+              {t("auth.loginHeroText")}
             </p>
           </motion.div>
 
@@ -372,18 +347,18 @@ const LoginPage = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.7, duration: 0.6 }}
           >
-            {features.map((feature, index) => (
+            {features.map((FeatureIcon, index) => (
               <motion.div
-                key={feature.text}
+                key={index}
                 className="flex items-center gap-3"
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.8 + index * 0.1 }}
               >
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 backdrop-blur-sm">
-                  <feature.icon className="h-5 w-5 text-teal-200" />
+                  <FeatureIcon className="h-5 w-5 text-teal-200" />
                 </div>
-                <span className="font-medium">{feature.text}</span>
+                <span className="font-medium">{t(`auth.loginFeatures.${index}`)}</span>
               </motion.div>
             ))}
           </motion.div>
@@ -405,14 +380,14 @@ const LoginPage = () => {
                 transition={{ duration: 0.3 }}
               >
                 <p className="text-white/90 mb-4 italic">
-                  "{testimonials[currentTestimonial].quote}"
+                  “{t(`auth.loginTestimonials.${currentTestimonial}.quote`)}”
                 </p>
                 <div>
                   <p className="font-semibold text-white">
                     {testimonials[currentTestimonial].author}
                   </p>
                   <p className="text-sm text-white/60">
-                    {testimonials[currentTestimonial].role}
+                    {t(`auth.loginTestimonials.${currentTestimonial}.role`)}
                   </p>
                 </div>
               </motion.div>

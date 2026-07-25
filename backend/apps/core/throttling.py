@@ -38,6 +38,10 @@ class PasswordChangeRateThrottle(ScopedRateThrottle):
     scope = "password_change"
 
 
+class PasswordResetRateThrottle(ScopedRateThrottle):
+    scope = "password_reset"
+
+
 class MessageSendRateThrottle(ScopedRateThrottle):
     scope = "message_send"
 

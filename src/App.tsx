@@ -16,6 +16,8 @@ import AboutPage from "./pages/AboutPage";
 import ContactPage from "./pages/ContactPage";
 import HowItWorksPage from "./pages/HowItWorksPage";
 import LoginPage from "./pages/LoginPage";
+import ForgotPasswordPage from "./pages/ForgotPasswordPage";
+import ResetPasswordPage from "./pages/ResetPasswordPage";
 import RegisterPage from "./pages/RegisterPage";
 import EditProject from "./pages/EditProject";
 import NotFound from "./pages/NotFound.tsx";
@@ -61,6 +63,7 @@ const App = () => (
               <Route path="/dashboard/admin/investments" element={<AdminInvestmentsPage />} />
               <Route path="/dashboard/admin/milestones" element={<AdminMilestonesPage />} />
               <Route path="/dashboard/admin/repayments" element={<AdminRepaymentsPage />} />
+              <Route path="/dashboard/admin/settings" element={<SettingsPage />} />
             </Route>
             <Route element={<ProtectedRoute allowedUserTypes={["investor", "admin"]} redirectTo="/dashboard" />}>
               <Route path="/dashboard/investor" element={<InvestorDashboard />} />
@@ -97,6 +100,8 @@ const App = () => (
                       <Route path="/contact" element={<ContactPage />} />
                       <Route path="/how-it-works" element={<HowItWorksPage />} />
                       <Route path="/login" element={<LoginPage />} />
+                      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+                      <Route path="/reset-password" element={<ResetPasswordPage />} />
                       <Route path="/register" element={<RegisterPage />} />
                       <Route path="*" element={<NotFound />} />
                     </Routes>

@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { FormEvent, useEffect, useState } from "react";
 import { Save, ShieldCheck, Trash2, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -170,6 +171,7 @@ const AdminUserDialog = ({
   isPending,
   fieldErrors = {},
 }: AdminUserDialogProps) => {
+  const { t } = useTranslation();
   const [form, setForm] = useState<FormState>(emptyForm);
   const [profilePicture, setProfilePicture] = useState<File>();
   const [kycDocument, setKycDocument] = useState<File>();
@@ -233,18 +235,18 @@ const AdminUserDialog = ({
     setLocalError("");
 
     if (!user && form.password.length < 8) {
-      setLocalError("The initial password must be at least 8 characters.");
+      setLocalError(t("adminForm.initialPasswordMinimum"));
       return;
     }
     if (!user && form.password !== form.confirm_password) {
-      setLocalError("The passwords do not match.");
+      setLocalError(t("adminForm.passwordMismatch"));
       return;
     }
 
     const groups = parseIdList(form.groups);
     const permissions = parseIdList(form.user_permissions);
     if (groups.invalid.length || permissions.invalid.length) {
-      setLocalError("Group and permission lists must contain only positive numeric IDs separated by commas.");
+      setLocalError(t("adminForm.idListsInvalid"));
       return;
     }
 
@@ -253,7 +255,7 @@ const AdminUserDialog = ({
         ? toApiDateTime(form.kyc_verified_at)
         : null;
     if (form.is_kyc_verified && form.kyc_verified_at && !kycVerifiedAt) {
-      setLocalError("Enter a valid KYC verification date and time.");
+      setLocalError(t("adminForm.kycDateInvalid"));
       return;
     }
 
@@ -305,27 +307,27 @@ const AdminUserDialog = ({
           <div className="mb-2 flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
             {user ? <ShieldCheck className="h-5 w-5" /> : <UserPlus className="h-5 w-5" />}
           </div>
-          <DialogTitle>{user ? `Edit ${user.full_name || user.email}` : "Create a user"}</DialogTitle>
+          <DialogTitle>{user ? t("adminForm.editUser", { name: user.full_name || user.email }) : t("adminForm.createUser")}</DialogTitle>
           <DialogDescription>
             {user
-              ? "Update this account's profile, verification, financial record, and access level."
-              : "Create an account and choose exactly what it can access on Sahmi."}
+              ? t("adminForm.editUserHelp")
+              : t("adminForm.createUserHelp")}
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit}>
           <Tabs defaultValue="account" className="mt-2">
             <TabsList className="grid h-auto w-full grid-cols-2 gap-1 sm:grid-cols-4">
-              <TabsTrigger value="account">Account</TabsTrigger>
-              <TabsTrigger value="profile">Profile</TabsTrigger>
-              <TabsTrigger value="financial">Financial</TabsTrigger>
-              <TabsTrigger value="access">Access</TabsTrigger>
+              <TabsTrigger value="account">{t("adminForm.account")}</TabsTrigger>
+              <TabsTrigger value="profile">{t("adminForm.profile")}</TabsTrigger>
+              <TabsTrigger value="financial">{t("adminForm.financial")}</TabsTrigger>
+              <TabsTrigger value="access">{t("adminForm.access")}</TabsTrigger>
             </TabsList>
 
             <TabsContent value="account" className="mt-5 space-y-5">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="admin-user-full-name">Full name</Label>
+                  <Label htmlFor="admin-user-full-name">{t("adminForm.fullName")}</Label>
                   <Input
                     id="admin-user-full-name"
                     value={form.full_name}
@@ -338,7 +340,7 @@ const AdminUserDialog = ({
                   <FieldError message={fieldErrors.full_name} />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="admin-user-email">Email</Label>
+                  <Label htmlFor="admin-user-email">{t("adminForm.email")}</Label>
                   <Input
                     id="admin-user-email"
                     type="email"
@@ -350,20 +352,20 @@ const AdminUserDialog = ({
                   <FieldError message={fieldErrors.email} />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="admin-user-username">Username</Label>
+                  <Label htmlFor="admin-user-username">{t("adminForm.username")}</Label>
                   <Input
                     id="admin-user-username"
                     value={form.username}
                     onChange={(event) => update("username", event.target.value)}
                     maxLength={150}
-                    placeholder="Defaults to the email address"
+                    placeholder={t("adminForm.usernameDefault")}
                     disabled={isPending}
                   />
-                  <p className="text-xs text-muted-foreground">Optional; Sahmi uses the email address when this is blank.</p>
+                  <p className="text-xs text-muted-foreground">{t("adminForm.usernameOptional")}</p>
                   <FieldError message={fieldErrors.username} />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="admin-user-phone">Phone number</Label>
+                  <Label htmlFor="admin-user-phone">{t("adminForm.phoneNumber")}</Label>
                   <Input
                     id="admin-user-phone"
                     value={form.phone_number}
@@ -374,7 +376,7 @@ const AdminUserDialog = ({
                   <FieldError message={fieldErrors.phone_number} />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="admin-user-type">Account type</Label>
+                  <Label htmlFor="admin-user-type">{t("adminForm.accountType")}</Label>
                   <Select
                     value={form.user_type}
                     disabled={isPending || isSelf}
@@ -387,12 +389,12 @@ const AdminUserDialog = ({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="investor">Investor</SelectItem>
-                      <SelectItem value="entrepreneur">Entrepreneur</SelectItem>
-                      <SelectItem value="admin">Admin</SelectItem>
+                      <SelectItem value="investor">{t("adminForm.investor")}</SelectItem>
+                      <SelectItem value="entrepreneur">{t("adminForm.entrepreneur")}</SelectItem>
+                      <SelectItem value="admin">{t("adminForm.administrator")}</SelectItem>
                     </SelectContent>
                   </Select>
-                  {isSelf && <p className="text-xs text-muted-foreground">You cannot change your own role.</p>}
+                  {isSelf && <p className="text-xs text-muted-foreground">{t("adminForm.cannotChangeOwnRole")}</p>}
                   <FieldError message={fieldErrors.user_type} />
                 </div>
               </div>
@@ -400,7 +402,7 @@ const AdminUserDialog = ({
               {!user && (
                 <div className="grid gap-4 rounded-xl border border-border bg-muted/20 p-4 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <Label htmlFor="admin-user-password">Initial password</Label>
+                    <Label htmlFor="admin-user-password">{t("adminForm.initialPassword")}</Label>
                     <Input
                       id="admin-user-password"
                       type="password"
@@ -414,7 +416,7 @@ const AdminUserDialog = ({
                     <FieldError message={fieldErrors.password} />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="admin-user-confirm-password">Confirm password</Label>
+                    <Label htmlFor="admin-user-confirm-password">{t("adminForm.confirmPassword")}</Label>
                     <Input
                       id="admin-user-confirm-password"
                       type="password"
@@ -433,7 +435,7 @@ const AdminUserDialog = ({
             <TabsContent value="profile" className="mt-5 space-y-5">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="admin-user-country">Country</Label>
+                  <Label htmlFor="admin-user-country">{t("adminForm.country")}</Label>
                   <Input
                     id="admin-user-country"
                     value={form.country}
@@ -443,7 +445,7 @@ const AdminUserDialog = ({
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="admin-user-city">City</Label>
+                  <Label htmlFor="admin-user-city">{t("adminForm.city")}</Label>
                   <Input
                     id="admin-user-city"
                     value={form.city}
@@ -453,7 +455,7 @@ const AdminUserDialog = ({
                   />
                 </div>
                 <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="admin-user-bio">Bio</Label>
+                  <Label htmlFor="admin-user-bio">{t("adminForm.bio")}</Label>
                   <Textarea
                     id="admin-user-bio"
                     value={form.bio}
@@ -463,7 +465,7 @@ const AdminUserDialog = ({
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="admin-user-picture">Profile picture</Label>
+                  <Label htmlFor="admin-user-picture">{t("adminForm.profilePicture")}</Label>
                   <Input
                     id="admin-user-picture"
                     type="file"
@@ -475,12 +477,12 @@ const AdminUserDialog = ({
                     disabled={isPending}
                   />
                   {profilePicture ? (
-                    <p className="text-xs text-muted-foreground">Selected: {profilePicture.name}</p>
+                    <p className="text-xs text-muted-foreground">{t("adminForm.selectedFile", { name: profilePicture.name })}</p>
                   ) : user?.profile_picture ? (
                     <div className="flex flex-wrap items-center gap-2">
                       {!removeProfilePicture && (
                         <a className="text-xs font-medium text-primary hover:underline" href={user.profile_picture} target="_blank" rel="noreferrer">
-                          View current picture
+                          {t("adminForm.viewCurrentPicture")}
                         </a>
                       )}
                       <Button
@@ -492,15 +494,15 @@ const AdminUserDialog = ({
                         disabled={isPending}
                       >
                         {removeProfilePicture ? null : <Trash2 className="h-3.5 w-3.5" />}
-                        {removeProfilePicture ? "Keep current picture" : "Remove"}
+                        {removeProfilePicture ? t("adminForm.keepPicture") : t("adminForm.remove")}
                       </Button>
                     </div>
                   ) : null}
-                  {removeProfilePicture && <p className="text-xs font-medium text-destructive">The current picture will be removed when you save.</p>}
+                  {removeProfilePicture && <p className="text-xs font-medium text-destructive">{t("adminForm.pictureRemoved")}</p>}
                   <FieldError message={fieldErrors.profile_picture} />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="admin-user-kyc-document">KYC document</Label>
+                  <Label htmlFor="admin-user-kyc-document">{t("adminForm.kycDocument")}</Label>
                   <Input
                     id="admin-user-kyc-document"
                     type="file"
@@ -511,12 +513,12 @@ const AdminUserDialog = ({
                     disabled={isPending}
                   />
                   {kycDocument ? (
-                    <p className="text-xs text-muted-foreground">Selected: {kycDocument.name}</p>
+                    <p className="text-xs text-muted-foreground">{t("adminForm.selectedFile", { name: kycDocument.name })}</p>
                   ) : user?.kyc_document ? (
                     <div className="flex flex-wrap items-center gap-2">
                       {!removeKycDocument && (
                         <a className="text-xs font-medium text-primary hover:underline" href={user.kyc_document} target="_blank" rel="noreferrer">
-                          View current document
+                          {t("adminForm.viewCurrentDocument")}
                         </a>
                       )}
                       <Button
@@ -528,20 +530,20 @@ const AdminUserDialog = ({
                         disabled={isPending}
                       >
                         {removeKycDocument ? null : <Trash2 className="h-3.5 w-3.5" />}
-                        {removeKycDocument ? "Keep current document" : "Remove"}
+                        {removeKycDocument ? t("adminForm.keepDocument") : t("adminForm.remove")}
                       </Button>
                     </div>
                   ) : null}
-                  {removeKycDocument && <p className="text-xs font-medium text-destructive">The current KYC document will be removed when you save.</p>}
+                  {removeKycDocument && <p className="text-xs font-medium text-destructive">{t("adminForm.kycRemoved")}</p>}
                   <FieldError message={fieldErrors.kyc_document} />
                 </div>
               </div>
 
               <div className="border-t border-border pt-5">
-                <h3 className="text-sm font-semibold">Business profile</h3>
+                <h3 className="text-sm font-semibold">{t("adminForm.businessProfile")}</h3>
                 <div className="mt-4 grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <Label htmlFor="admin-user-business-name">Business name</Label>
+                    <Label htmlFor="admin-user-business-name">{t("adminForm.businessName")}</Label>
                     <Input
                       id="admin-user-business-name"
                       value={form.business_name}
@@ -551,7 +553,7 @@ const AdminUserDialog = ({
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="admin-user-registration">Registration number</Label>
+                    <Label htmlFor="admin-user-registration">{t("adminForm.registrationNumber")}</Label>
                     <Input
                       id="admin-user-registration"
                       value={form.business_registration_number}
@@ -561,7 +563,7 @@ const AdminUserDialog = ({
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="admin-user-established">Established date</Label>
+                    <Label htmlFor="admin-user-established">{t("adminForm.establishedDate")}</Label>
                     <Input
                       id="admin-user-established"
                       type="date"
@@ -571,7 +573,7 @@ const AdminUserDialog = ({
                     />
                   </div>
                   <div className="space-y-2 sm:col-span-2">
-                    <Label htmlFor="admin-user-business-address">Business address</Label>
+                    <Label htmlFor="admin-user-business-address">{t("adminForm.businessAddress")}</Label>
                     <Textarea
                       id="admin-user-business-address"
                       value={form.business_address}
@@ -586,42 +588,42 @@ const AdminUserDialog = ({
 
             <TabsContent value="financial" className="mt-5 space-y-5">
               <div className="rounded-xl border border-accent/25 bg-accent/5 p-4 text-xs leading-relaxed text-muted-foreground">
-                These values affect platform reporting. Change them only when reconciling a verified financial record.
+                {t("adminForm.financialWarning")}
               </div>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <div className="space-y-2">
-                  <Label htmlFor="admin-user-tier">Investor tier</Label>
+                  <Label htmlFor="admin-user-tier">{t("adminForm.investorTier")}</Label>
                   <Select value={form.investor_tier} onValueChange={(value: InvestorTier) => update("investor_tier", value)} disabled={isPending}>
                     <SelectTrigger id="admin-user-tier"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="bronze">Bronze</SelectItem>
-                      <SelectItem value="silver">Silver</SelectItem>
-                      <SelectItem value="gold">Gold</SelectItem>
-                      <SelectItem value="platinum">Platinum</SelectItem>
+                      <SelectItem value="bronze">{t("adminForm.bronze")}</SelectItem>
+                      <SelectItem value="silver">{t("adminForm.silver")}</SelectItem>
+                      <SelectItem value="gold">{t("adminForm.gold")}</SelectItem>
+                      <SelectItem value="platinum">{t("adminForm.platinum")}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="admin-user-risk">Risk preference</Label>
+                  <Label htmlFor="admin-user-risk">{t("adminForm.riskPreference")}</Label>
                   <Select value={form.risk_preference} onValueChange={(value: RiskPreference) => update("risk_preference", value)} disabled={isPending}>
                     <SelectTrigger id="admin-user-risk"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="low">Low</SelectItem>
-                      <SelectItem value="medium">Medium</SelectItem>
-                      <SelectItem value="high">High</SelectItem>
+                      <SelectItem value="low">{t("adminForm.low")}</SelectItem>
+                      <SelectItem value="medium">{t("adminForm.medium")}</SelectItem>
+                      <SelectItem value="high">{t("adminForm.high")}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 {[
-                  ["total_invested", "Total invested"],
-                  ["total_returned", "Total returned"],
-                  ["average_roi", "Average ROI (%)"],
-                  ["total_funded", "Total funded"],
-                  ["total_repaid", "Total repaid"],
-                  ["reputation_score", "Reputation score"],
+                  ["total_invested", "adminForm.totalInvested"],
+                  ["total_returned", "adminForm.totalReturned"],
+                  ["average_roi", "adminForm.averageRoi"],
+                  ["total_funded", "adminForm.totalFunded"],
+                  ["total_repaid", "adminForm.totalRepaid"],
+                  ["reputation_score", "adminForm.reputationScore"],
                 ].map(([field, label]) => (
                   <div key={field} className="space-y-2">
-                    <Label htmlFor={`admin-user-${field}`}>{label}</Label>
+                    <Label htmlFor={`admin-user-${field}`}>{t(label)}</Label>
                     <Input
                       id={`admin-user-${field}`}
                       type="number"
@@ -640,38 +642,38 @@ const AdminUserDialog = ({
             <TabsContent value="access" className="mt-5 space-y-4">
               {isSelf && (
                 <div className="rounded-xl border border-accent/25 bg-accent/5 p-4 text-sm text-muted-foreground">
-                  Your own role, active status, and administrative access are locked here to prevent an accidental lockout.
+                  {t("adminForm.selfAccessLock")}
                 </div>
               )}
               <div className="grid gap-3 sm:grid-cols-2">
                 <ToggleRow
                   id="admin-user-active"
-                  label="Active account"
-                  description="Inactive users cannot sign in."
+                  label={t("adminForm.activeAccount")}
+                  description={t("adminForm.activeAccountHelp")}
                   checked={form.is_active}
                   disabled={isPending || permissionLocked}
                   onCheckedChange={(checked) => update("is_active", checked)}
                 />
                 <ToggleRow
                   id="admin-user-verified"
-                  label="Identity verified"
-                  description="Marks the general Sahmi profile as verified."
+                  label={t("adminForm.identityVerified")}
+                  description={t("adminForm.identityVerifiedHelp")}
                   checked={form.is_verified}
                   disabled={isPending}
                   onCheckedChange={(checked) => update("is_verified", checked)}
                 />
                 <ToggleRow
                   id="admin-user-kyc-verified"
-                  label="KYC verified"
-                  description="Confirms that the submitted identity documents passed review."
+                  label={t("adminForm.kycVerified")}
+                  description={t("adminForm.kycVerifiedHelp")}
                   checked={form.is_kyc_verified}
                   disabled={isPending}
                   onCheckedChange={(checked) => update("is_kyc_verified", checked)}
                 />
                 <ToggleRow
                   id="admin-user-staff"
-                  label="Staff access"
-                  description="Allows access to staff-only management endpoints."
+                  label={t("adminForm.staffAccess")}
+                  description={t("adminForm.staffAccessHelp")}
                   checked={form.is_staff}
                   disabled={isPending || permissionLocked || form.user_type === "admin" || form.is_superuser}
                   onCheckedChange={(checked) => {
@@ -681,8 +683,8 @@ const AdminUserDialog = ({
                 />
                 <ToggleRow
                   id="admin-user-superuser"
-                  label="Superuser"
-                  description="Grants unrestricted Django permissions. Use sparingly."
+                  label={t("adminForm.superuser")}
+                  description={t("adminForm.superuserHelp")}
                   checked={form.is_superuser}
                   disabled={isPending || permissionLocked}
                   onCheckedChange={(checked) => {
@@ -694,7 +696,7 @@ const AdminUserDialog = ({
 
               <div className="grid gap-4 pt-1 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="admin-user-kyc-date">KYC verified at</Label>
+                  <Label htmlFor="admin-user-kyc-date">{t("adminForm.kycVerifiedAt")}</Label>
                   <Input
                     id="admin-user-kyc-date"
                     type="datetime-local"
@@ -706,7 +708,7 @@ const AdminUserDialog = ({
                 </div>
                 <div />
                 <div className="space-y-2">
-                  <Label htmlFor="admin-user-groups">Group IDs</Label>
+                  <Label htmlFor="admin-user-groups">{t("adminForm.groupIds")}</Label>
                   <Input
                     id="admin-user-groups"
                     value={form.groups}
@@ -714,11 +716,11 @@ const AdminUserDialog = ({
                     placeholder="1, 3"
                     disabled={isPending}
                   />
-                  <p className="text-xs text-muted-foreground">Comma-separated Django group IDs.</p>
+                  <p className="text-xs text-muted-foreground">{t("adminForm.groupIdsHelp")}</p>
                   <FieldError message={fieldErrors.groups} />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="admin-user-permissions">Permission IDs</Label>
+                  <Label htmlFor="admin-user-permissions">{t("adminForm.permissionIds")}</Label>
                   <Input
                     id="admin-user-permissions"
                     value={form.user_permissions}
@@ -726,7 +728,7 @@ const AdminUserDialog = ({
                     placeholder="12, 18, 24"
                     disabled={isPending}
                   />
-                  <p className="text-xs text-muted-foreground">Comma-separated Django permission IDs.</p>
+                  <p className="text-xs text-muted-foreground">{t("adminForm.permissionIdsHelp")}</p>
                   <FieldError message={fieldErrors.user_permissions} />
                 </div>
               </div>
@@ -741,11 +743,11 @@ const AdminUserDialog = ({
 
           <DialogFooter className="mt-6 gap-2 sm:space-x-0">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isPending}>
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button type="submit" disabled={isPending || !form.full_name.trim() || !form.email.trim()}>
               <Save className="h-4 w-4" />
-              {isPending ? "Saving..." : user ? "Save changes" : "Create user"}
+              {isPending ? t("common.saving") : t(user ? "adminForm.saveChanges" : "adminForm.createUserAction")}
             </Button>
           </DialogFooter>
         </form>

@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { FormEvent, useEffect, useState } from "react";
 import { Flag, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -55,6 +56,7 @@ const AdminMilestoneDialog = ({
   onOpenChange,
   onSubmit,
 }: AdminMilestoneDialogProps) => {
+  const { t } = useTranslation();
   const [form, setForm] = useState<AdminMilestonePayload>(blankForm);
 
   useEffect(() => {
@@ -104,18 +106,18 @@ const AdminMilestoneDialog = ({
           <div className="mb-2 flex h-11 w-11 items-center justify-center rounded-xl bg-secondary/10 text-secondary">
             <Flag className="h-5 w-5" />
           </div>
-          <DialogTitle>{milestone ? "Edit milestone" : "Create milestone"}</DialogTitle>
+          <DialogTitle>{t(milestone ? "adminForm.editMilestone" : "adminForm.createMilestone")}</DialogTitle>
           <DialogDescription>
-            Manage delivery targets, released funding, and project progress from one record.
+            {t("adminForm.milestoneHelp")}
           </DialogDescription>
         </DialogHeader>
 
         <form className="space-y-5" onSubmit={submit}>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2 sm:col-span-2">
-              <Label htmlFor="milestone-project">Project *</Label>
+              <Label htmlFor="milestone-project">{t("adminForm.projectRequired")}</Label>
               <Select value={form.project} onValueChange={(value) => update("project", value)}>
-                <SelectTrigger id="milestone-project"><SelectValue placeholder="Select project" /></SelectTrigger>
+                <SelectTrigger id="milestone-project"><SelectValue placeholder={t("adminForm.selectProject")} /></SelectTrigger>
                 <SelectContent>
                   {projects.map((project) => (
                     <SelectItem key={project.id} value={project.id}>{project.title}</SelectItem>
@@ -124,7 +126,7 @@ const AdminMilestoneDialog = ({
               </Select>
             </div>
             <div className="space-y-2 sm:col-span-2">
-              <Label htmlFor="milestone-title">Title</Label>
+              <Label htmlFor="milestone-title">{t("adminForm.title")}</Label>
               <Input
                 id="milestone-title"
                 maxLength={120}
@@ -134,7 +136,7 @@ const AdminMilestoneDialog = ({
               />
             </div>
             <div className="space-y-2 sm:col-span-2">
-              <Label htmlFor="milestone-description">Description</Label>
+              <Label htmlFor="milestone-description">{t("adminForm.description")}</Label>
               <Textarea
                 id="milestone-description"
                 rows={4}
@@ -144,7 +146,7 @@ const AdminMilestoneDialog = ({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="target-date">Target date</Label>
+              <Label htmlFor="target-date">{t("adminForm.targetDate")}</Label>
               <Input
                 id="target-date"
                 type="date"
@@ -154,7 +156,7 @@ const AdminMilestoneDialog = ({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="completion-date">Actual completion</Label>
+              <Label htmlFor="completion-date">{t("adminForm.actualCompletion")}</Label>
               <Input
                 id="completion-date"
                 type="date"
@@ -163,22 +165,22 @@ const AdminMilestoneDialog = ({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="milestone-status">Status</Label>
+              <Label htmlFor="milestone-status">{t("adminForm.status")}</Label>
               <Select
                 value={form.status}
                 onValueChange={(value) => update("status", value as AdminMilestone["status"])}
               >
                 <SelectTrigger id="milestone-status"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="in_progress">In progress</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                  <SelectItem value="delayed">Delayed</SelectItem>
+                  <SelectItem value="pending">{t("status.pending")}</SelectItem>
+                  <SelectItem value="in_progress">{t("status.in_progress")}</SelectItem>
+                  <SelectItem value="completed">{t("status.completed")}</SelectItem>
+                  <SelectItem value="delayed">{t("status.delayed")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="milestone-order">Display order</Label>
+              <Label htmlFor="milestone-order">{t("adminForm.displayOrder")}</Label>
               <Input
                 id="milestone-order"
                 type="number"
@@ -188,7 +190,7 @@ const AdminMilestoneDialog = ({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="milestone-percent">Project percentage</Label>
+              <Label htmlFor="milestone-percent">{t("adminForm.projectPercentage")}</Label>
               <Input
                 id="milestone-percent"
                 type="number"
@@ -201,7 +203,7 @@ const AdminMilestoneDialog = ({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="funding-released">Funding released (USD)</Label>
+              <Label htmlFor="funding-released">{t("adminForm.fundingReleasedUsd")}</Label>
               <Input
                 id="funding-released"
                 type="number"
@@ -212,7 +214,7 @@ const AdminMilestoneDialog = ({
               />
             </div>
             <div className="space-y-2 sm:col-span-2">
-              <Label htmlFor="milestone-deliverables">Deliverables</Label>
+              <Label htmlFor="milestone-deliverables">{t("adminForm.deliverables")}</Label>
               <Textarea
                 id="milestone-deliverables"
                 rows={3}
@@ -224,14 +226,14 @@ const AdminMilestoneDialog = ({
 
           <DialogFooter className="gap-2 sm:space-x-0">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={pending}>
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button
               type="submit"
               disabled={pending || !form.project || !form.title.trim() || !form.description.trim() || !form.target_date}
             >
               <Save className="h-4 w-4" />
-              {pending ? "Saving..." : "Save milestone"}
+              {pending ? t("common.saving") : t("adminForm.saveMilestone")}
             </Button>
           </DialogFooter>
         </form>

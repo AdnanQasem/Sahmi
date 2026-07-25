@@ -20,7 +20,7 @@ export interface AdminProjectUser {
   id: string;
   email: string;
   full_name: string;
-  user_type?: string;
+  user_type?: "investor" | "entrepreneur" | "admin";
   business_name?: string;
 }
 

@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import {
   CheckCircle2,
@@ -21,6 +22,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import StatusBadge from "@/components/dashboard/StatusBadge";
 import type { Project, ProjectModerationPayload } from "@/services/projectsService";
+import { formatCurrency, formatDate } from "@/i18n/format";
 
 interface AdminProjectListItemProps {
   project: Project;
@@ -30,14 +32,6 @@ interface AdminProjectListItemProps {
   onDelete: (project: Project) => void;
 }
 
-const formatCurrency = (value: string | number) =>
-  new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    notation: "compact",
-    maximumFractionDigits: 1,
-  }).format(Number(value) || 0);
-
 const AdminProjectListItem = ({
   project,
   isBusy,
@@ -45,6 +39,7 @@ const AdminProjectListItem = ({
   onStatusChange,
   onDelete,
 }: AdminProjectListItemProps) => {
+  const { t } = useTranslation();
   const pendingReview = !project.is_verified && project.status === "draft";
   const isArchived = Boolean(project.deleted_at);
   const fundedPercent = Math.min(Math.max(Number(project.funding_percent) || 0, 0), 100);
@@ -74,7 +69,7 @@ const AdminProjectListItem = ({
               {project.is_verified && (
                 <span className="inline-flex items-center gap-1 rounded-full border border-success/20 bg-success/10 px-2 py-0.5 text-[10px] font-semibold text-success">
                   <CheckCircle2 className="h-3 w-3" />
-                  Verified
+                  {t("admin.verified")}
                 </span>
               )}
             </div>
@@ -84,33 +79,29 @@ const AdminProjectListItem = ({
             <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
               <span className="inline-flex items-center gap-1">
                 <UserRound className="h-3 w-3" />
-                {project.entrepreneur?.full_name || project.entrepreneur?.email || "Unknown owner"}
+                {project.entrepreneur?.full_name || project.entrepreneur?.email || t("adminForm.unknown")}
               </span>
               <span className="inline-flex items-center gap-1">
                 <MapPin className="h-3 w-3" />
                 {project.location}
               </span>
-              <span>{project.category_detail?.name || "Uncategorized"}</span>
+              <span>{project.category_detail?.name || t("adminForm.uncategorized")}</span>
             </div>
           </div>
         </div>
 
         <div className="grid grid-cols-2 gap-3 rounded-xl bg-muted/30 p-3 lg:w-72">
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Funding</p>
-            <p className="mt-1 text-sm font-bold text-foreground">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{t("adminForm.funding")}</p>
+            <p className="mt-1 text-sm font-bold text-foreground" dir="ltr">
               {formatCurrency(project.funded_amount)}
               <span className="font-normal text-muted-foreground"> / {formatCurrency(project.goal_amount)}</span>
             </p>
           </div>
-          <div className="text-right">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Submitted</p>
-            <p className="mt-1 text-xs font-medium text-foreground">
-              {new Date(project.created_at).toLocaleDateString(undefined, {
-                day: "numeric",
-                month: "short",
-                year: "numeric",
-              })}
+          <div className="text-end">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{t("adminForm.submitted")}</p>
+            <p className="mt-1 text-xs font-medium text-foreground" dir="auto">
+              {formatDate(project.created_at, { day: "numeric", month: "short", year: "numeric" })}
             </p>
           </div>
           <div className="col-span-2 h-1.5 overflow-hidden rounded-full bg-muted">
@@ -128,13 +119,13 @@ const AdminProjectListItem = ({
         <div className="flex items-center justify-end gap-2 lg:w-44">
           {pendingReview ? (
             <Button size="sm" className="flex-1 lg:flex-none" onClick={() => onReview(project)} disabled={isBusy}>
-              Review
+              {t("admin.reviewQueue")}
             </Button>
           ) : (
             <Button variant="outline" size="sm" className="flex-1 lg:flex-none" asChild>
               <Link to={"/dashboard/admin/projects/" + project.id + "/edit"}>
                 <Pencil className="h-3.5 w-3.5" />
-                Edit
+                {t("common.edit")}
               </Link>
             </Button>
           )}
@@ -145,55 +136,55 @@ const AdminProjectListItem = ({
                 variant="outline"
                 size="icon"
                 className="h-9 w-9 shrink-0"
-                aria-label={"More actions for " + project.title}
+                aria-label={t("adminForm.moreActions", { title: project.title })}
                 disabled={isBusy}
               >
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-52">
-              <DropdownMenuLabel>Project actions</DropdownMenuLabel>
+              <DropdownMenuLabel>{t("adminForm.projectActions")}</DropdownMenuLabel>
               <DropdownMenuItem asChild>
                 <Link to={"/projects/" + project.slug}>
-                  <ExternalLink className="mr-2 h-4 w-4" />
-                  View project
+                  <ExternalLink className="me-2 h-4 w-4" />
+                  {t("adminForm.viewProject")}
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
                 <Link to={"/dashboard/admin/projects/" + project.id + "/edit"}>
-                  <Pencil className="mr-2 h-4 w-4" />
-                  Advanced edit
+                  <Pencil className="me-2 h-4 w-4" />
+                  {t("adminForm.advancedEdit")}
                 </Link>
               </DropdownMenuItem>
               {pendingReview && (
                 <DropdownMenuItem onSelect={() => onReview(project)}>
-                  <CheckCircle2 className="mr-2 h-4 w-4" />
-                  Review submission
+                  <CheckCircle2 className="me-2 h-4 w-4" />
+                  {t("admin.reviewQueue")} submission
                 </DropdownMenuItem>
               )}
               <DropdownMenuSeparator />
               {project.status === "active" && (
                 <DropdownMenuItem onSelect={() => onStatusChange(project, "paused")}>
-                  <CirclePause className="mr-2 h-4 w-4" />
-                  Pause campaign
+                  <CirclePause className="me-2 h-4 w-4" />
+                  {t("adminForm.pauseCampaign")}
                 </DropdownMenuItem>
               )}
               {project.status === "paused" && project.is_verified && (
                 <DropdownMenuItem onSelect={() => onStatusChange(project, "active")}>
-                  <Play className="mr-2 h-4 w-4" />
-                  Resume campaign
+                  <Play className="me-2 h-4 w-4" />
+                  {t("adminForm.resumeCampaign")}
                 </DropdownMenuItem>
               )}
               {(project.status === "active" || project.status === "paused") && (
                 <DropdownMenuItem onSelect={() => onStatusChange(project, "closed")}>
-                  <CheckCircle2 className="mr-2 h-4 w-4" />
-                  Close campaign
+                  <CheckCircle2 className="me-2 h-4 w-4" />
+                  {t("adminForm.closeCampaign")}
                 </DropdownMenuItem>
               )}
               {project.status === "closed" && (
                 <DropdownMenuItem onSelect={() => onStatusChange(project, "successful")}>
-                  <CheckCircle2 className="mr-2 h-4 w-4" />
-                  Mark successful
+                  <CheckCircle2 className="me-2 h-4 w-4" />
+                  {t("adminForm.markSuccessful")}
                 </DropdownMenuItem>
               )}
               <DropdownMenuSeparator />
@@ -201,8 +192,8 @@ const AdminProjectListItem = ({
                 className="text-destructive focus:bg-destructive/10 focus:text-destructive"
                 onSelect={() => onDelete(project)}
               >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Delete project
+                <Trash2 className="me-2 h-4 w-4" />
+                {t("adminForm.deleteProject")}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

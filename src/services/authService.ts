@@ -11,6 +11,8 @@ export interface User {
   phone_number?: string;
   country?: string;
   city?: string;
+  website?: string;
+  timezone?: string;
   bio?: string;
   business_name?: string;
   profile_picture?: string;
@@ -36,7 +38,21 @@ export interface RegisterPayload {
   phone_number?: string;
   country?: string;
   city?: string;
+  website?: string;
+  timezone?: string;
   business_name?: string;
+}
+
+
+export interface PasswordResetRequestResponse {
+  message: string;
+}
+
+export interface PasswordResetConfirmPayload {
+  uid: string;
+  token: string;
+  new_password: string;
+  confirm_password: string;
 }
 
 export interface ChangePasswordPayload {
@@ -74,7 +90,7 @@ const authService = {
     }
   },
 
-  updateCurrentUser: async (payload: Partial<Pick<User, "preferred_language" | "full_name" | "phone_number" | "country" | "city" | "bio">>): Promise<User> => {
+  updateCurrentUser: async (payload: Partial<Pick<User, "preferred_language" | "full_name" | "phone_number" | "country" | "city" | "website" | "timezone" | "bio">>): Promise<User> => {
     const user: User = await api.patch("auth/me/", payload);
     localStorage.setItem("user", JSON.stringify(user));
     return user;
@@ -86,6 +102,14 @@ const authService = {
 
   changePassword: async (payload: ChangePasswordPayload): Promise<{ message?: string }> => {
     return await api.post("auth/change-password/", payload);
+  },
+
+  requestPasswordReset: async (email: string): Promise<PasswordResetRequestResponse> => {
+    return await api.post("auth/password-reset/", { email });
+  },
+
+  confirmPasswordReset: async (payload: PasswordResetConfirmPayload): Promise<{ message: string }> => {
+    return await api.post("auth/password-reset/confirm/", payload);
   },
 };
 

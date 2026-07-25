@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { FormEvent, useEffect, useState } from "react";
 import { CircleDollarSign, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -67,6 +68,7 @@ const AdminInvestmentDialog = ({
   onOpenChange,
   onSubmit,
 }: AdminInvestmentDialogProps) => {
+  const { t } = useTranslation();
   const [form, setForm] = useState<AdminInvestmentPayload>(blankForm);
 
   useEffect(() => {
@@ -117,18 +119,18 @@ const AdminInvestmentDialog = ({
           <div className="mb-2 flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
             <CircleDollarSign className="h-5 w-5" />
           </div>
-          <DialogTitle>{investment ? "Edit investment" : "Create investment"}</DialogTitle>
+          <DialogTitle>{t(investment ? "adminForm.editInvestment" : "adminForm.createInvestment")}</DialogTitle>
           <DialogDescription>
-            Record or correct the complete financial transaction on behalf of an investor.
+            {t("adminForm.investmentHelp")}
           </DialogDescription>
         </DialogHeader>
 
         <form className="space-y-5" onSubmit={submit}>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="investment-investor">Investor *</Label>
+              <Label htmlFor="investment-investor">{t("adminForm.investorRequired")}</Label>
               <Select value={form.investor} onValueChange={(value) => update("investor", value)}>
-                <SelectTrigger id="investment-investor"><SelectValue placeholder="Select investor" /></SelectTrigger>
+                <SelectTrigger id="investment-investor"><SelectValue placeholder={t("adminForm.selectInvestor")} /></SelectTrigger>
                 <SelectContent>
                   {users.map((user) => (
                     <SelectItem key={user.id} value={user.id}>
@@ -139,9 +141,9 @@ const AdminInvestmentDialog = ({
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="investment-project">Project *</Label>
+              <Label htmlFor="investment-project">{t("adminForm.projectRequired")}</Label>
               <Select value={form.project} onValueChange={(value) => update("project", value)}>
-                <SelectTrigger id="investment-project"><SelectValue placeholder="Select project" /></SelectTrigger>
+                <SelectTrigger id="investment-project"><SelectValue placeholder={t("adminForm.selectProject")} /></SelectTrigger>
                 <SelectContent>
                   {projects.map((project) => (
                     <SelectItem key={project.id} value={project.id}>{project.title}</SelectItem>
@@ -150,7 +152,7 @@ const AdminInvestmentDialog = ({
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="investment-amount">Amount (USD)</Label>
+              <Label htmlFor="investment-amount">{t("adminForm.amountUsd")}</Label>
               <Input
                 id="investment-amount"
                 type="number"
@@ -162,7 +164,7 @@ const AdminInvestmentDialog = ({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="investment-quantity">Quantity</Label>
+              <Label htmlFor="investment-quantity">{t("adminForm.quantity")}</Label>
               <Input
                 id="investment-quantity"
                 type="number"
@@ -173,22 +175,22 @@ const AdminInvestmentDialog = ({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="investment-status">Status</Label>
+              <Label htmlFor="investment-status">{t("adminForm.status")}</Label>
               <Select
                 value={form.status}
                 onValueChange={(value) => update("status", value as AdminInvestment["status"])}
               >
                 <SelectTrigger id="investment-status"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="confirmed">Confirmed</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                  <SelectItem value="canceled">Canceled</SelectItem>
+                  <SelectItem value="pending">{t("status.pending")}</SelectItem>
+                  <SelectItem value="confirmed">{t("status.confirmed")}</SelectItem>
+                  <SelectItem value="completed">{t("status.completed")}</SelectItem>
+                  <SelectItem value="canceled">{t("status.canceled")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="investment-payment-method">Payment method</Label>
+              <Label htmlFor="investment-payment-method">{t("adminForm.paymentMethod")}</Label>
               <Select
                 value={form.payment_method}
                 onValueChange={(value) =>
@@ -197,14 +199,14 @@ const AdminInvestmentDialog = ({
               >
                 <SelectTrigger id="investment-payment-method"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="bank_transfer">Bank transfer</SelectItem>
-                  <SelectItem value="card">Card</SelectItem>
-                  <SelectItem value="paypal">PayPal</SelectItem>
+                  <SelectItem value="bank_transfer">{t("payment.bank_transfer")}</SelectItem>
+                  <SelectItem value="card">{t("payment.card")}</SelectItem>
+                  <SelectItem value="paypal">{t("payment.paypal")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="expected-return">Expected return</Label>
+              <Label htmlFor="expected-return">{t("adminForm.expectedReturn")}</Label>
               <Input
                 id="expected-return"
                 type="number"
@@ -215,7 +217,7 @@ const AdminInvestmentDialog = ({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="actual-return">Actual return</Label>
+              <Label htmlFor="actual-return">{t("adminForm.actualReturn")}</Label>
               <Input
                 id="actual-return"
                 type="number"
@@ -226,7 +228,7 @@ const AdminInvestmentDialog = ({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="transaction-id">Transaction ID</Label>
+              <Label htmlFor="transaction-id">{t("adminForm.transactionId")}</Label>
               <Input
                 id="transaction-id"
                 maxLength={120}
@@ -235,7 +237,7 @@ const AdminInvestmentDialog = ({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="return-date">Return received</Label>
+              <Label htmlFor="return-date">{t("adminForm.returnReceived")}</Label>
               <Input
                 id="return-date"
                 type="datetime-local"
@@ -245,7 +247,7 @@ const AdminInvestmentDialog = ({
             </div>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="investment-notes">Internal notes</Label>
+            <Label htmlFor="investment-notes">{t("adminForm.internalNotes")}</Label>
             <Textarea
               id="investment-notes"
               rows={4}
@@ -256,11 +258,11 @@ const AdminInvestmentDialog = ({
 
           <DialogFooter className="gap-2 sm:space-x-0">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={pending}>
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button type="submit" disabled={pending || !form.investor || !form.project || !form.amount}>
               <Save className="h-4 w-4" />
-              {pending ? "Saving..." : "Save investment"}
+              {pending ? t("common.saving") : t("adminForm.saveInvestment")}
             </Button>
           </DialogFooter>
         </form>

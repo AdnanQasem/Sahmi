@@ -115,9 +115,7 @@ const BrowseProjects = () => {
           <div className="rounded-xl border border-border bg-card p-16 text-center">
             <h3 className="mb-2 text-lg font-semibold text-foreground">{t("projects.loadError")}</h3>
             <p className="text-sm text-muted-foreground">{t("errors.network")}</p>
-            <Button variant="outline" className="mt-4" onClick={() => projectsQuery.refetch()}>
-              Retry
-            </Button>
+            <Button variant="outline" className="mt-4" onClick={() => projectsQuery.refetch()}>{t("common.retry")}</Button>
           </div>
         ) : projects.length > 0 ? (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -130,9 +128,7 @@ const BrowseProjects = () => {
             <SlidersHorizontal className="mx-auto mb-4 h-10 w-10 text-muted-foreground" />
             <h3 className="mb-2 text-lg font-semibold text-foreground">{t("projects.noResults")}</h3>
             <p className="text-sm text-muted-foreground">{t("projects.noResults")}</p>
-            <Button variant="outline" className="mt-4" onClick={() => { setSearch(""); setSelectedCategory("All"); }}>
-              Clear Filters
-            </Button>
+            <Button variant="outline" className="mt-4" onClick={() => { setSearch(""); setSelectedCategory("All"); }}>{t("projects.clearFilters")}</Button>
           </div>
         )}
       </div>

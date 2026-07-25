@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { FormEvent, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -39,6 +40,7 @@ import adminProjectsService, {
 } from "@/services/adminProjectsService";
 
 const AdminProjectEditPage = () => {
+  const { t } = useTranslation();
   const { projectId } = useParams<{ projectId: string }>();
   const isCreating = !projectId;
   const navigate = useNavigate();
@@ -84,7 +86,7 @@ const AdminProjectEditPage = () => {
         ? adminProjectsService.createProject(payload)
         : adminProjectsService.updateProject(projectId as string, payload),
     onSuccess: (project) => {
-      toast.success(isCreating ? "Project created." : "Project updated.");
+      toast.success(t(isCreating ? "admin.created" : "admin.updated", { item: t("admin.projectItem") }));
       setFieldErrors({});
       void queryClient.invalidateQueries({ queryKey: ["admin", "projects"] });
       void queryClient.invalidateQueries({ queryKey: ["admin", "project", project.id] });
@@ -94,7 +96,7 @@ const AdminProjectEditPage = () => {
     },
     onError: (error) => {
       setFieldErrors(getFieldErrors(error));
-      toast.error(getErrorMessage(error, "Could not save this project."));
+      toast.error(getErrorMessage(error, t("admin.saveFailed", { item: t("admin.projectItem") })));
     },
   });
 
@@ -109,7 +111,7 @@ const AdminProjectEditPage = () => {
       !form.location.trim() ||
       !form.goal_amount
     ) {
-      toast.error("Complete the required project fields before saving.");
+      toast.error(t("admin.requiredProjectFields"));
       return;
     }
 
@@ -146,15 +148,13 @@ const AdminProjectEditPage = () => {
     return (
       <DashboardLayout roleBase="/dashboard/admin">
         <div className="rounded-2xl border border-destructive/20 bg-destructive/5 p-10 text-center">
-          <h1 className="text-xl font-semibold text-foreground">Project could not be loaded</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            The record may have been removed or your session may have expired.
-          </p>
+          <h1 className="text-xl font-semibold text-foreground">{t("admin.projectLoadError")}</h1>
+          <p className="mt-2 text-sm text-muted-foreground">{t("admin.recordUnavailable")}</p>
           <div className="mt-5 flex justify-center gap-2">
             <Button variant="outline" asChild>
-              <Link to="/dashboard/admin/projects">Back to projects</Link>
+              <Link to="/dashboard/admin/projects">{t("admin.backProjects")}</Link>
             </Button>
-            <Button onClick={() => void projectQuery.refetch()}>Try again</Button>
+            <Button onClick={() => void projectQuery.refetch()}>{t("admin.tryAgain")}</Button>
           </div>
         </div>
       </DashboardLayout>
@@ -170,20 +170,18 @@ const AdminProjectEditPage = () => {
         <AdminPageHeader
           icon={FolderCog}
           eyebrow={isCreating ? "Admin · new project" : "Admin · advanced project editor"}
-          title={isCreating ? "Create a project" : "Edit " + (project?.title || "project")}
-          description="Every project field and attached asset is available here, including operational values hidden from the public editor."
+          title={isCreating ? t("admin.createProject") : t("admin.editProject", { title: project?.title || t("dashboard.project") })}
+          description={t("admin.projectEditorText")}
           actions={
             <>
               <Button variant="outline" asChild>
                 <Link to="/dashboard/admin/projects">
-                  <ArrowLeft className="h-4 w-4" /> Projects
-                </Link>
+                  <ArrowLeft className="h-4 w-4" />{t("admin.projects")}</Link>
               </Button>
               {project ? (
                 <Button variant="outline" asChild>
                   <Link to={"/projects/" + project.slug} target="_blank">
-                    <ExternalLink className="h-4 w-4" /> Public page
-                  </Link>
+                    <ExternalLink className="h-4 w-4" />{t("admin.publicPage")}</Link>
                 </Button>
               ) : null}
             </>
@@ -198,20 +196,15 @@ const AdminProjectEditPage = () => {
             <div className="border-b border-border p-3 sm:p-4">
               <TabsList className="h-auto w-full justify-start gap-1 overflow-x-auto bg-muted/60 p-1">
                 <TabsTrigger value="identity" className="gap-2">
-                  <FolderCog className="h-4 w-4" /> Identity
-                </TabsTrigger>
+                  <FolderCog className="h-4 w-4" />{t("admin.identity")}</TabsTrigger>
                 <TabsTrigger value="finance" className="gap-2">
-                  <Landmark className="h-4 w-4" /> Finance
-                </TabsTrigger>
+                  <Landmark className="h-4 w-4" />{t("admin.finance")}</TabsTrigger>
                 <TabsTrigger value="moderation" className="gap-2">
-                  <ShieldCheck className="h-4 w-4" /> Moderation
-                </TabsTrigger>
+                  <ShieldCheck className="h-4 w-4" />{t("admin.moderation")}</TabsTrigger>
                 <TabsTrigger value="intelligence" className="gap-2">
-                  <BrainCircuit className="h-4 w-4" /> Data & AI
-                </TabsTrigger>
+                  <BrainCircuit className="h-4 w-4" />{t("admin.dataAi")}</TabsTrigger>
                 <TabsTrigger value="files" className="gap-2">
-                  <FileStack className="h-4 w-4" /> Primary files
-                </TabsTrigger>
+                  <FileStack className="h-4 w-4" />{t("admin.primaryFiles")}</TabsTrigger>
               </TabsList>
             </div>
 
@@ -240,12 +233,10 @@ const AdminProjectEditPage = () => {
           </Tabs>
 
           <div className="flex flex-col gap-3 border-t border-border bg-muted/20 p-5 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-xs text-muted-foreground">
-              Fields marked * are required. Changes become visible immediately after saving.
-            </p>
+            <p className="text-xs text-muted-foreground">{t("admin.requiredFieldsNotice")}</p>
             <div className="flex gap-2">
               <Button type="button" variant="outline" asChild>
-                <Link to="/dashboard/admin/projects">Cancel</Link>
+                <Link to="/dashboard/admin/projects">{t("common.cancel")}</Link>
               </Button>
               <Button type="submit" disabled={saveMutation.isPending}>
                 <Save className="h-4 w-4" />
@@ -268,9 +259,7 @@ const AdminProjectEditPage = () => {
             />
           </section>
         ) : (
-          <div className="rounded-2xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-            Save the project first to add gallery images and supporting documents.
-          </div>
+          <div className="rounded-2xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">{t("admin.saveBeforeFiles")}</div>
         )}
       </div>
     </DashboardLayout>

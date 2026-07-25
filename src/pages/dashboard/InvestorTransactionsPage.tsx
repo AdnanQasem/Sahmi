@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { formatNumber, formatPercent } from "@/i18n/format";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -31,19 +32,13 @@ import {
   TrendingUp,
 } from "lucide-react";
 
-const statusFilters = [
-  { label: "All", value: "all" },
-  { label: "Pending", value: "pending" },
-  { label: "Confirmed", value: "confirmed" },
-  { label: "Completed", value: "completed" },
-  { label: "Canceled", value: "canceled" },
-] as const;
+const statusFilters = ["all", "pending", "confirmed", "completed", "canceled"] as const;
 
 const InvestorTransactionsPage = () => {
   const { t } = useTranslation();
   const [selectedTransaction, setSelectedTransaction] = useState<Investment | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<(typeof statusFilters)[number]["value"]>("all");
+  const [statusFilter, setStatusFilter] = useState<(typeof statusFilters)[number]>("all");
 
   const investmentsQuery = useQuery({
     queryKey: ["dashboard", "investor", "transactions"],
@@ -117,8 +112,8 @@ const InvestorTransactionsPage = () => {
                       <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{t("transactions.title")}</h1>
                       <p className="mt-1 text-sm font-medium text-white/70 max-w-md">
                         {transactions.length > 0 
-                          ? `You hold ${transactions.length} active investments with an estimated projected ROI of ${totalROI > 0 ? '+' : ''}${totalROI.toFixed(1)}%.`
-                          : "Explore projects to start building your investment portfolio."}
+                          ? t("transactions.activeSummary", { count: formatNumber(transactions.length), roi: formatPercent(totalROI) })
+                          : t("transactions.explorePrompt")}
                       </p>
                     </div>
                   </div>
@@ -157,7 +152,7 @@ const InvestorTransactionsPage = () => {
                       onClick={() => openTransaction(latestTransaction)}
                       className="text-xs font-semibold text-primary hover:underline transition-all"
                     >
-                      View Details
+                      {t("transactions.viewDetails")}
                     </button>
                   )}
                 </div>
@@ -176,7 +171,7 @@ const InvestorTransactionsPage = () => {
                           {getProjectTitle(latestTransaction)}
                         </h4>
                       </div>
-                      <div className="text-right shrink-0">
+                      <div className="text-end shrink-0">
                         <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-0.5">{t("dashboard.invested")}</p>
                         <p className="text-lg font-black text-foreground">
                           {currency(amountOf(latestTransaction))}
@@ -191,7 +186,7 @@ const InvestorTransactionsPage = () => {
                       </div>
                       <div>
                         <p className="mb-1 flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                          Progress <span>{latestProjectProgress}%</span>
+                          {t("transactions.progress")} <bdi dir="ltr">{formatPercent(latestProjectProgress)}</bdi>
                         </p>
                         <div className="h-1.5 w-full overflow-hidden rounded-full bg-primary/10">
                           <div 
@@ -220,22 +215,22 @@ const InvestorTransactionsPage = () => {
               </div>
               <div>
                 <h2 className="text-sm font-bold uppercase tracking-wider text-foreground">{t("common.filter")}</h2>
-                <p className="text-[11px] font-medium text-muted-foreground">{filteredTransactions.length} results found</p>
+                <p className="text-[11px] font-medium text-muted-foreground">{t("transactions.resultsFound", { count: formatNumber(filteredTransactions.length) })}</p>
               </div>
             </div>
             
             <div className="space-y-6">
               <div>
                 <label className="mb-2 block text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                  Search Records
+                  {t("transactions.searchRecords")}
                 </label>
                 <div className="relative group">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground transition-colors group-focus-within:text-primary" />
+                  <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground transition-colors group-focus-within:text-primary" />
                   <Input
                     value={searchQuery}
                     onChange={(event) => setSearchQuery(event.target.value)}
                     placeholder={t("transactions.search")}
-                    className="pl-10 h-11 bg-background/50 border-border/50 transition-all focus:bg-background focus:ring-primary/20"
+                    className="ps-10 h-11 bg-background/50 border-border/50 transition-all focus:bg-background focus:ring-primary/20"
                   />
                 </div>
               </div>
@@ -245,27 +240,27 @@ const InvestorTransactionsPage = () => {
                 <div className="flex flex-col gap-1.5">
                   {statusFilters.map((option) => (
                     <button
-                      key={option.value}
+                      key={option}
                       type="button"
-                      onClick={() => setStatusFilter(option.value)}
+                      onClick={() => setStatusFilter(option)}
                       className={`group flex w-full items-center justify-between rounded-xl border px-4 py-2.5 text-sm font-medium transition-all ${
-                        statusFilter === option.value
+                        statusFilter === option
                           ? "border-primary bg-primary text-primary-foreground shadow-md shadow-primary/20 scale-[1.02]"
                           : "border-transparent bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground"
                       }`}
                     >
                       <span className="flex items-center gap-2">
-                        {statusFilter === option.value && <div className="h-1.5 w-1.5 rounded-full bg-primary-foreground" />}
-                        {option.label}
+                        {statusFilter === option && <div className="h-1.5 w-1.5 rounded-full bg-primary-foreground" />}
+                        {option === "all" ? t("common.all") : t(`status.${option}`)}
                       </span>
                       <span className={`text-[11px] font-bold rounded-md px-2 py-0.5 ${
-                        statusFilter === option.value 
+                        statusFilter === option 
                           ? "bg-primary-foreground/20 text-primary-foreground" 
                           : "bg-background text-muted-foreground group-hover:bg-background/80"
                       }`}>
-                        {option.value === "all"
+                        {option === "all"
                           ? transactions.length
-                          : transactions.filter((transaction) => transaction.status === option.value).length}
+                          : transactions.filter((transaction) => transaction.status === option).length}
                       </span>
                     </button>
                   ))}
@@ -284,8 +279,8 @@ const InvestorTransactionsPage = () => {
                   <h2 className="text-xl font-black tracking-tight text-foreground">{t("transactions.title")}</h2>
                   <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
                     {investmentsQuery.isLoading
-                      ? "Loading records..."
-                      : `${ledgerTransactions.length} listed below • ${transactions.length} total records`}
+                      ? t("transactions.loadingRecords")
+                      : t("transactions.recordsSummary", { listed: formatNumber(ledgerTransactions.length), total: formatNumber(transactions.length) })}
                   </p>
                 </div>
               </div>
@@ -298,10 +293,10 @@ const InvestorTransactionsPage = () => {
                 </div>
                 <h3 className="text-2xl font-black text-foreground">{t("transactions.noResults")}</h3>
                 <p className="mt-3 text-sm font-medium text-muted-foreground max-w-md">
-                  Your project payments will appear here after you make an investment.
+                  {t("transactions.paymentsAppear")}
                 </p>
                 <Button asChild className="mt-8 rounded-full px-8 py-6 text-sm font-bold shadow-lg shadow-primary/20 transition-transform hover:scale-105">
-                  <Link to="/projects">{t("home.browse")} <ArrowRight className="ml-2 h-4 w-4" /></Link>
+                  <Link to="/projects">{t("home.browse")} <ArrowRight className="ms-2 h-4 w-4 rtl:rotate-180" /></Link>
                 </Button>
               </div>
             ) : filteredTransactions.length === 0 && !investmentsQuery.isLoading ? (
@@ -311,10 +306,10 @@ const InvestorTransactionsPage = () => {
                 </div>
                 <h3 className="text-2xl font-black text-foreground">{t("transactions.noResults")}</h3>
                 <p className="mt-3 text-sm font-medium text-muted-foreground max-w-md">
-                  Try adjusting the search text or status filter to find what you're looking for.
+                  {t("transactions.adjustFilters")}
                 </p>
                 <Button variant="outline" onClick={() => { setSearchQuery(""); setStatusFilter("all"); }} className="mt-8 rounded-full px-8 font-bold border-primary/20 hover:bg-primary/5 text-primary">
-                  Clear Filters
+                  {t("transactions.clearFilters")}
                 </Button>
               </div>
             ) : ledgerTransactions.length === 0 && !investmentsQuery.isLoading ? (
@@ -324,7 +319,7 @@ const InvestorTransactionsPage = () => {
                 </div>
                 <h3 className="text-2xl font-black text-foreground">{t("dashboard.latestHighlighted")}</h3>
                 <p className="mt-3 text-sm font-medium text-muted-foreground max-w-md">
-                  Additional matching transactions will appear in this list as you continue to invest.
+                  {t("transactions.moreAppear")}
                 </p>
               </div>
             ) : (
@@ -335,7 +330,7 @@ const InvestorTransactionsPage = () => {
                       <Clock className="h-8 w-8 animate-spin" />
                     </div>
                     <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground animate-pulse">
-                      Loading Ledger...
+                      {t("transactions.loadingLedger")}
                     </p>
                   </div>
                 ) : (
@@ -347,7 +342,7 @@ const InvestorTransactionsPage = () => {
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: Math.min(index * 0.03, 0.18) }}
                       onClick={() => openTransaction(transaction)}
-                      className="relative group w-full overflow-hidden rounded-2xl border border-border/50 bg-card/40 backdrop-blur-sm p-1 text-left transition-all hover:border-primary/30 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-primary/30"
+                      className="relative group w-full overflow-hidden rounded-2xl border border-border/50 bg-card/40 backdrop-blur-sm p-1 text-start transition-all hover:border-primary/30 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-primary/30"
                     >
                       <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-transparent to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
                       <div className="relative rounded-xl bg-card p-4 sm:p-5">
@@ -381,22 +376,22 @@ const InvestorTransactionsPage = () => {
                               </div>
                               <div className="mt-3.5 flex flex-wrap gap-2">
                                 <Badge variant="outline" className="text-xs rounded-full border-border/50 bg-background/50 font-semibold">
-                                  {transaction.project_detail?.category_detail?.name ?? "Project"}
+                                  {transaction.project_detail?.category_detail?.name ?? t("transactions.project")}
                                 </Badge>
                                 <Badge variant="secondary" className="bg-secondary/10 text-xs text-secondary rounded-full font-bold">
-                                  Expected Return {currency(expectedOf(transaction))}
+                                  {t("transactions.expectedReturn", { amount: currency(expectedOf(transaction)) })}
                                 </Badge>
                               </div>
                             </div>
                           </div>
 
                           <div className="flex flex-row-reverse md:flex-col items-center md:items-end justify-between gap-4 border-t border-border/50 pt-4 md:border-t-0 md:pt-0">
-                            <div className="text-right">
+                            <div className="text-end">
                               <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">{t("dashboard.amountPaid")}</p>
                               <p className="text-2xl font-black text-foreground">{currency(amountOf(transaction))}</p>
                             </div>
                             <span className="inline-flex items-center justify-center h-10 w-10 rounded-full bg-primary/10 text-primary transition-all group-hover:bg-primary group-hover:text-primary-foreground group-hover:shadow-md group-hover:shadow-primary/20">
-                              <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-0.5" />
+                              <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-0.5 rtl:rotate-180 rtl:group-hover:-translate-x-0.5" />
                             </span>
                           </div>
                         </div>

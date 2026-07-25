@@ -112,6 +112,15 @@ class MessagingAPITests(TestCase):
         resp = anon.get("/api/v1/conversations/")
         self.assertEqual(resp.status_code, status.HTTP_401_UNAUTHORIZED)
 
+    def test_user_search_returns_minimal_results_and_excludes_self(self):
+        response = self.client_alice.get("/api/v1/conversations/user-search/", {"q": "Bo"})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]["id"], str(self.bob.id))
+        self.assertEqual(response.data[0]["full_name"], "Bob")
+        self.assertNotIn("email", response.data[0])
+
     def test_create_direct_conversation_then_list(self):
         resp = self.client_alice.post(
             "/api/v1/conversations/",

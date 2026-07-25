@@ -49,31 +49,13 @@ const slideInLeft = {
   transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] },
 };
 
-const benefits = [
-  { icon: Briefcase, text: "Access to verified projects" },
-  { icon: TrendingUp, text: "Track your investments" },
-  { icon: Leaf, text: "Support local entrepreneurs" },
-];
-
-const testimonials = [
-  {
-    quote: "Joining Sahmi was the best decision for my startup. The community support is incredible.",
-    author: "Maria A.",
-    role: "Entrepreneur, Nablus",
-  },
-  {
-    quote: "I've found amazing investment opportunities that I couldn't find anywhere else.",
-    author: "Khaled M.",
-    role: "Investor",
-  },
-];
-
+const benefits = [Briefcase, TrendingUp, Leaf];
+const testimonials = [{ author: "Maria A." }, { author: "Khaled M." }];
 const passwordRequirements = [
-  { label: "At least 8 characters", check: (p: string) => p.length >= 8 },
-  { label: "Contains a number", check: (p: string) => /\d/.test(p) },
-  { label: "Contains a special character", check: (p: string) => /[!@#$%^&*]/.test(p) },
+  { labelKey: "settings.password8", check: (p: string) => p.length >= 8 },
+  { labelKey: "settings.passwordNumber", check: (p: string) => /\d/.test(p) },
+  { labelKey: "settings.passwordSpecial", check: (p: string) => /[!@#$%^&*]/.test(p) },
 ];
-
 const RegisterPage = () => {
   const { t } = useTranslation();
   const [name, setName] = useState("");
@@ -169,12 +151,10 @@ const RegisterPage = () => {
             transition={{ delay: 0.5, duration: 0.6 }}
           >
             <h2 className="text-4xl xl:text-5xl font-bold mb-6 leading-tight">
-              Join the Movement for{" "}
-              <span className="text-teal-200">Change</span>
+              {t("auth.registerHero")}
             </h2>
             <p className="text-lg text-white/80 mb-10 max-w-md leading-relaxed">
-              Whether you're an entrepreneur with a vision or an investor seeking impact,
-              Sahmi is your gateway to meaningful connections.
+              {t("auth.registerHeroText")}
             </p>
           </motion.div>
 
@@ -185,18 +165,18 @@ const RegisterPage = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.7, duration: 0.6 }}
           >
-            {benefits.map((benefit, index) => (
+            {benefits.map((BenefitIcon, index) => (
               <motion.div
-                key={benefit.text}
+                key={index}
                 className="flex items-center gap-3"
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.8 + index * 0.1 }}
               >
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 backdrop-blur-sm">
-                  <benefit.icon className="h-5 w-5 text-teal-200" />
+                  <BenefitIcon className="h-5 w-5 text-teal-200" />
                 </div>
-                <span className="font-medium">{benefit.text}</span>
+                <span className="font-medium">{t(`auth.registerBenefits.${index}`)}</span>
               </motion.div>
             ))}
           </motion.div>
@@ -218,14 +198,14 @@ const RegisterPage = () => {
                 transition={{ duration: 0.3 }}
               >
                 <p className="text-white/90 mb-4 italic">
-                  "{testimonials[currentTestimonial].quote}"
+                  “{t(`auth.registerTestimonials.${currentTestimonial}.quote`)}”
                 </p>
                 <div>
                   <p className="font-semibold text-white">
                     {testimonials[currentTestimonial].author}
                   </p>
                   <p className="text-sm text-white/60">
-                    {testimonials[currentTestimonial].role}
+                    {t(`auth.registerTestimonials.${currentTestimonial}.role`)}
                   </p>
                 </div>
               </motion.div>
@@ -279,12 +259,8 @@ const RegisterPage = () => {
                 >
                   <Check className="h-10 w-10 text-success" />
                 </motion.div>
-                <h2 className="text-2xl font-bold text-foreground mb-2">
-                  Account Created!
-                </h2>
-                <p className="text-muted-foreground">
-                  Redirecting you to sign in...
-                </p>
+                <h2 className="text-2xl font-bold text-foreground mb-2">{t("auth.accountCreated")}</h2>
+                <p className="text-muted-foreground">{t("auth.redirecting")}</p>
               </motion.div>
             ) : (
               <motion.div
@@ -456,7 +432,7 @@ const RegisterPage = () => {
                       <div className="mt-3 space-y-2">
                         {passwordRequirements.map((req) => (
                           <motion.div
-                            key={req.label}
+                            key={t(req.labelKey)}
                             className="flex items-center gap-2 text-sm"
                             initial={false}
                             animate={{
@@ -472,7 +448,7 @@ const RegisterPage = () => {
                             >
                               <Check className={`h-4 w-4 ${req.check(password) ? "text-success" : "text-muted-foreground"}`} />
                             </motion.div>
-                            <span>{req.label}</span>
+                            <span>{t(req.labelKey)}</span>
                           </motion.div>
                         ))}
                       </div>
@@ -539,13 +515,9 @@ const RegisterPage = () => {
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                           >
-                            <Loader2 className="h-5 w-5 animate-spin" />
-                            Creating account...
-                          </motion.div>
+                            <Loader2 className="h-5 w-5 animate-spin" />{t("auth.registering")}</motion.div>
                         ) : (
-                          <span className="flex items-center gap-2">
-                            Create Account
-                            <ArrowRight className="h-5 w-5" />
+                          <span className="flex items-center gap-2">{t("auth.register")}<ArrowRight className="h-5 w-5" />
                           </span>
                         )}
                       </Button>
@@ -561,9 +533,7 @@ const RegisterPage = () => {
                   <Link
                     to="/login"
                     className="font-semibold text-primary hover:text-primary/80 transition-colors inline-flex items-center gap-1"
-                  >
-                    Sign in
-                    <motion.span whileHover={{ x: 2 }}>
+                  >{t("auth.login")}<motion.span whileHover={{ x: 2 }}>
                       <ArrowRight className="h-4 w-4" />
                     </motion.span>
                   </Link>

@@ -1,10 +1,11 @@
 import { useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Send, Search, Loader2, RefreshCw, MessageSquare } from "lucide-react";
+import { Send, Search, Loader2, RefreshCw, MessageSquare, UserPlus } from "lucide-react";
 import DashboardLayout from "./DashboardLayout";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import messagingService, { Conversation } from "@/services/messagingService";
 import { getErrorMessage } from "@/services/api";
@@ -30,6 +31,8 @@ const MessagesPage = () => {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [search, setSearch] = useState("");
+  const [newMessageOpen, setNewMessageOpen] = useState(false);
+  const [userSearch, setUserSearch] = useState("");
   const sendingRef = useRef(false);
 
   const conversations = useQuery({
@@ -38,6 +41,11 @@ const MessagesPage = () => {
     refetchInterval: 10_000,
   });
   const selected = conversations.data?.results.find((item) => item.id === selectedId) ?? null;
+  const userResults = useQuery({
+    queryKey: ["message-user-search", userSearch.trim()],
+    queryFn: () => messagingService.searchUsers(userSearch.trim()),
+    enabled: newMessageOpen && userSearch.trim().length >= 2,
+  });
   const messages = useQuery({
     queryKey: ["messages", selectedId],
     queryFn: () => messagingService.listMessages(selectedId!),
@@ -63,6 +71,17 @@ const MessagesPage = () => {
     onSettled: () => { sendingRef.current = false; },
   });
 
+  const createConversation = useMutation({
+    mutationFn: messagingService.createDirectConversation,
+    onSuccess: (conversation) => {
+      setSelectedId(conversation.id);
+      setNewMessageOpen(false);
+      setUserSearch("");
+      void queryClient.invalidateQueries({ queryKey: ["conversations"] });
+    },
+    onError: (error) => toast.error(getErrorMessage(error, t("messages.createError"))),
+  });
+
   const chooseConversation = (conversation: Conversation) => {
     setSelectedId(conversation.id);
     if (conversation.unread_count > 0) markRead.mutate(conversation.id);
@@ -83,13 +102,15 @@ const MessagesPage = () => {
       <div className="flex h-[calc(100vh-8rem)] gap-6">
         <section className="flex w-full shrink-0 flex-col overflow-hidden rounded-2xl border bg-card shadow-sm sm:w-80 lg:w-96">
           <div className="border-b p-4">
-            <h1 className="text-xl font-bold">{t("messages.title")}</h1>
-            <p className="text-sm text-muted-foreground">{t("messages.unread", { count: conversations.data?.results.reduce((sum, item) => sum + item.unread_count, 0) ?? 0 })}</p>
+<div className="flex items-start justify-between gap-3">
+              <div><h1 className="text-xl font-bold">{t("messages.title")}</h1><p className="text-sm text-muted-foreground">{t("messages.unread", { count: conversations.data?.results.reduce((sum, item) => sum + item.unread_count, 0) ?? 0 })}</p></div>
+              <Button size="sm" onClick={() => setNewMessageOpen(true)}><UserPlus className="h-4 w-4" />{t("messages.newMessage")}</Button>
+            </div>
             <div className="relative mt-4"><Search className="absolute start-3 top-3 h-4 w-4 text-muted-foreground" /><Input aria-label={t("messages.searchLabel")} className="ps-9" value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t("messages.search")} /></div>
           </div>
           <ScrollArea className="flex-1">
             {conversations.isLoading && <div className="flex items-center gap-2 p-6 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> {t("messages.loadingConversations")}</div>}
-            {conversations.isError && <div className="space-y-3 p-6 text-sm"><p>{t("messages.loadConversationsError")}</p><Button size="sm" variant="outline" onClick={() => conversations.refetch()}><RefreshCw className="mr-2 h-4 w-4" />{t("common.retry")}</Button></div>}
+            {conversations.isError && <div className="space-y-3 p-6 text-sm"><p>{t("messages.loadConversationsError")}</p><Button size="sm" variant="outline" onClick={() => conversations.refetch()}><RefreshCw className="me-2 h-4 w-4" />{t("common.retry")}</Button></div>}
             {!conversations.isLoading && !conversations.isError && filtered.length === 0 && <div className="p-8 text-center text-sm text-muted-foreground"><MessageSquare className="mx-auto mb-3 h-8 w-8" />{t("messages.emptyConversations")}</div>}
             {filtered.map((conversation) => {
               const other = conversation.participants.find((participant) => participant.user.id !== user?.id)?.user;
@@ -117,6 +138,25 @@ const MessagesPage = () => {
           </>}
         </section>
       </div>
+
+      <Dialog open={newMessageOpen} onOpenChange={(open) => { setNewMessageOpen(open); if (!open) setUserSearch(""); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t("messages.newMessage")}</DialogTitle>
+            <DialogDescription>{t("messages.findUserHelp")}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="relative"><Search className="absolute start-3 top-3 h-4 w-4 text-muted-foreground" /><Input autoFocus className="ps-9" aria-label={t("messages.searchUsersLabel")} value={userSearch} onChange={(event) => setUserSearch(event.target.value)} placeholder={t("messages.searchUsers")} /></div>
+            {userSearch.trim().length < 2 && <p className="py-4 text-center text-sm text-muted-foreground">{t("messages.searchUsersHint")}</p>}
+            {userResults.isFetching && <div className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />{t("messages.searchingUsers")}</div>}
+            {userResults.isError && <p className="py-4 text-center text-sm text-destructive">{t("messages.userSearchError")}</p>}
+            {!userResults.isFetching && !userResults.isError && userSearch.trim().length >= 2 && userResults.data?.length === 0 && <p className="py-4 text-center text-sm text-muted-foreground">{t("messages.noUsersFound")}</p>}
+            <div className="max-h-72 space-y-1 overflow-y-auto">
+              {userResults.data?.map((result) => <button key={result.id} type="button" disabled={createConversation.isPending} onClick={() => createConversation.mutate(result.id)} className="flex w-full items-center justify-between rounded-xl border border-transparent px-3 py-3 text-start hover:border-border hover:bg-muted disabled:opacity-50"><span><span className="block font-medium">{result.full_name}</span><span className="block text-xs text-muted-foreground">{t(`roles.${result.user_type}`, { defaultValue: result.user_type })}</span></span>{createConversation.isPending && createConversation.variables === result.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquare className="h-4 w-4 text-muted-foreground" />}</button>)}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 };

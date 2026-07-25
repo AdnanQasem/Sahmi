@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { formatNumber } from "@/i18n/format";
 import { formatDate } from "@/i18n/format";
 import { useState } from "react";
 import { Link } from "react-router-dom";
@@ -122,36 +123,36 @@ const InvestorDashboard = () => {
 
   const kpiCards = [
     {
-      label: "Total Invested",
+      label: t("dashboard.totalInvested"),
       value: currency(totalInvested),
-      subtext: `Across ${investments.length} investment${investments.length === 1 ? "" : "s"}`,
+      subtext: t("dashboard.investmentCount", { count: investments.length }),
       icon: DollarSign,
       trend: "neutral" as const,
       iconColorClass: "text-primary",
       iconBgClass: "bg-primary/10",
     },
     {
-      label: "Active Investments",
+      label: t("dashboard.activeInvestments"),
       value: activeInvestments.toString(),
-      subtext: "Pending or confirmed",
+      subtext: t("dashboard.pendingOrConfirmed"),
       icon: Briefcase,
       trend: "neutral" as const,
       iconColorClass: "text-secondary",
       iconBgClass: "bg-secondary/10",
     },
     {
-      label: "Expected Returns",
+      label: t("dashboard.expectedReturns"),
       value: currency(expectedReturns),
-      subtext: "Calculated by backend",
+      subtext: t("dashboard.calculatedByBackend"),
       icon: TrendingUp,
       trend: "neutral" as const,
       iconColorClass: "text-success",
       iconBgClass: "bg-success/10",
     },
     {
-      label: "Available Projects",
+      label: t("dashboard.availableProjects"),
       value: availableProjects.length.toString(),
-      subtext: "Verified projects to review",
+      subtext: t("dashboard.verifiedProjectsToReview"),
       icon: Wallet,
       trend: "neutral" as const,
       iconColorClass: "text-accent",
@@ -166,15 +167,15 @@ const InvestorDashboard = () => {
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h1 className="text-2xl font-bold text-foreground tracking-tight">
-                Good morning, <span className="gradient-text">{user?.full_name?.split(" ")[0] || "Investor"}</span>
+                {t("dashboard.goodMorningName", { name: "" })}<span className="gradient-text"><bdi dir="auto">{user?.full_name?.split(" ")[0] || t("dashboard.investorFallback")}</bdi></span>
               </h1>
               <p className="mt-1 text-sm text-muted-foreground">
-                {isLoading ? "Loading your portfolio from the backend..." : `You have ${investments.length} investment${investments.length === 1 ? "" : "s"} in your portfolio.`}
+                {isLoading ? t("dashboard.portfolioLoading") : t("dashboard.portfolioSummary", { count: formatNumber(investments.length) })}
               </p>
             </div>
             <div className="flex gap-2">
               <Button variant="outline" size="sm" asChild className="cursor-pointer">
-                <Link to="/projects"><Eye className="mr-1.5 h-4 w-4" /> {t("home.browse")}</Link>
+                <Link to="/projects"><Eye className="me-1.5 h-4 w-4" /> {t("home.browse")}</Link>
               </Button>
               <Button size="sm" asChild className="cursor-pointer">
                 <Link to="/projects">{t("projects.invest")} <ArrowRight className="ms-1.5 h-4 w-4 rtl-flip" /></Link>
@@ -189,7 +190,7 @@ const InvestorDashboard = () => {
 
         <div className="grid gap-6 lg:grid-cols-5">
           <div className="lg:col-span-3 rounded-2xl border border-border bg-card p-6 shadow-sm">
-            <SectionHeader title="Portfolio Performance" subtitle="Investment amount grouped by month" />
+            <SectionHeader title={t("dashboard.portfolioPerformance")} subtitle="Investment amount grouped by month" />
             <ResponsiveContainer width="100%" height={220}>
               <AreaChart data={performance}>
                 <defs>
@@ -208,7 +209,7 @@ const InvestorDashboard = () => {
           </div>
 
           <div className="lg:col-span-2 rounded-2xl border border-border bg-card p-6 shadow-sm">
-            <SectionHeader title="Portfolio Allocation" subtitle="By project category" />
+            <SectionHeader title={t("dashboard.portfolioAllocation")} subtitle="By project category" />
             {allocation.length ? (
               <div className="flex flex-col sm:flex-row items-center gap-6">
                 <div className="relative w-full sm:w-48 h-48">
@@ -277,18 +278,18 @@ const InvestorDashboard = () => {
                 </div>
               </div>
             ) : (
-              <EmptyState icon={BookMarked} title="No allocation yet" description="Make your first investment to see category allocation." ctaLabel={t("home.browse")} ctaHref="/projects" />
+              <EmptyState icon={BookMarked} title={t("dashboard.noAllocation")} description="Make your first investment to see category allocation." ctaLabel={t("home.browse")} ctaHref="/projects" />
             )}
           </div>
         </div>
 
         <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
           <div className="px-6 py-5 border-b border-border">
-            <SectionHeader title="Recent Transactions" subtitle="Your last 5 project payments from the backend" />
+            <SectionHeader title={t("dashboard.recentTransactions")} subtitle="Your last 5 project payments from the backend" />
           </div>
           {investments.length === 0 ? (
             <div className="p-6">
-              <EmptyState icon={Briefcase} title="No transactions yet" description="Start exploring verified Palestinian projects and make your first investment today." ctaLabel={t("home.browse")} ctaHref="/projects" />
+              <EmptyState icon={Briefcase} title={t("dashboard.noTransactions")} description="Start exploring verified Palestinian projects and make your first investment today." ctaLabel={t("home.browse")} ctaHref="/projects" />
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -349,9 +350,9 @@ const InvestorDashboard = () => {
         </div>
 
         <div id="watched-projects" className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-          <SectionHeader title="Watched Projects" subtitle="Live verified projects from the backend" />
+          <SectionHeader title={t("dashboard.watchedProjects")} subtitle="Live verified projects from the backend" />
           {availableProjects.length === 0 ? (
-            <EmptyState icon={CheckCircle} title="No live projects" description="No verified projects are available right now." />
+            <EmptyState icon={CheckCircle} title={t("dashboard.noLiveProjects")} description="No verified projects are available right now." />
           ) : (
             <div className="space-y-4">
               {availableProjects.map((project: Project) => (

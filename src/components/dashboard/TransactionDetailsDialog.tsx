@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import type { ElementType, ReactNode } from "react";
 import i18n from "@/i18n";
 import { formatCurrency, formatDate, formatNumber, formatPercent } from "@/i18n/format";
@@ -70,6 +71,7 @@ const DetailItem = ({
 );
 
 const TransactionDetailsDialog = ({ investment, onOpenChange }: TransactionDetailsDialogProps) => {
+  const { t } = useTranslation();
   const project = investment?.project_detail;
   const projectHref = project?.slug ? `/projects/${project.slug}` : undefined;
 
@@ -79,9 +81,9 @@ const TransactionDetailsDialog = ({ investment, onOpenChange }: TransactionDetai
         {investment && (
           <>
             <DialogHeader>
-              <DialogTitle className="pr-8 text-xl">Transaction Details</DialogTitle>
+              <DialogTitle className="pe-8 text-xl">{t("transactionDetails.title")}</DialogTitle>
               <DialogDescription>
-                {getProjectTitle(investment)} paid on {formatDateTime(investment.investment_date)}
+                {t("transactionDetails.paidOn", { project: getProjectTitle(investment), date: formatDateTime(investment.investment_date) })}
               </DialogDescription>
             </DialogHeader>
 
@@ -90,7 +92,7 @@ const TransactionDetailsDialog = ({ investment, onOpenChange }: TransactionDetai
                 <div className="min-w-0">
                   <div className="mb-2 flex flex-wrap items-center gap-2">
                     <Badge variant="outline" className="border-primary/30 bg-background text-primary">
-                      {project?.category_detail?.name ?? "Project"}
+                      {project?.category_detail?.name ?? t("transactionDetails.project")}
                     </Badge>
                     <StatusBadge status={investment.status} />
                   </div>
@@ -99,42 +101,42 @@ const TransactionDetailsDialog = ({ investment, onOpenChange }: TransactionDetai
                     <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{project.short_description}</p>
                   )}
                 </div>
-                <div className="shrink-0 text-left sm:text-right">
-                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Amount paid</p>
+                <div className="shrink-0 text-start sm:text-end">
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t("transactionDetails.amountPaid")}</p>
                   <p className="text-2xl font-bold text-foreground">{currency(amountOf(investment))}</p>
                 </div>
               </div>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2">
-              <DetailItem icon={CalendarClock} label="Date and time" value={formatDateTime(investment.investment_date)} />
-              <DetailItem icon={CreditCard} label="Payment method" value={formatPaymentMethod(investment.payment_method)} />
-              <DetailItem icon={Hash} label="Transaction ID" value={investment.transaction_id || "Not provided"} />
-              <DetailItem icon={Package} label="Units" value={formatNumber(investment.quantity)} />
-              <DetailItem icon={TrendingUp} label="Expected return" value={currency(expectedOf(investment))} />
-              <DetailItem icon={Banknote} label="Actual return" value={currency(actualOf(investment))} />
+              <DetailItem icon={CalendarClock} label={t("transactionDetails.dateTime")} value={formatDateTime(investment.investment_date)} />
+              <DetailItem icon={CreditCard} label={t("transactionDetails.paymentMethod")} value={formatPaymentMethod(investment.payment_method)} />
+              <DetailItem icon={Hash} label={t("transactionDetails.transactionId")} value={investment.transaction_id ? <bdi dir="ltr">{investment.transaction_id}</bdi> : t("transactionDetails.notProvided")} />
+              <DetailItem icon={Package} label={t("transactionDetails.units")} value={formatNumber(investment.quantity)} />
+              <DetailItem icon={TrendingUp} label={t("transactionDetails.expectedReturn")} value={currency(expectedOf(investment))} />
+              <DetailItem icon={Banknote} label={t("transactionDetails.actualReturn")} value={currency(actualOf(investment))} />
               <DetailItem
                 icon={CheckCircle2}
-                label="Return received"
-                value={investment.return_received_at ? formatDateTime(investment.return_received_at) : "Not received yet"}
+                label={t("transactionDetails.returnReceived")}
+                value={investment.return_received_at ? formatDateTime(investment.return_received_at) : t("transactionDetails.notReceived")}
               />
-              <DetailItem icon={UserRound} label="Investor" value={investment.investor || "Current investor"} />
+              <DetailItem icon={UserRound} label={t("transactionDetails.investor")} value={investment.investor || t("transactionDetails.currentInvestor")} />
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2">
-              <DetailItem icon={Briefcase} label="Project status" value={project?.status ? <StatusBadge status={project.status} /> : "Not available"} />
-              <DetailItem icon={MapPin} label="Project location" value={project?.location || project?.location_governorate || "Not available"} />
-              <DetailItem icon={ReceiptText} label="Project ROI" value={project?.expected_roi ? formatPercent(Number(project.expected_roi)) : "Not available"} />
-              <DetailItem icon={Banknote} label="Project funding goal" value={project?.goal_amount ? currency(project.goal_amount) : "Not available"} />
+              <DetailItem icon={Briefcase} label={t("transactionDetails.projectStatus")} value={project?.status ? <StatusBadge status={project.status} /> : t("transactionDetails.notAvailable")} />
+              <DetailItem icon={MapPin} label={t("transactionDetails.projectLocation")} value={project?.location || project?.location_governorate || t("transactionDetails.notAvailable")} />
+              <DetailItem icon={ReceiptText} label={t("transactionDetails.projectRoi")} value={project?.expected_roi ? formatPercent(Number(project.expected_roi)) : t("transactionDetails.notAvailable")} />
+              <DetailItem icon={Banknote} label={t("transactionDetails.projectGoal")} value={project?.goal_amount ? currency(project.goal_amount) : t("transactionDetails.notAvailable")} />
             </div>
 
             <div className="rounded-xl border border-border/60 bg-muted/30 p-4">
               <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-foreground">
                 <FileText className="h-4 w-4 text-primary" />
-                Notes
+                {t("transactionDetails.notes")}
               </div>
               <p className="text-sm leading-relaxed text-muted-foreground">
-                {investment.notes || "No notes were added to this transaction."}
+                {investment.notes || t("transactionDetails.noNotes")}
               </p>
             </div>
 
@@ -142,7 +144,7 @@ const TransactionDetailsDialog = ({ investment, onOpenChange }: TransactionDetai
               {projectHref && (
                 <Button variant="outline" asChild>
                   <Link to={projectHref}>
-                    View Project <ArrowRight className="ml-2 h-4 w-4" />
+                    {t("transactionDetails.viewProject")} <ArrowRight className="ms-2 h-4 w-4 rtl:rotate-180" />
                   </Link>
                 </Button>
               )}

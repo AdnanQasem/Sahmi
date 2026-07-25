@@ -4,6 +4,7 @@ from unittest.mock import patch
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 
+from apps.notifications.models import Notification
 from apps.projects.models import Project, ProjectCategory
 
 from .models import Investment
@@ -90,6 +91,32 @@ class InvestmentSecurityAndTotalsTests(TestCase):
         self.second.refresh_from_db()
         self.assertEqual(self.second.funded_amount, Decimal("0"))
         self.assertEqual(self.second.investor_count, 0)
+
+    def test_admin_status_update_notifies_investor_and_project_owner(self):
+        from rest_framework import status
+
+        Investment.objects.filter(pk=self.investment.pk).update(
+            status=Investment.Status.PENDING,
+        )
+        self.investment.refresh_from_db()
+        self.client.force_authenticate(self.staff)
+
+        with patch("apps.investments.signals.publish_investment_confirmed_event"):
+            with self.captureOnCommitCallbacks(execute=True):
+                response = self.client.patch(
+                    f"/api/v1/admin/investments/{self.investment.id}/",
+                    {"status": Investment.Status.CONFIRMED},
+                    format="json",
+                )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        recipients = set(
+            Notification.objects.filter(
+                notification_type=Notification.NotificationType.INVESTMENT_STATUS_CHANGED,
+                target_id=str(self.investment.id),
+            ).values_list("recipient_id", flat=True)
+        )
+        self.assertEqual(recipients, {self.investor.id, self.owner.id})
 
     def test_status_and_project_assignment_are_authorized(self):
         from rest_framework import status

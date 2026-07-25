@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Trash2 } from "lucide-react";
 import {
   AlertDialog,
@@ -25,10 +26,13 @@ const AdminDeleteDialog = ({
   title,
   description,
   pending = false,
-  actionLabel = "Delete",
+  actionLabel,
   onOpenChange,
   onConfirm,
-}: AdminDeleteDialogProps) => (
+}: AdminDeleteDialogProps) => {
+  const { t } = useTranslation();
+  const resolvedActionLabel = actionLabel ?? t("adminForm.delete");
+  return (
   <AlertDialog open={open} onOpenChange={(nextOpen) => !pending && onOpenChange(nextOpen)}>
     <AlertDialogContent className="rounded-2xl">
       <AlertDialogHeader>
@@ -39,17 +43,18 @@ const AdminDeleteDialog = ({
         <AlertDialogDescription>{description}</AlertDialogDescription>
       </AlertDialogHeader>
       <AlertDialogFooter>
-        <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
+        <AlertDialogCancel disabled={pending}>{t("common.cancel")}</AlertDialogCancel>
         <AlertDialogAction
           className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
           disabled={pending}
           onClick={onConfirm}
         >
-          {pending ? "Saving..." : actionLabel}
+          {pending ? t("common.saving") : resolvedActionLabel}
         </AlertDialogAction>
       </AlertDialogFooter>
     </AlertDialogContent>
   </AlertDialog>
-);
+  );
+};
 
 export default AdminDeleteDialog;

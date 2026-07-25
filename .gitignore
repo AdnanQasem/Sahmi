@@ -29,3 +29,7 @@ backend/media/
 *.njsproj
 *.sln
 *.sw?
+
+# Local environment credentials
+.env
+backend/.env

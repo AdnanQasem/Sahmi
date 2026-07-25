@@ -1,3 +1,4 @@
+from django.db.models import Q
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
@@ -27,6 +28,7 @@ from apps.messaging.serializers import (
     CreateMessageSerializer,
     CreateProjectConversationSerializer,
     MessageSerializer,
+    MinimalUserSerializer,
     UpdateMessageSerializer,
 )
 from apps.messaging.services import (
@@ -183,6 +185,24 @@ class ConversationViewSet(viewsets.GenericViewSet):
     @action(detail=False, methods=["get"], url_path="unread-count")
     def unread_count(self, request, *args, **kwargs):
         return Response({"unread_count": unread_count_for_user(request.user)})
+
+    @action(detail=False, methods=["get"], url_path="user-search")
+    def user_search(self, request, *args, **kwargs):
+        from apps.users.models import User
+
+        query = request.query_params.get("q", "").strip()
+        if len(query) < 2:
+            return Response([])
+        users = (
+            User.objects.filter(is_active=True)
+            .exclude(pk=request.user.pk)
+            .filter(
+                Q(full_name__icontains=query)
+                | Q(business_name__icontains=query)
+            )
+            .order_by("full_name")[:20]
+        )
+        return Response(MinimalUserSerializer(users, many=True).data)
 
     @action(detail=True, methods=["get", "post"], url_path="messages")
     def messages(self, request, *args, **kwargs):

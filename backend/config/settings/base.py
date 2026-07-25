@@ -116,6 +116,7 @@ LOGIN_THROTTLE_RATE = config("DJANGO_LOGIN_THROTTLE_RATE", default="5/min")
 REGISTER_THROTTLE_RATE = config("DJANGO_REGISTER_THROTTLE_RATE", default="3/min")
 REFRESH_THROTTLE_RATE = config("DJANGO_REFRESH_THROTTLE_RATE", default="10/min")
 PASSWORD_CHANGE_THROTTLE_RATE = config("DJANGO_PASSWORD_CHANGE_THROTTLE_RATE", default="5/hour")
+PASSWORD_RESET_THROTTLE_RATE = config("DJANGO_PASSWORD_RESET_THROTTLE_RATE", default="5/hour")
 MESSAGE_SEND_THROTTLE_RATE = config("DJANGO_MESSAGE_SEND_THROTTLE_RATE", default="30/min")
 CONVERSATION_CREATE_THROTTLE_RATE = config("DJANGO_CONVERSATION_CREATE_THROTTLE_RATE", default="10/hour")
 NOTIFICATION_READ_THROTTLE_RATE = config("DJANGO_NOTIFICATION_READ_THROTTLE_RATE", default="120/min")
@@ -144,6 +145,7 @@ REST_FRAMEWORK = {
         "register": REGISTER_THROTTLE_RATE,
         "refresh": REFRESH_THROTTLE_RATE,
         "password_change": PASSWORD_CHANGE_THROTTLE_RATE,
+        "password_reset": PASSWORD_RESET_THROTTLE_RATE,
         "message_send": MESSAGE_SEND_THROTTLE_RATE,
         "conversation_create": CONVERSATION_CREATE_THROTTLE_RATE,
         "notification_read": NOTIFICATION_READ_THROTTLE_RATE,
@@ -158,5 +160,17 @@ SPECTACULAR_SETTINGS = {
     "VERSION": "1.0.0",
 }
 
+
+FRONTEND_URL = config("FRONTEND_URL", default="http://localhost:5173").rstrip("/")
+EMAIL_BACKEND = config(
+    "DJANGO_EMAIL_BACKEND",
+    default="django.core.mail.backends.console.EmailBackend",
+)
+EMAIL_HOST = config("DJANGO_EMAIL_HOST", default="localhost")
+EMAIL_PORT = config("DJANGO_EMAIL_PORT", default=587, cast=int)
+EMAIL_HOST_USER = config("DJANGO_EMAIL_HOST_USER", default="")
+EMAIL_HOST_PASSWORD = config("DJANGO_EMAIL_HOST_PASSWORD", default="")
+EMAIL_USE_TLS = config("DJANGO_EMAIL_USE_TLS", default=True, cast=bool)
+DEFAULT_FROM_EMAIL = config("DJANGO_DEFAULT_FROM_EMAIL", default="Sahmi <no-reply@sahmi.local>")
 CELERY_BROKER_URL = config("REDIS_URL", default="redis://localhost:6379/0")
 CELERY_RESULT_BACKEND = CELERY_BROKER_URL

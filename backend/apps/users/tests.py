@@ -1,4 +1,7 @@
+from urllib.parse import parse_qs, urlparse
+
 from django.contrib.auth import get_user_model
+from django.core import mail
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
@@ -175,3 +178,59 @@ class PreferredLanguageTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.user.refresh_from_db()
         self.assertEqual(self.user.preferred_language, User.PreferredLanguage.ENGLISH)
+class PasswordResetTests(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email="reset@example.com",
+            username="reset",
+            full_name="Reset User",
+            password="OldStrongPassword123!",
+        )
+
+    def test_request_and_confirm_password_reset(self):
+        request_response = self.client.post(
+            reverse("password-reset"),
+            {"email": self.user.email},
+            format="json",
+        )
+        self.assertEqual(request_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(mail.outbox), 1)
+        reset_url = mail.outbox[0].body.splitlines()[3]
+        query = parse_qs(urlparse(reset_url).query)
+
+        confirm_response = self.client.post(
+            reverse("password-reset-confirm"),
+            {
+                "uid": query["uid"][0],
+                "token": query["token"][0],
+                "new_password": "NewStrongPassword456!",
+                "confirm_password": "NewStrongPassword456!",
+            },
+            format="json",
+        )
+
+        self.assertEqual(confirm_response.status_code, status.HTTP_200_OK)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password("NewStrongPassword456!"))
+
+        reused = self.client.post(
+            reverse("password-reset-confirm"),
+            {
+                "uid": query["uid"][0],
+                "token": query["token"][0],
+                "new_password": "AnotherStrongPassword789!",
+                "confirm_password": "AnotherStrongPassword789!",
+            },
+            format="json",
+        )
+        self.assertEqual(reused.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_unknown_email_returns_same_generic_success(self):
+        response = self.client.post(
+            reverse("password-reset"),
+            {"email": "missing@example.com"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertNotIn("debug_reset_url", response.data)
+        self.assertEqual(len(mail.outbox), 0)

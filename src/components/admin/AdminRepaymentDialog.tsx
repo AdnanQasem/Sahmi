@@ -1,3 +1,6 @@
+import { useTranslation } from "react-i18next";
+import i18n from "@/i18n";
+import { formatCurrency } from "@/i18n/format";
 import { FormEvent, useEffect, useState } from "react";
 import { HandCoins, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -50,9 +53,9 @@ const investmentLabel = (investment: AdminInvestment) => {
     investment.investor_detail?.full_name ||
     investment.investor_detail?.email ||
     investment.investor_name ||
-    "Investor";
-  const project = investment.project_detail?.title || "Project";
-  return investor + " · " + project + " · $" + Number(investment.amount).toLocaleString();
+    i18n.t("dashboard.investor");
+  const project = investment.project_detail?.title || i18n.t("transactions.project");
+  return investor + " · " + project + " · " + formatCurrency(investment.amount);
 };
 
 const AdminRepaymentDialog = ({
@@ -63,6 +66,7 @@ const AdminRepaymentDialog = ({
   onOpenChange,
   onSubmit,
 }: AdminRepaymentDialogProps) => {
+  const { t } = useTranslation();
   const [form, setForm] = useState<AdminRepaymentPayload>(blankForm);
 
   useEffect(() => {
@@ -106,17 +110,17 @@ const AdminRepaymentDialog = ({
           <div className="mb-2 flex h-11 w-11 items-center justify-center rounded-xl bg-success/10 text-success">
             <HandCoins className="h-5 w-5" />
           </div>
-          <DialogTitle>{repayment ? "Edit repayment" : "Create repayment"}</DialogTitle>
+          <DialogTitle>{t(repayment ? "adminForm.editRepayment" : "adminForm.createRepayment")}</DialogTitle>
           <DialogDescription>
-            Schedule a return or record the final payment details for an investment.
+            {t("adminForm.repaymentHelp")}
           </DialogDescription>
         </DialogHeader>
 
         <form className="space-y-5" onSubmit={submit}>
           <div className="space-y-2">
-            <Label htmlFor="repayment-investment">Investment *</Label>
+            <Label htmlFor="repayment-investment">{t("adminForm.investmentRequired")}</Label>
             <Select value={form.investment} onValueChange={(value) => update("investment", value)}>
-              <SelectTrigger id="repayment-investment"><SelectValue placeholder="Select investment" /></SelectTrigger>
+              <SelectTrigger id="repayment-investment"><SelectValue placeholder={t("adminForm.selectInvestment")} /></SelectTrigger>
               <SelectContent>
                 {investments.map((investment) => (
                   <SelectItem key={investment.id} value={investment.id}>
@@ -129,7 +133,7 @@ const AdminRepaymentDialog = ({
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="repayment-amount">Amount (USD)</Label>
+              <Label htmlFor="repayment-amount">{t("adminForm.amountUsd")}</Label>
               <Input
                 id="repayment-amount"
                 type="number"
@@ -141,7 +145,7 @@ const AdminRepaymentDialog = ({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="scheduled-date">Scheduled date</Label>
+              <Label htmlFor="scheduled-date">{t("adminForm.scheduledDate")}</Label>
               <Input
                 id="scheduled-date"
                 type="date"
@@ -151,22 +155,22 @@ const AdminRepaymentDialog = ({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="repayment-status">Status</Label>
+              <Label htmlFor="repayment-status">{t("adminForm.status")}</Label>
               <Select
                 value={form.status}
                 onValueChange={(value) => update("status", value as AdminRepayment["status"])}
               >
                 <SelectTrigger id="repayment-status"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="paid">Paid</SelectItem>
-                  <SelectItem value="overdue">Overdue</SelectItem>
-                  <SelectItem value="canceled">Canceled</SelectItem>
+                  <SelectItem value="pending">{t("status.pending")}</SelectItem>
+                  <SelectItem value="paid">{t("status.paid")}</SelectItem>
+                  <SelectItem value="overdue">{t("status.overdue")}</SelectItem>
+                  <SelectItem value="canceled">{t("status.canceled")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="actual-payment-date">Actual payment</Label>
+              <Label htmlFor="actual-payment-date">{t("adminForm.actualPayment")}</Label>
               <Input
                 id="actual-payment-date"
                 type="date"
@@ -175,7 +179,7 @@ const AdminRepaymentDialog = ({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="repayment-payment-method">Payment method</Label>
+              <Label htmlFor="repayment-payment-method">{t("adminForm.paymentMethod")}</Label>
               <Select
                 value={form.payment_method}
                 onValueChange={(value) =>
@@ -184,14 +188,14 @@ const AdminRepaymentDialog = ({
               >
                 <SelectTrigger id="repayment-payment-method"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="bank_transfer">Bank transfer</SelectItem>
-                  <SelectItem value="card">Card</SelectItem>
-                  <SelectItem value="paypal">PayPal</SelectItem>
+                  <SelectItem value="bank_transfer">{t("payment.bank_transfer")}</SelectItem>
+                  <SelectItem value="card">{t("payment.card")}</SelectItem>
+                  <SelectItem value="paypal">{t("payment.paypal")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="repayment-transaction">Transaction ID</Label>
+              <Label htmlFor="repayment-transaction">{t("adminForm.transactionId")}</Label>
               <Input
                 id="repayment-transaction"
                 maxLength={120}
@@ -202,7 +206,7 @@ const AdminRepaymentDialog = ({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="repayment-notes">Internal notes</Label>
+            <Label htmlFor="repayment-notes">{t("adminForm.internalNotes")}</Label>
             <Textarea
               id="repayment-notes"
               rows={4}
@@ -213,14 +217,14 @@ const AdminRepaymentDialog = ({
 
           <DialogFooter className="gap-2 sm:space-x-0">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={pending}>
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button
               type="submit"
               disabled={pending || !form.investment || !form.amount || !form.scheduled_date}
             >
               <Save className="h-4 w-4" />
-              {pending ? "Saving..." : "Save repayment"}
+              {pending ? t("common.saving") : t("adminForm.saveRepayment")}
             </Button>
           </DialogFooter>
         </form>

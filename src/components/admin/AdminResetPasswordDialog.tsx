@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { FormEvent, useEffect, useState } from "react";
 import { KeyRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,7 @@ const AdminResetPasswordDialog = ({
   isPending,
   fieldErrors = {},
 }: AdminResetPasswordDialogProps) => {
+  const { t } = useTranslation();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [localError, setLocalError] = useState("");
@@ -44,11 +46,11 @@ const AdminResetPasswordDialog = ({
     setLocalError("");
 
     if (password.length < 8) {
-      setLocalError("The new password must be at least 8 characters.");
+      setLocalError(t("settings.password8"));
       return;
     }
     if (password !== confirmPassword) {
-      setLocalError("The passwords do not match.");
+      setLocalError(t("adminForm.passwordMismatch"));
       return;
     }
 
@@ -62,16 +64,15 @@ const AdminResetPasswordDialog = ({
           <div className="mb-2 flex h-11 w-11 items-center justify-center rounded-xl bg-secondary/10 text-secondary">
             <KeyRound className="h-5 w-5" />
           </div>
-          <DialogTitle>Reset password</DialogTitle>
+          <DialogTitle>{t("adminForm.resetPassword")}</DialogTitle>
           <DialogDescription>
-            Set a new password for <strong className="font-semibold text-foreground">{user?.full_name || user?.email}</strong>.
-            Share it through a secure channel.
+            {t("adminForm.resetPasswordHelp", { name: user?.full_name || user?.email })}
           </DialogDescription>
         </DialogHeader>
 
         <form className="space-y-5" onSubmit={handleSubmit}>
           <div className="space-y-2">
-            <Label htmlFor="admin-reset-password">New password</Label>
+            <Label htmlFor="admin-reset-password">{t("adminForm.newPassword")}</Label>
             <Input
               id="admin-reset-password"
               type="password"
@@ -86,7 +87,7 @@ const AdminResetPasswordDialog = ({
             {fieldErrors.password && <p className="text-xs font-medium text-destructive">{fieldErrors.password}</p>}
           </div>
           <div className="space-y-2">
-            <Label htmlFor="admin-reset-password-confirm">Confirm new password</Label>
+            <Label htmlFor="admin-reset-password-confirm">{t("adminForm.confirmNewPassword")}</Label>
             <Input
               id="admin-reset-password-confirm"
               type="password"
@@ -110,11 +111,11 @@ const AdminResetPasswordDialog = ({
 
           <DialogFooter className="gap-2 sm:space-x-0">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isPending}>
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button type="submit" disabled={isPending || !password || !confirmPassword}>
               <KeyRound className="h-4 w-4" />
-              {isPending ? "Resetting..." : "Reset password"}
+              {isPending ? t("adminForm.resetting") : t("adminForm.resetPassword")}
             </Button>
           </DialogFooter>
         </form>

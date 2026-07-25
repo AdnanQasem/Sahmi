@@ -63,81 +63,21 @@ const staggerContainer = {
 };
 
 const values = [
-  {
-    icon: Shield,
-    title: "Trust & Integrity",
-    desc: "Every project is carefully reviewed. We verify founders and require transparent funding plans.",
-    bgClass: "bg-primary/5",
-    borderClass: "border-primary/20",
-    hoverBorderClass: "hover:border-primary/50",
-    textClass: "text-primary",
-    iconBgClass: "bg-primary/10",
-  },
-  {
-    icon: Eye,
-    title: "Full Transparency",
-    desc: "Supporters can track exactly how funds are used through regular updates and detailed breakdowns.",
-    bgClass: "bg-secondary/5",
-    borderClass: "border-secondary/20",
-    hoverBorderClass: "hover:border-secondary/50",
-    textClass: "text-secondary",
-    iconBgClass: "bg-secondary/10",
-  },
-  {
-    icon: Heart,
-    title: "Community First",
-    desc: "We exist to strengthen Palestinian communities by channeling support to where it matters most.",
-    bgClass: "bg-accent/5",
-    borderClass: "border-accent/20",
-    hoverBorderClass: "hover:border-accent/50",
-    textClass: "text-accent",
-    iconBgClass: "bg-accent/10",
-  },
-  {
-    icon: Users,
-    title: "Inclusive Access",
-    desc: "Anyone with a viable project can apply. We support entrepreneurs at every stage.",
-    bgClass: "bg-primary/5",
-    borderClass: "border-primary/20",
-    hoverBorderClass: "hover:border-primary/50",
-    textClass: "text-primary",
-    iconBgClass: "bg-primary/10",
-  },
-  {
-    icon: Target,
-    title: "Impact Driven",
-    desc: "We measure success not just in dollars raised, but in lasting community impact created.",
-    bgClass: "bg-secondary/5",
-    borderClass: "border-secondary/20",
-    hoverBorderClass: "hover:border-secondary/50",
-    textClass: "text-secondary",
-    iconBgClass: "bg-secondary/10",
-  },
-  {
-    icon: Globe,
-    title: "Global Reach",
-    desc: "Connect Palestinian entrepreneurs with supporters worldwide who share their vision.",
-    bgClass: "bg-accent/5",
-    borderClass: "border-accent/20",
-    hoverBorderClass: "hover:border-accent/50",
-    textClass: "text-accent",
-    iconBgClass: "bg-accent/10",
-  },
+  { icon: Shield, bgClass: "bg-primary/5", borderClass: "border-primary/20", hoverBorderClass: "hover:border-primary/50", textClass: "text-primary", iconBgClass: "bg-primary/10" },
+  { icon: Eye, bgClass: "bg-secondary/5", borderClass: "border-secondary/20", hoverBorderClass: "hover:border-secondary/50", textClass: "text-secondary", iconBgClass: "bg-secondary/10" },
+  { icon: Heart, bgClass: "bg-accent/5", borderClass: "border-accent/20", hoverBorderClass: "hover:border-accent/50", textClass: "text-accent", iconBgClass: "bg-accent/10" },
+  { icon: Users, bgClass: "bg-primary/5", borderClass: "border-primary/20", hoverBorderClass: "hover:border-primary/50", textClass: "text-primary", iconBgClass: "bg-primary/10" },
+  { icon: Target, bgClass: "bg-secondary/5", borderClass: "border-secondary/20", hoverBorderClass: "hover:border-secondary/50", textClass: "text-secondary", iconBgClass: "bg-secondary/10" },
+  { icon: Globe, bgClass: "bg-accent/5", borderClass: "border-accent/20", hoverBorderClass: "hover:border-accent/50", textClass: "text-accent", iconBgClass: "bg-accent/10" },
 ];
 
 const milestones = [
-  { year: "2023", title: "The Beginning", desc: "Sahmi was founded with a vision", icon: Lightbulb },
-  { year: "2024", title: "Growing Community", desc: "Over $2M raised for Palestinian projects", icon: TrendingUp },
-  { year: "2025", title: "Global Impact", desc: "Expanding to reach more entrepreneurs", icon: Globe },
+  { year: "2023", icon: Lightbulb }, { year: "2024", icon: TrendingUp }, { year: "2025", icon: Globe },
 ];
 
 const stats = [
-  { label: "Projects Funded", value: "230+", icon: Sparkles },
-  { label: "Total Raised", value: "$2.4M", icon: TrendingUp },
-  { label: "Supporters", value: "12,000+", icon: Users },
-  { label: "Success Rate", value: "89%", icon: BadgeCheck },
+  { value: "230+", icon: Sparkles }, { value: "$2.4M", icon: TrendingUp }, { value: "12,000+", icon: Users }, { value: "89%", icon: BadgeCheck },
 ];
-
 const AboutPage = () => {
   const { t } = useTranslation();
   const heroRef = useRef(null);
@@ -218,10 +158,7 @@ const AboutPage = () => {
               variants={fadeInUp}
               className="mx-auto mb-8 text-xl leading-relaxed text-muted-foreground md:text-2xl max-w-3xl"
             >
-              <span className="font-semibold text-primary">Sahmi</span> — meaning{" "}
-              <span className="italic">"my share"</span> in Arabic — is a crowdfunding
-              platform built to empower Palestinian entrepreneurs and connect them with a
-              global community of supporters.
+              {t("about.meaning")}
             </motion.p>
 
             <motion.div
@@ -235,7 +172,7 @@ const AboutPage = () => {
               >
                 <Link to="/start-project">
                   {t("info.startJourney")} {" "}
-                  <ArrowRight className="ml-2 h-5 w-5" />
+                  <ArrowRight className="ms-2 h-5 w-5 rtl:rotate-180" />
                 </Link>
               </Button>
               <Button
@@ -278,7 +215,7 @@ const AboutPage = () => {
           >
             {stats.map((stat, index) => (
               <motion.div
-                key={stat.label}
+                key={index}
                 variants={fadeInUp}
                 className="text-center group"
               >
@@ -289,7 +226,7 @@ const AboutPage = () => {
                   <stat.icon className="h-6 w-6" />
                 </motion.div>
                 <motion.div
-                  className="text-3xl font-bold text-foreground md:text-4xl tabular-nums"
+                  className="text-3xl font-bold text-foreground md:text-4xl tabular-nums" dir="ltr"
                   initial={{ opacity: 0, scale: 0.5 }}
                   whileInView={{ opacity: 1, scale: 1 }}
                   viewport={{ once: true }}
@@ -298,7 +235,7 @@ const AboutPage = () => {
                   {stat.value}
                 </motion.div>
                 <div className="text-sm font-medium text-muted-foreground uppercase tracking-widest mt-1">
-                  {stat.label}
+                  {t(`about.stats.${index}`)}
                 </div>
               </motion.div>
             ))}
@@ -328,13 +265,10 @@ const AboutPage = () => {
                 <Target className="h-8 w-8" />
               </motion.div>
               <h2 className="mb-4 text-3xl font-bold text-foreground">
-                Our Mission
+                {t("about.missionTitle")}
               </h2>
               <p className="text-lg leading-relaxed text-muted-foreground">
-                To provide Palestinian entrepreneurs with a trustworthy, transparent platform
-                to raise funds, build community support, and turn their ideas into reality. We
-                believe that every great idea deserves a chance, and every community deserves
-                access to opportunity.
+                {t("about.missionText")}
               </p>
             </motion.div>
 
@@ -350,12 +284,10 @@ const AboutPage = () => {
                 <Globe className="h-8 w-8" />
               </motion.div>
               <h2 className="mb-4 text-3xl font-bold text-foreground">
-                Our Vision
+                {t("about.visionTitle")}
               </h2>
               <p className="text-lg leading-relaxed text-muted-foreground">
-                A thriving Palestinian entrepreneurial ecosystem where innovation flourishes,
-                communities prosper, and supporters worldwide can play a meaningful role in
-                creating positive change.
+                {t("about.visionText")}
               </p>
             </motion.div>
           </motion.div>
@@ -377,23 +309,16 @@ const AboutPage = () => {
                 whileHover={{ scale: 1.05 }}
               >
                 <Clock className="h-4 w-4 text-accent" />
-                <span className="text-sm font-medium text-accent">Our Journey</span>
+                <span className="text-sm font-medium text-accent">{t("about.journey")}</span>
               </motion.div>
               <h2 className="text-4xl font-bold text-foreground mb-6 md:text-5xl">
-                Building Hope,{" "}
-                <span className="gradient-text">One Project at a Time</span>
+                {t("about.journeyTitle")}
               </h2>
               <p className="text-lg text-muted-foreground leading-relaxed mb-6">
-                Sahmi was born from a simple belief: that Palestinian entrepreneurs deserve
-                access to the resources they need to bring their visions to life. In a world
-                full of challenges, we saw an opportunity to create bridges between innovative
-                minds and caring supporters.
+                {t("about.journeyText1")}
               </p>
               <p className="text-lg text-muted-foreground leading-relaxed">
-                Today, we've helped hundreds of projects find their footing, creating a ripple
-                effect of positive change that extends far beyond the initial funding. Each
-                success story is a testament to the resilience and creativity of Palestinian
-                entrepreneurs.
+                {t("about.journeyText2")}
               </p>
 
               {/* Timeline */}
@@ -415,11 +340,11 @@ const AboutPage = () => {
                     </div>
                     <div>
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="text-sm font-bold text-primary">{milestone.year}</span>
+                        <bdi className="text-sm font-bold text-primary" dir="ltr">{milestone.year}</bdi>
                         <div className="h-px w-8 bg-border" />
                       </div>
-                      <h4 className="font-semibold text-foreground">{milestone.title}</h4>
-                      <p className="text-sm text-muted-foreground">{milestone.desc}</p>
+                      <h4 className="font-semibold text-foreground">{t(`about.milestones.${index}.title`)}</h4>
+                      <p className="text-sm text-muted-foreground">{t(`about.milestones.${index}.description`)}</p>
                     </div>
                   </motion.div>
                 ))}
@@ -449,8 +374,7 @@ const AboutPage = () => {
                     >
                       <Leaf className="h-12 w-12" />
                     </motion.div>
-                    <p className="text-2xl font-bold text-foreground mb-2">Growth Through</p>
-                    <p className="text-2xl font-bold gradient-text">Community</p>
+                    <p className="text-2xl font-bold gradient-text">{t("about.growth")}</p>
                   </div>
                 </motion.div>
               </div>
@@ -469,8 +393,8 @@ const AboutPage = () => {
                     <BadgeCheck className="h-6 w-6" />
                   </div>
                   <div>
-                    <p className="text-2xl font-bold text-foreground">89%</p>
-                    <p className="text-sm text-muted-foreground">Success Rate</p>
+                    <p className="text-2xl font-bold text-foreground" dir="ltr">89%</p>
+                    <p className="text-sm text-muted-foreground">{t("about.successRate")}</p>
                   </div>
                 </div>
               </motion.div>
@@ -490,10 +414,10 @@ const AboutPage = () => {
             transition={{ duration: 0.6 }}
           >
             <h2 className="text-4xl font-bold tracking-tight text-foreground md:text-5xl mb-6">
-              Our <span className="gradient-text">Values</span>
+              {t("about.valuesTitle")}
             </h2>
             <p className="text-lg text-muted-foreground">
-              The principles that guide everything we do at Sahmi.
+              {t("about.valuesText")}
             </p>
           </motion.div>
 
@@ -506,7 +430,7 @@ const AboutPage = () => {
           >
             {values.map((v, index) => (
               <motion.div
-                key={v.title}
+                key={index}
                 variants={scaleIn}
                 whileHover={{ y: -8, transition: { duration: 0.3 } }}
                 className={`group relative overflow-hidden rounded-2xl border ${v.borderClass} ${v.bgClass} p-8 shadow-sm transition-all hover:shadow-xl ${v.hoverBorderClass}`}
@@ -517,8 +441,8 @@ const AboutPage = () => {
                 >
                   <v.icon className="h-7 w-7" />
                 </motion.div>
-                <h3 className="mb-3 text-xl font-bold text-foreground">{v.title}</h3>
-                <p className="text-muted-foreground leading-relaxed">{v.desc}</p>
+                <h3 className="mb-3 text-xl font-bold text-foreground">{t(`about.values.${index}.title`)}</h3>
+                <p className="text-muted-foreground leading-relaxed">{t(`about.values.${index}.description`)}</p>
                 
                 {/* Hover Gradient Effect */}
                 <div className="absolute inset-0 -z-10 bg-gradient-to-br from-primary/5 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
@@ -550,31 +474,27 @@ const AboutPage = () => {
                       <Shield className="h-6 w-6" />
                     </div>
                     <div>
-                      <h3 className="text-lg font-bold text-foreground">Verification Process</h3>
-                      <p className="text-sm text-muted-foreground">Multi-step review system</p>
+                      <h3 className="text-lg font-bold text-foreground">{t("about.verificationProcess")}</h3>
+                      <p className="text-sm text-muted-foreground">{t("about.multiStep")}</p>
                     </div>
                   </div>
                   
                   <div className="space-y-4">
-                    {[
-                      { step: "1", title: "Identity Verification", desc: "Founder identity confirmed" },
-                      { step: "2", title: "Plan Review", desc: "Business model assessment" },
-                      { step: "3", title: "Transparency Check", desc: "Documentation validation" },
-                    ].map((item, idx) => (
+                    {[0, 1, 2].map((stepIndex) => (
                       <motion.div
-                        key={item.step}
+                        key={stepIndex}
                         className="flex items-center gap-4"
                         initial={{ opacity: 0, x: -20 }}
                         whileInView={{ opacity: 1, x: 0 }}
                         viewport={{ once: true }}
-                        transition={{ delay: idx * 0.1, duration: 0.4 }}
+                        transition={{ delay: stepIndex * 0.1, duration: 0.4 }}
                       >
                         <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary text-sm font-bold shrink-0">
-                          {item.step}
+                          {stepIndex + 1}
                         </div>
                         <div className="flex-1">
-                          <p className="font-medium text-foreground">{item.title}</p>
-                          <p className="text-sm text-muted-foreground">{item.desc}</p>
+                          <p className="font-medium text-foreground">{t(`about.reviewSteps.${stepIndex}.title`)}</p>
+                          <p className="text-sm text-muted-foreground">{t(`about.reviewSteps.${stepIndex}.description`)}</p>
                         </div>
                         <BadgeCheck className="h-5 w-5 text-success" />
                       </motion.div>
@@ -602,26 +522,21 @@ const AboutPage = () => {
             >
               <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/10 border border-secondary/20 mb-6">
                 <BadgeCheck className="h-4 w-4 text-secondary" />
-                <span className="text-sm font-medium text-secondary">Trust & Safety</span>
+                <span className="text-sm font-medium text-secondary">{t("about.trustSafety")}</span>
               </div>
               <h2 className="text-4xl font-bold text-foreground mb-6 md:text-5xl">
-                How We Review{" "}
-                <span className="gradient-text">Projects</span>
+                {t("about.reviewTitle")}
               </h2>
               <p className="text-lg text-muted-foreground leading-relaxed mb-6">
-                Every project submitted to Sahmi undergoes a careful review process. Our team
-                verifies founder identity, reviews the business plan and funding allocation, and
-                ensures transparency standards are met.
+                {t("about.reviewText1")}
               </p>
               <p className="text-lg text-muted-foreground leading-relaxed mb-8">
-                Only projects that pass our comprehensive review are listed on the platform. This
-                protects both entrepreneurs and supporters, ensuring a trustworthy ecosystem for
-                everyone.
+                {t("about.reviewText2")}
               </p>
               <Button size="lg" variant="outline" asChild>
                 <Link to="/how-it-works" onClick={() => window.scrollTo(0, 0)}>
-                  Learn More About Our Process{" "}
-                  <ArrowRight className="ml-2 h-4 w-4" />
+                  {t("about.learnMore")} {" "}
+                  <ArrowRight className="ms-2 h-4 w-4 rtl:rotate-180" />
                 </Link>
               </Button>
             </motion.div>
@@ -649,17 +564,15 @@ const AboutPage = () => {
               <Quote className="h-12 w-12 text-primary/30" />
             </motion.div>
             <blockquote className="text-2xl md:text-3xl font-medium text-foreground leading-relaxed mb-8">
-              "Sahmi gave us more than just funding—it gave us a community that believed in our
-              vision. The transparency and support we received made all the difference in
-              bringing our project to life."
+              {t("about.testimonial")}
             </blockquote>
             <div className="flex items-center justify-center gap-4">
               <div className="h-12 w-12 rounded-full bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center font-bold text-primary">
                 NA
               </div>
-              <div className="text-left">
+              <div className="text-start">
                 <p className="font-semibold text-foreground">Noor Al-Huda</p>
-                <p className="text-sm text-muted-foreground">Founder, Gaza Tech Initiative</p>
+                <p className="text-sm text-muted-foreground">{t("about.testimonialRole")}</p>
               </div>
             </div>
           </motion.div>
@@ -696,12 +609,10 @@ const AboutPage = () => {
             transition={{ duration: 0.8 }}
           >
             <h2 className="mb-6 text-4xl font-bold text-primary-foreground md:text-5xl lg:text-6xl">
-              Join Our{" "}
-              <span className="text-teal-300 drop-shadow-md">Community</span>
+              {t("about.ctaTitle")}
             </h2>
             <p className="mb-10 text-xl text-primary-foreground/90 font-medium leading-relaxed">
-              Whether you&apos;re an entrepreneur with a vision or a supporter looking to create
-              impact, Sahmi is your platform.
+              {t("about.ctaText")}
             </p>
             <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
@@ -719,7 +630,7 @@ const AboutPage = () => {
                   className="bg-transparent border-2 border-teal-300 text-teal-300 hover:bg-teal-300/10 shadow-sm font-bold h-16 px-10 text-lg rounded-2xl"
                   asChild
                 >
-                  <Link to="/start-project">Start Your Project</Link>
+                  <Link to="/start-project">{t("about.start")}</Link>
                 </Button>
               </motion.div>
             </div>

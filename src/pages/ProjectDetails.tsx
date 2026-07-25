@@ -74,7 +74,7 @@ const ProjectDetails = () => {
     if (!id || !projectQuery.data?.id) return;
 
     let eventSource: EventSource | null = null;
-    let pollInterval: ReturnType<typeof window.setInterval> | null = null;
+    let pollInterval: number | null = null;
     const projectId = projectQuery.data.id;
 
     const refreshProjectData = async () => {
@@ -192,7 +192,7 @@ const ProjectDetails = () => {
       payment_method: "bank_transfer",
     }),
     onSuccess: async () => {
-      toast.success("Investment request submitted.");
+      toast.success(t("projects.investmentSubmitted"));
       setAmount("");
       setFieldErrors({});
       await queryClient.invalidateQueries({ queryKey: ["project", id] });
@@ -206,7 +206,7 @@ const ProjectDetails = () => {
   const deleteMutation = useMutation({
     mutationFn: () => projectsService.deleteProject(projectQuery.data!.slug),
     onSuccess: () => {
-      toast.success("Project deleted.");
+      toast.success(t("projects.deleted"));
       navigate("/projects");
     },
     onError: (error) => {
@@ -221,7 +221,7 @@ const ProjectDetails = () => {
   if (projectQuery.isLoading) {
     return (
       <div className="container flex min-h-[60vh] items-center justify-center text-sm text-muted-foreground">
-        Loading project...
+        {t("dashboard.projectLoading")}
       </div>
     );
   }
@@ -280,8 +280,7 @@ const ProjectDetails = () => {
               <Badge variant="muted">{project.category_detail?.name ?? "Project"}</Badge>
               {project.is_verified && (
                 <Badge variant="success" className="flex items-center gap-1">
-                  <CheckCircle className="h-3 w-3" /> Verified
-                </Badge>
+                  <CheckCircle className="h-3 w-3" />{t("projects.verified")}</Badge>
               )}
               <Badge variant="outline">{t(`status.${project.status}`, { defaultValue: project.status })}</Badge>
             </div>
@@ -331,8 +330,7 @@ const ProjectDetails = () => {
                 </div>
                 <div className="rounded-xl border border-border bg-card p-5">
                   <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold text-foreground">
-                    <FileText className="h-4 w-4 text-primary" /> Transparency Report
-                  </h4>
+                    <FileText className="h-4 w-4 text-primary" />{t("projects.transparencyReport")}</h4>
                   <ul className="space-y-2 text-sm text-muted-foreground">
                     <li className="flex items-start gap-2"><CheckCircle className="mt-0.5 h-4 w-4 text-success" /> {t("common.status")}: {t(`status.${project.status}`, { defaultValue: project.status })}</li>
                     <li className="flex items-start gap-2"><CheckCircle className="mt-0.5 h-4 w-4 text-success" /> Verification: {project.is_verified ? "Verified by Sahmi team" : "Pending review"}</li>
@@ -368,9 +366,7 @@ const ProjectDetails = () => {
                   {paymentsQuery.isLoading ? (
                     <div className="text-sm text-muted-foreground">{t("projects.loadingPayments")}</div>
                   ) : !paymentsQuery.data || paymentsQuery.data.length === 0 ? (
-                    <div className="rounded-lg border border-border bg-card p-4 text-sm text-muted-foreground">
-                      No confirmed payments yet. Be the first to back this project!
-                    </div>
+                    <div className="rounded-lg border border-border bg-card p-4 text-sm text-muted-foreground">{t("projects.noPayments")}</div>
                   ) : (
                     <div className="grid gap-3">
                       {paymentsQuery.data.map((payment: any) => {
@@ -410,9 +406,7 @@ const ProjectDetails = () => {
               </TabsContent>
 
               <TabsContent value="updates">
-                <div className="rounded-lg border border-border bg-card p-4 text-sm text-muted-foreground">
-                  No project updates have been published yet.
-                </div>
+                <div className="rounded-lg border border-border bg-card p-4 text-sm text-muted-foreground">{t("projects.noUpdates")}</div>
               </TabsContent>
 
               <TabsContent value="team">
@@ -431,9 +425,7 @@ const ProjectDetails = () => {
               </TabsContent>
 
               <TabsContent value="faq">
-                <div className="rounded-lg border border-border bg-card p-4 text-sm text-muted-foreground">
-                  No FAQ entries have been published for this project yet.
-                </div>
+                <div className="rounded-lg border border-border bg-card p-4 text-sm text-muted-foreground">{t("projects.noFaq")}</div>
               </TabsContent>
             </Tabs>
           </div>
@@ -505,8 +497,7 @@ const ProjectDetails = () => {
                   </div>
                 )}
                 <Button size="lg" variant="outline" className="mt-4 w-full" onClick={() => navigator.clipboard?.writeText(window.location.href)}>
-                  <Share2 className="mr-2 h-4 w-4" /> Share Project
-                </Button>
+                  <Share2 className="mr-2 h-4 w-4" />{t("projects.share")}</Button>
               </div>
 
               <div className="rounded-xl border border-border bg-card p-5">

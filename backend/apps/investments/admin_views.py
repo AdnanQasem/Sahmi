@@ -1,5 +1,8 @@
 from rest_framework import permissions, viewsets
 
+from apps.notifications.models import Notification
+from apps.notifications.services import notify_on_commit
+
 from .admin_serializers import (
     AdminInvestmentSerializer,
     AdminMilestoneSerializer,
@@ -31,6 +34,41 @@ class AdminInvestmentViewSet(viewsets.ModelViewSet):
         "status", "expected_return", "actual_return", "return_received_at",
     ]
     ordering = ["-investment_date"]
+
+    def perform_update(self, serializer):
+        previous_status = serializer.instance.status
+        investment = serializer.save()
+        if previous_status == investment.status:
+            return
+
+        status_label = investment.get_status_display().lower()
+        notify_on_commit(
+            recipient=investment.investor,
+            notification_type=Notification.NotificationType.INVESTMENT_STATUS_CHANGED,
+            title=f"Investment {status_label}",
+            body=(
+                f"Your investment of {investment.amount} in "
+                f"“{investment.project.title}” is now {status_label}."
+            ),
+            actor=self.request.user,
+            target_type="investment",
+            target_id=str(investment.id),
+        )
+
+        owner = investment.project.entrepreneur
+        if owner and owner.pk != investment.investor_id:
+            notify_on_commit(
+                recipient=owner,
+                notification_type=Notification.NotificationType.INVESTMENT_STATUS_CHANGED,
+                title=f"Investment {status_label}",
+                body=(
+                    f"An investment of {investment.amount} in "
+                    f"“{investment.project.title}” is now {status_label}."
+                ),
+                actor=self.request.user,
+                target_type="investment",
+                target_id=str(investment.id),
+            )
 
 
 class AdminMilestoneViewSet(viewsets.ModelViewSet):

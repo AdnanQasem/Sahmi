@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -25,6 +26,7 @@ import adminProjectsService from "@/services/adminProjectsService";
 import { getErrorMessage } from "@/services/api";
 
 const AdminCategoriesPage = () => {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<ProjectCategory | null>(null);
@@ -64,24 +66,24 @@ const AdminCategoriesPage = () => {
         ? adminProjectsService.updateCategory(category.id, payload)
         : adminProjectsService.createCategory(payload),
     onSuccess: (_, variables) => {
-      toast.success(variables.category ? "Category updated." : "Category created.");
+      toast.success(t(variables.category ? "admin.updated" : "admin.created", { item: t("admin.categoryItem") }));
       setCategoryDialogOpen(false);
       setEditingCategory(null);
       refreshAdminData();
     },
-    onError: (error) => toast.error(getErrorMessage(error, "Could not save this category.")),
+    onError: (error) => toast.error(getErrorMessage(error, t("admin.saveFailed", { item: t("admin.categoryItem") }))),
   });
 
   const deleteCategoryMutation = useMutation({
     mutationFn: (category: ProjectCategory) => adminProjectsService.deleteCategory(category.id),
     onSuccess: (_, category) => {
-      toast.success(category.name + " was deleted.");
+      toast.success(t("admin.deleted", { item: category.name }));
       setCategoryToDelete(null);
       refreshAdminData();
     },
     onError: (error) =>
       toast.error(
-        getErrorMessage(error, "This category may still be used by a project and cannot be deleted."),
+        getErrorMessage(error, t("admin.categoryDeleteBlocked")),
       ),
   });
 
@@ -96,8 +98,8 @@ const AdminCategoriesPage = () => {
         <AdminPageHeader
           icon={Tags}
           eyebrow="Catalogue administration"
-          title="Project categories"
-          description="Keep project discovery consistent by creating, describing, and maintaining the categories used across Sahmi."
+          title={t("admin.categoriesTitle")}
+          description={t("admin.categoriesText")}
           actions={
             <>
               <Button
@@ -114,13 +116,9 @@ const AdminCategoriesPage = () => {
                     "h-4 w-4 " +
                     (categoriesQuery.isFetching || projectsQuery.isFetching ? "animate-spin" : "")
                   }
-                />
-                Refresh
-              </Button>
+                />{t("admin.refresh")}</Button>
               <Button onClick={openCreateDialog}>
-                <FolderPlus className="h-4 w-4" />
-                Add category
-              </Button>
+                <FolderPlus className="h-4 w-4" />{t("admin.addCategory")}</Button>
             </>
           }
         />
@@ -130,9 +128,7 @@ const AdminCategoriesPage = () => {
             <div>
               <div className="flex items-center gap-2">
                 <Tags className="h-5 w-5 text-primary" />
-                <h2 id="categories-heading" className="text-xl font-bold text-foreground">
-                  Category management
-                </h2>
+                <h2 id="categories-heading" className="text-xl font-bold text-foreground">{t("admin.categoryManagement")}</h2>
               </div>
               <p className="mt-1 text-sm text-muted-foreground">
                 {categoriesQuery.isLoading
@@ -146,13 +142,11 @@ const AdminCategoriesPage = () => {
             <div className="rounded-2xl border border-destructive/20 bg-destructive/5 p-6">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <h3 className="font-semibold text-foreground">Categories could not be loaded</h3>
-                  <p className="mt-1 text-sm text-muted-foreground">Try refreshing this page.</p>
+                  <h3 className="font-semibold text-foreground">{t("admin.categoriesLoadError")}</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">{t("admin.refreshPage")}</p>
                 </div>
                 <Button variant="outline" size="sm" onClick={() => void categoriesQuery.refetch()}>
-                  <RefreshCw className="h-4 w-4" />
-                  Retry
-                </Button>
+                  <RefreshCw className="h-4 w-4" />{t("common.retry")}</Button>
               </div>
             </div>
           ) : categoriesQuery.isLoading ? (
@@ -190,9 +184,7 @@ const AdminCategoriesPage = () => {
                           setEditingCategory(category);
                           setCategoryDialogOpen(true);
                         }}
-                      >
-                        Edit
-                      </Button>
+                      >{t("common.edit")}</Button>
                       <Button
                         variant="ghost"
                         size="icon"
@@ -222,13 +214,9 @@ const AdminCategoriesPage = () => {
               <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
                 <FolderPlus className="h-5 w-5" />
               </div>
-              <h3 className="mt-4 font-semibold text-foreground">Create the first category</h3>
-              <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
-                Categories help investors find the projects that match their interests.
-              </p>
-              <Button size="sm" className="mt-4" onClick={openCreateDialog}>
-                Add category
-              </Button>
+              <h3 className="mt-4 font-semibold text-foreground">{t("admin.createFirstCategory")}</h3>
+              <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">{t("admin.categoryTip")}</p>
+              <Button size="sm" className="mt-4" onClick={openCreateDialog}>{t("admin.addCategory")}</Button>
             </div>
           )}
         </section>
@@ -255,14 +243,14 @@ const AdminCategoriesPage = () => {
               <div className="mb-2 flex h-11 w-11 items-center justify-center rounded-xl bg-destructive/10 text-destructive">
                 <Trash2 className="h-5 w-5" />
               </div>
-              <AlertDialogTitle>Delete this category?</AlertDialogTitle>
+              <AlertDialogTitle>{t("admin.deleteCategoryQuestion")}</AlertDialogTitle>
               <AlertDialogDescription>
                 <strong className="font-semibold text-foreground">{categoryToDelete?.name}</strong> will be
                 permanently removed. Categories assigned to projects cannot be deleted.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel disabled={deleteCategoryMutation.isPending}>Cancel</AlertDialogCancel>
+              <AlertDialogCancel disabled={deleteCategoryMutation.isPending}>{t("common.cancel")}</AlertDialogCancel>
               <AlertDialogAction
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 disabled={deleteCategoryMutation.isPending}

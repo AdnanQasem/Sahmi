@@ -1,6 +1,9 @@
 from django.contrib.auth import authenticate, get_user_model
 from django.contrib.auth.password_validation import validate_password
+from django.contrib.auth.tokens import default_token_generator
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.utils.encoding import force_str
+from django.utils.http import urlsafe_base64_decode
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
@@ -13,7 +16,7 @@ class UserSerializer(serializers.ModelSerializer):
         fields = [
             "id", "username", "email", "full_name", "phone_number", "user_type",
             "preferred_language",
-            "profile_picture", "bio", "country", "city", "is_verified", "is_kyc_verified",
+            "profile_picture", "bio", "country", "city", "website", "timezone", "is_verified", "is_kyc_verified",
             "investor_tier", "total_invested", "total_returned", "average_roi",
             "risk_preference", "business_name", "business_registration_number",
             "business_established_date", "business_address", "total_funded",
@@ -107,6 +110,50 @@ class PasswordChangeSerializer(serializers.Serializer):
 
     def save(self, **kwargs):
         user = self.context["request"].user
+        user.set_password(self.validated_data["new_password"])
+        user.save(update_fields=["password"])
+        return user
+
+
+class PasswordResetRequestSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+    def validate_email(self, value):
+        return value.strip().lower()
+
+
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    uid = serializers.CharField(write_only=True)
+    token = serializers.CharField(write_only=True)
+    new_password = serializers.CharField(write_only=True, trim_whitespace=False)
+    confirm_password = serializers.CharField(write_only=True, trim_whitespace=False)
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        if attrs["new_password"] != attrs["confirm_password"]:
+            raise serializers.ValidationError(
+                {"confirm_password": "New passwords do not match."}
+            )
+        try:
+            user_id = force_str(urlsafe_base64_decode(attrs["uid"]))
+            user = User.objects.get(pk=user_id, is_active=True)
+        except (TypeError, ValueError, OverflowError, UnicodeDecodeError, User.DoesNotExist):
+            raise serializers.ValidationError(
+                {"token": "This password reset link is invalid or has expired."}
+            )
+        if not default_token_generator.check_token(user, attrs["token"]):
+            raise serializers.ValidationError(
+                {"token": "This password reset link is invalid or has expired."}
+            )
+        try:
+            validate_password(attrs["new_password"], user)
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError({"new_password": list(exc.messages)})
+        attrs["user"] = user
+        return attrs
+
+    def save(self, **kwargs):
+        user = self.validated_data["user"]
         user.set_password(self.validated_data["new_password"])
         user.save(update_fields=["password"])
         return user

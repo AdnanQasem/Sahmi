@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { FormEvent, useEffect, useState } from "react";
 import { FolderPlus, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -29,6 +30,7 @@ const AdminCategoryDialog = ({
   onSubmit,
   isPending,
 }: AdminCategoryDialogProps) => {
+  const { t } = useTranslation();
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [description, setDescription] = useState("");
@@ -58,43 +60,43 @@ const AdminCategoryDialog = ({
           <div className="mb-2 flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
             <FolderPlus className="h-5 w-5" />
           </div>
-          <DialogTitle>{category ? "Edit category" : "Add a category"}</DialogTitle>
+          <DialogTitle>{t(category ? "adminForm.editCategory" : "adminForm.addCategory")}</DialogTitle>
           <DialogDescription>
-            Categories keep project discovery organized and make the admin filters more useful.
+            {t("adminForm.categoryHelp")}
           </DialogDescription>
         </DialogHeader>
 
         <form className="space-y-5" onSubmit={handleSubmit}>
           <div className="space-y-2">
-            <Label htmlFor="category-name">Category name</Label>
+            <Label htmlFor="category-name">{t("adminForm.categoryName")}</Label>
             <Input
               id="category-name"
               value={name}
               onChange={(event) => setName(event.target.value)}
-              placeholder="e.g. Sustainable Agriculture"
+              placeholder={t("adminForm.categoryNameExample")}
               maxLength={80}
               autoFocus
               disabled={isPending}
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="category-description">Description</Label>
+            <Label htmlFor="category-description">{t("adminForm.description")}</Label>
             <Textarea
               id="category-description"
               value={description}
               onChange={(event) => setDescription(event.target.value)}
-              placeholder="A short explanation shown wherever this category is used."
+              placeholder={t("adminForm.categoryDescriptionHelp")}
               rows={4}
               disabled={isPending}
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="category-slug">URL slug</Label>
+            <Label htmlFor="category-slug">{t("adminForm.urlSlug")}</Label>
             <Input
               id="category-slug"
               value={slug}
               onChange={(event) => setSlug(event.target.value)}
-              placeholder="Generated from the name when blank"
+              placeholder={t("adminForm.slugGenerated")}
               maxLength={100}
               disabled={isPending}
             />
@@ -102,11 +104,11 @@ const AdminCategoryDialog = ({
 
           <DialogFooter className="gap-2 sm:space-x-0">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isPending}>
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button type="submit" disabled={isPending || !name.trim()}>
               <Save className="h-4 w-4" />
-              {isPending ? "Saving..." : category ? "Save changes" : "Create category"}
+              {isPending ? t("common.saving") : t(category ? "adminForm.saveChanges" : "adminForm.createCategory")}
             </Button>
           </DialogFooter>
         </form>

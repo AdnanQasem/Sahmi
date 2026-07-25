@@ -54,7 +54,7 @@ const StartProject = () => {
       ].join(""),
     }),
     onSuccess: (project) => {
-      toast.success("Project submitted for review.");
+      toast.success(t("projects.submittedReview"));
       navigate("/dashboard/entrepreneur");
     },
     onError: (error) => {
@@ -152,7 +152,7 @@ const StartProject = () => {
               <div className="space-y-4">
                 <div>
                   <Label htmlFor="title">{t("projects.projectTitle")}</Label>
-                  <Input id="title" placeholder="e.g., Solar-Powered Water Purification" className="mt-1.5" value={form.title} onChange={(event) => updateForm("title", event.target.value)} />
+                  <Input id="title" placeholder={t("projects.titleExample")} className="mt-1.5" value={form.title} onChange={(event) => updateForm("title", event.target.value)} />
                   <p className="mt-1 text-xs text-muted-foreground">{t("projects.titleHelp")}</p>
                   {fieldErrors.title && <p className="mt-1 text-xs text-destructive">{fieldErrors.title}</p>}
                 </div>
@@ -168,12 +168,12 @@ const StartProject = () => {
                 </div>
                 <div>
                   <Label htmlFor="short_description">{t("projects.shortDescription")}</Label>
-                  <Textarea id="short_description" placeholder="A brief summary of your project (max 200 characters)" className="mt-1.5" rows={3} value={form.short_description} onChange={(event) => updateForm("short_description", event.target.value)} />
+                  <Textarea id="short_description" placeholder={t("projects.summaryPlaceholder")} className="mt-1.5" rows={3} value={form.short_description} onChange={(event) => updateForm("short_description", event.target.value)} />
                   {fieldErrors.short_description && <p className="mt-1 text-xs text-destructive">{fieldErrors.short_description}</p>}
                 </div>
                 <div>
                   <Label htmlFor="location">{t("projects.location")}</Label>
-                  <Input id="location" placeholder="e.g., Ramallah, West Bank" className="mt-1.5" value={form.location} onChange={(event) => updateForm("location", event.target.value)} />
+                  <Input id="location" placeholder={t("projects.locationExample")} className="mt-1.5" value={form.location} onChange={(event) => updateForm("location", event.target.value)} />
                   {fieldErrors.location && <p className="mt-1 text-xs text-destructive">{fieldErrors.location}</p>}
                 </div>
               </div>
@@ -187,13 +187,13 @@ const StartProject = () => {
               <div className="space-y-4">
                 <div>
                   <Label htmlFor="description">{t("projects.fullStory")}</Label>
-                  <Textarea id="description" placeholder="Tell supporters about your project, why it matters, and what impact it will create..." className="mt-1.5" rows={8} value={form.description} onChange={(event) => updateForm("description", event.target.value)} />
+                  <Textarea id="description" placeholder={t("projects.storyPlaceholder")} className="mt-1.5" rows={8} value={form.description} onChange={(event) => updateForm("description", event.target.value)} />
                   <p className="mt-1 text-xs text-muted-foreground">{t("projects.storyDetailHelp")}</p>
                   {fieldErrors.description && <p className="mt-1 text-xs text-destructive">{fieldErrors.description}</p>}
                 </div>
                 <div>
                   <Label htmlFor="risks">{t("projects.risks")}</Label>
-                  <Textarea id="risks" placeholder="What challenges might you face and how do you plan to address them?" className="mt-1.5" rows={4} value={risks} onChange={(event) => setRisks(event.target.value)} />
+                  <Textarea id="risks" placeholder={t("projects.risksPlaceholder")} className="mt-1.5" rows={4} value={risks} onChange={(event) => setRisks(event.target.value)} />
                 </div>
               </div>
             </div>
@@ -228,7 +228,7 @@ const StartProject = () => {
                 </div>
                 <div>
                   <Label htmlFor="funding_breakdown">{t("projects.breakdown")}</Label>
-                  <Textarea id="funding_breakdown" placeholder="How will you allocate the funds? Be specific." className="mt-1.5" rows={4} value={fundingBreakdown} onChange={(event) => setFundingBreakdown(event.target.value)} />
+                  <Textarea id="funding_breakdown" placeholder={t("projects.breakdownPlaceholder")} className="mt-1.5" rows={4} value={fundingBreakdown} onChange={(event) => setFundingBreakdown(event.target.value)} />
                 </div>
               </div>
             </div>
@@ -286,11 +286,9 @@ const StartProject = () => {
             }}
             disabled={currentStep === 0 || createMutation.isPending}
           >
-            <ArrowLeft className="mr-1 h-4 w-4" /> Back
-          </Button>
+            <ArrowLeft className="mr-1 h-4 w-4" />{t("common.back")}</Button>
           {currentStep < steps.length - 1 ? (
-            <Button onClick={handleContinue}>
-              Continue <ArrowRight className="ml-1 h-4 w-4" />
+            <Button onClick={handleContinue}>{t("common.next")}<ArrowRight className="ml-1 h-4 w-4" />
             </Button>
           ) : (
             <Button onClick={handleSubmit} disabled={createMutation.isPending}>

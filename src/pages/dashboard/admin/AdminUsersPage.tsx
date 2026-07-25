@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+import { formatDate as formatLocalizedDate } from "@/i18n/format";
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -105,35 +107,27 @@ const initials = (user: AdminUser) => {
   return user.email.slice(0, 2).toLocaleUpperCase();
 };
 
-const formatDate = (value: string | null) => {
-  if (!value) return "Never";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "—";
-  return new Intl.DateTimeFormat("en", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  }).format(date);
-};
-
-const AccessBadges = ({ user }: { user: AdminUser }) => (
+const AccessBadges = ({ user }: { user: AdminUser }) => {
+  const { t } = useTranslation();
+  return (
   <div className="flex flex-wrap gap-1.5">
     <span
       className={`rounded-full px-2 py-1 text-[11px] font-semibold ${
         user.is_active ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"
       }`}
     >
-      {user.is_active ? "Active" : "Inactive"}
+      {t(user.is_active ? "adminForm.active" : "adminForm.inactive")}
     </span>
     {user.is_superuser ? (
       <span className="rounded-full bg-accent/15 px-2 py-1 text-[11px] font-semibold text-amber-700 dark:text-amber-300">
-        Superuser
+        {t("adminForm.superuser")}
       </span>
     ) : user.is_staff ? (
-      <span className="rounded-full bg-primary/10 px-2 py-1 text-[11px] font-semibold text-primary">Staff</span>
+      <span className="rounded-full bg-primary/10 px-2 py-1 text-[11px] font-semibold text-primary">{t("admin.staff")}</span>
     ) : null}
   </div>
-);
+  );
+};
 
 interface UserActionsProps {
   account: AdminUser;
@@ -153,22 +147,24 @@ const UserActions = ({
   onResetPassword,
   onActivate,
   onConfirm,
-}: UserActionsProps) => (
+}: UserActionsProps) => {
+  const { t } = useTranslation();
+  return (
   <DropdownMenu>
     <DropdownMenuTrigger asChild>
-      <Button variant="ghost" size="icon" className="h-9 w-9" disabled={isPending} aria-label={`Actions for ${account.full_name || account.email}`}>
+      <Button variant="ghost" size="icon" className="h-9 w-9" disabled={isPending} aria-label={t("adminForm.actionsFor", { name: account.full_name || account.email })}>
         <MoreHorizontal className="h-4 w-4" />
       </Button>
     </DropdownMenuTrigger>
     <DropdownMenuContent align="end" className="w-52">
-      <DropdownMenuLabel>{isSelf ? "Your account" : "Manage account"}</DropdownMenuLabel>
+      <DropdownMenuLabel>{t(isSelf ? "adminForm.yourAccount" : "adminForm.manageAccount")}</DropdownMenuLabel>
       <DropdownMenuItem onSelect={() => onEdit(account)}>
         <Pencil className="h-4 w-4" />
-        Edit details
+        {t("adminForm.editDetails")}
       </DropdownMenuItem>
       <DropdownMenuItem onSelect={() => onResetPassword(account)}>
         <KeyRound className="h-4 w-4" />
-        Reset password
+        {t("adminForm.resetPassword")}
       </DropdownMenuItem>
       <DropdownMenuSeparator />
       {account.is_active ? (
@@ -177,12 +173,12 @@ const UserActions = ({
           onSelect={() => onConfirm({ type: "deactivate", user: account })}
         >
           <UserX className="h-4 w-4" />
-          Deactivate account
+          {t("adminForm.deactivateAccount")}
         </DropdownMenuItem>
       ) : (
         <DropdownMenuItem onSelect={() => onActivate(account)}>
           <UserCheck className="h-4 w-4" />
-          Activate account
+          {t("adminForm.activateAccount")}
         </DropdownMenuItem>
       )}
       <DropdownMenuItem
@@ -191,13 +187,15 @@ const UserActions = ({
         onSelect={() => onConfirm({ type: "delete", user: account })}
       >
         <Trash2 className="h-4 w-4" />
-        Delete permanently
+        {t("adminForm.deletePermanently")}
       </DropdownMenuItem>
     </DropdownMenuContent>
   </DropdownMenu>
-);
+  );
+};
 
 const AdminUsersPage = () => {
+  const { t } = useTranslation();
   const { user: authenticatedUser } = useAuth();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
@@ -269,7 +267,7 @@ const AdminUsersPage = () => {
     mutationFn: ({ user, payload }: { user: AdminUser | null; payload: AdminUserWritePayload }) =>
       user ? adminUsersService.updateUser(user.id, payload) : adminUsersService.createUser(payload),
     onSuccess: (_, variables) => {
-      toast.success(variables.user ? "User details updated." : "User account created.");
+      toast.success(t(variables.user ? "admin.userSaved" : "admin.userCreated"));
       setUserDialogOpen(false);
       setEditingUser(null);
       setUserFieldErrors({});
@@ -277,7 +275,7 @@ const AdminUsersPage = () => {
     },
     onError: (error) => {
       setUserFieldErrors(getFieldErrors(error));
-      toast.error(getErrorMessage(error, "Could not save this user."));
+      toast.error(getErrorMessage(error, t("admin.saveFailed", { item: t("admin.userItem") })));
     },
   });
 
@@ -285,13 +283,13 @@ const AdminUsersPage = () => {
     mutationFn: ({ user, payload }: { user: AdminUser; payload: AdminResetPasswordPayload }) =>
       adminUsersService.resetPassword(user.id, payload),
     onSuccess: (_, variables) => {
-      toast.success(`Password reset for ${variables.user.full_name || variables.user.email}.`);
+      toast.success(t("admin.passwordReset", { name: variables.user.full_name || variables.user.email }));
       setResetPasswordUser(null);
       setPasswordFieldErrors({});
     },
     onError: (error) => {
       setPasswordFieldErrors(getFieldErrors(error));
-      toast.error(getErrorMessage(error, "Could not reset this password."));
+      toast.error(getErrorMessage(error, t("admin.passwordResetFailed")));
     },
   });
 
@@ -299,7 +297,7 @@ const AdminUsersPage = () => {
     mutationFn: ({ user, isActive }: { user: AdminUser; isActive: boolean }) =>
       adminUsersService.updateUser(user.id, { is_active: isActive }),
     onSuccess: (_, variables) => {
-      toast.success(`${variables.user.full_name || variables.user.email} was ${variables.isActive ? "activated" : "deactivated"}.`);
+      toast.success(t("admin.accountState", { name: variables.user.full_name || variables.user.email, state: t(variables.isActive ? "admin.activated" : "admin.deactivated") }));
       setConfirmAction(null);
       const leavesCurrentFilter =
         (activeFilter === "active" && !variables.isActive) ||
@@ -309,20 +307,20 @@ const AdminUsersPage = () => {
       }
       invalidateUsers();
     },
-    onError: (error) => toast.error(getErrorMessage(error, "Could not update this account.")),
+    onError: (error) => toast.error(getErrorMessage(error, t("admin.accountUpdateFailed"))),
   });
 
   const deleteUserMutation = useMutation({
     mutationFn: (user: AdminUser) => adminUsersService.deleteUser(user.id),
     onSuccess: (_, user) => {
-      toast.success(`${user.full_name || user.email} was permanently deleted.`);
+      toast.success(t("admin.userPermanentlyDeleted", { name: user.full_name || user.email }));
       setConfirmAction(null);
       if (accounts.length === 1 && page > 1) {
         setPage((current) => current - 1);
       }
       invalidateUsers();
     },
-    onError: (error) => toast.error(getErrorMessage(error, "Could not delete this user.")),
+    onError: (error) => toast.error(getErrorMessage(error, t("admin.deleteFailed", { item: t("admin.userItem") }))),
   });
 
   const mutationPending =
@@ -381,23 +379,15 @@ const AdminUsersPage = () => {
           <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-2xl">
               <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-card/80 px-3 py-1.5 text-xs font-semibold text-primary shadow-sm backdrop-blur">
-                <Users className="h-3.5 w-3.5" />
-                User administration
-              </div>
-              <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">Manage every Sahmi account</h1>
-              <p className="mt-3 max-w-xl text-sm leading-relaxed text-muted-foreground sm:text-base">
-                Create accounts, verify identities, control access, and keep user records accurate from one secure workspace.
-              </p>
+                <Users className="h-3.5 w-3.5" />{t("admin.userAdministration")}</div>
+              <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">{t("admin.manageAccounts")}</h1>
+              <p className="mt-3 max-w-xl text-sm leading-relaxed text-muted-foreground sm:text-base">{t("admin.userAdministrationText")}</p>
             </div>
             <div className="flex flex-col gap-2 sm:flex-row">
               <Button variant="outline" className="bg-card/80" onClick={() => void usersQuery.refetch()} disabled={usersQuery.isFetching}>
-                <RefreshCw className={`h-4 w-4 ${usersQuery.isFetching ? "animate-spin" : ""}`} />
-                Refresh
-              </Button>
+                <RefreshCw className={`h-4 w-4 ${usersQuery.isFetching ? "animate-spin" : ""}`} />{t("admin.refresh")}</Button>
               <Button onClick={openCreateDialog}>
-                <Plus className="h-4 w-4" />
-                Create user
-              </Button>
+                <Plus className="h-4 w-4" />{t("admin.createUser")}</Button>
             </div>
           </div>
         </motion.section>
@@ -405,9 +395,9 @@ const AdminUsersPage = () => {
         <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           {[
             { label: "Matching users", value: resultCount, icon: Users, tone: "bg-primary/10 text-primary" },
-            { label: "Active on page", value: pageStats.active, icon: UserCheck, tone: "bg-success/10 text-success" },
-            { label: "Verified on page", value: pageStats.verified, icon: CheckCircle2, tone: "bg-secondary/10 text-secondary" },
-            { label: "Staff on page", value: pageStats.staff, icon: ShieldCheck, tone: "bg-accent/15 text-amber-700 dark:text-amber-300" },
+            { label: t("admin.activePage"), value: pageStats.active, icon: UserCheck, tone: "bg-success/10 text-success" },
+            { label: t("admin.verifiedPage"), value: pageStats.verified, icon: CheckCircle2, tone: "bg-secondary/10 text-secondary" },
+            { label: t("admin.staffPage"), value: pageStats.staff, icon: ShieldCheck, tone: "bg-accent/15 text-amber-700 dark:text-amber-300" },
           ].map(({ label, value, icon: Icon, tone }) => (
             <div key={label} className="rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-5">
               <div className={`flex h-9 w-9 items-center justify-center rounded-xl ${tone}`}>
@@ -430,51 +420,49 @@ const AdminUsersPage = () => {
                   setPage(1);
                 }}
                 className="pl-9"
-                placeholder="Search name, email, phone, or business..."
-                aria-label="Search users"
+                placeholder={t("admin.searchUsers")}
+                aria-label={t("admin.searchUsers")}
               />
             </div>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:flex">
               <Select value={userType} onValueChange={(value: UserTypeFilter) => { setUserType(value); setPage(1); }}>
-                <SelectTrigger className="xl:w-40"><SelectValue placeholder="Account type" /></SelectTrigger>
+                <SelectTrigger className="xl:w-40"><SelectValue placeholder={t("admin.accountType")} /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All types</SelectItem>
-                  <SelectItem value="investor">Investors</SelectItem>
-                  <SelectItem value="entrepreneur">Entrepreneurs</SelectItem>
-                  <SelectItem value="admin">Admins</SelectItem>
+                  <SelectItem value="all">{t("admin.allTypes")}</SelectItem>
+                  <SelectItem value="investor">{t("admin.investors")}</SelectItem>
+                  <SelectItem value="entrepreneur">{t("admin.entrepreneurs")}</SelectItem>
+                  <SelectItem value="admin">{t("admin.admins")}</SelectItem>
                 </SelectContent>
               </Select>
               <Select value={activeFilter} onValueChange={(value: ActiveFilter) => { setActiveFilter(value); setPage(1); }}>
-                <SelectTrigger className="xl:w-36"><SelectValue placeholder="Status" /></SelectTrigger>
+                <SelectTrigger className="xl:w-36"><SelectValue placeholder={t("admin.status")} /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Any status</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
+                  <SelectItem value="all">{t("admin.anyStatus")}</SelectItem>
+                  <SelectItem value="active">{t("status.active")}</SelectItem>
+                  <SelectItem value="inactive">{t("admin.inactive")}</SelectItem>
                 </SelectContent>
               </Select>
               <Select value={verificationFilter} onValueChange={(value: VerificationFilter) => { setVerificationFilter(value); setPage(1); }}>
-                <SelectTrigger className="xl:w-40"><SelectValue placeholder="Verification" /></SelectTrigger>
+                <SelectTrigger className="xl:w-40"><SelectValue placeholder={t("admin.verification")} /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Any verification</SelectItem>
-                  <SelectItem value="verified">Verified</SelectItem>
-                  <SelectItem value="unverified">Unverified</SelectItem>
+                  <SelectItem value="all">{t("admin.anyVerification")}</SelectItem>
+                  <SelectItem value="verified">{t("admin.verified")}</SelectItem>
+                  <SelectItem value="unverified">{t("admin.unverified")}</SelectItem>
                 </SelectContent>
               </Select>
               <Select value={accessFilter} onValueChange={(value: AccessFilter) => { setAccessFilter(value); setPage(1); }}>
-                <SelectTrigger className="xl:w-40"><SelectValue placeholder="Access" /></SelectTrigger>
+                <SelectTrigger className="xl:w-40"><SelectValue placeholder={t("admin.access")} /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Any access</SelectItem>
-                  <SelectItem value="standard">Standard users</SelectItem>
-                  <SelectItem value="staff">Staff</SelectItem>
-                  <SelectItem value="superuser">Superusers</SelectItem>
+                  <SelectItem value="all">{t("admin.anyAccess")}</SelectItem>
+                  <SelectItem value="standard">{t("admin.standardUsers")}</SelectItem>
+                  <SelectItem value="staff">{t("admin.staff")}</SelectItem>
+                  <SelectItem value="superuser">{t("admin.superusers")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             {hasFilters && (
               <Button variant="ghost" size="sm" onClick={clearFilters} className="shrink-0">
-                <X className="h-4 w-4" />
-                Clear
-              </Button>
+                <X className="h-4 w-4" />{t("admin.clear")}</Button>
             )}
           </div>
         </section>
@@ -482,7 +470,7 @@ const AdminUsersPage = () => {
         <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
           <div className="flex items-center justify-between border-b border-border px-4 py-4 sm:px-6">
             <div>
-              <h2 className="font-semibold text-foreground">Accounts</h2>
+              <h2 className="font-semibold text-foreground">{t("admin.accounts")}</h2>
               <p className="mt-0.5 text-xs text-muted-foreground">
                 {usersQuery.isLoading ? "Loading users..." : `${resultCount} ${resultCount === 1 ? "account" : "accounts"} found`}
               </p>
@@ -490,7 +478,7 @@ const AdminUsersPage = () => {
             {currentUserQuery.data?.is_superuser && (
               <span className="hidden items-center gap-1.5 rounded-full bg-accent/15 px-2.5 py-1 text-xs font-semibold text-amber-700 dark:text-amber-300 sm:inline-flex">
                 <Shield className="h-3.5 w-3.5" />
-                Superuser session
+                {t("adminForm.superuser")} session
               </span>
             )}
           </div>
@@ -499,12 +487,10 @@ const AdminUsersPage = () => {
             <div className="p-6 sm:p-10">
               <div className="rounded-2xl border border-destructive/20 bg-destructive/5 p-6 text-center">
                 <AlertCircle className="mx-auto h-8 w-8 text-destructive" />
-                <h3 className="mt-3 font-semibold text-foreground">Users could not be loaded</h3>
-                <p className="mt-1 text-sm text-muted-foreground">Check the admin API connection and try again.</p>
+                <h3 className="mt-3 font-semibold text-foreground">{t("admin.usersLoadError")}</h3>
+                <p className="mt-1 text-sm text-muted-foreground">{t("admin.apiRetry")}</p>
                 <Button variant="outline" size="sm" className="mt-4" onClick={() => void usersQuery.refetch()}>
-                  <RefreshCw className="h-4 w-4" />
-                  Retry
-                </Button>
+                  <RefreshCw className="h-4 w-4" />{t("common.retry")}</Button>
               </div>
             </div>
           ) : usersQuery.isLoading ? (
@@ -522,12 +508,12 @@ const AdminUsersPage = () => {
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-muted/30 hover:bg-muted/30">
-                      <TableHead className="min-w-64 pl-6">User</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Verification</TableHead>
-                      <TableHead>Access</TableHead>
-                      <TableHead>Joined</TableHead>
-                      <TableHead className="w-16 pr-6 text-right">Actions</TableHead>
+                      <TableHead className="min-w-64 pl-6">{t("admin.user")}</TableHead>
+                      <TableHead>{t("admin.type")}</TableHead>
+                      <TableHead>{t("admin.verification")}</TableHead>
+                      <TableHead>{t("admin.access")}</TableHead>
+                      <TableHead>{t("admin.joined")}</TableHead>
+                      <TableHead className="w-16 pr-6 text-right">{t("admin.actions")}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -544,7 +530,7 @@ const AdminUsersPage = () => {
                             <div className="min-w-0">
                               <div className="flex items-center gap-2">
                                 <p className="max-w-56 truncate text-sm font-semibold text-foreground">{account.full_name || account.username}</p>
-                                {account.id === authenticatedUser?.id && <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">You</span>}
+                                {account.id === authenticatedUser?.id && <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">{t("admin.you")}</span>}
                               </div>
                               <p className="max-w-64 truncate text-xs text-muted-foreground">{account.email}</p>
                             </div>
@@ -566,8 +552,8 @@ const AdminUsersPage = () => {
                         </TableCell>
                         <TableCell><AccessBadges user={account} /></TableCell>
                         <TableCell>
-                          <p className="text-xs font-medium text-foreground">{formatDate(account.date_joined)}</p>
-                          <p className="mt-1 text-[11px] text-muted-foreground">Last login: {formatDate(account.last_login)}</p>
+                          <p className="text-xs font-medium text-foreground">{formatLocalizedDate(account.date_joined, { year: "numeric", month: "short", day: "numeric" })}</p>
+                          <p className="mt-1 text-[11px] text-muted-foreground">{t("adminForm.lastLoginLabel", { date: account.last_login ? formatLocalizedDate(account.last_login, { year: "numeric", month: "short", day: "numeric" }) : t("adminForm.never") })}</p>
                         </TableCell>
                         <TableCell className="pr-6 text-right"><UserActions {...actionProps(account)} /></TableCell>
                       </TableRow>
@@ -587,7 +573,7 @@ const AdminUsersPage = () => {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                           <h3 className="truncate text-sm font-semibold text-foreground">{account.full_name || account.username}</h3>
-                          {account.id === authenticatedUser?.id && <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">You</span>}
+                          {account.id === authenticatedUser?.id && <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">{t("admin.you")}</span>}
                         </div>
                         <p className="truncate text-xs text-muted-foreground">{account.email}</p>
                       </div>
@@ -599,20 +585,20 @@ const AdminUsersPage = () => {
                     </div>
                     <div className="mt-4 grid grid-cols-2 gap-3 border-t border-border pt-4 text-xs">
                       <div>
-                        <p className="text-muted-foreground">Verification</p>
+                        <p className="text-muted-foreground">{t("admin.verification")}</p>
                         <p className={`mt-1 font-semibold ${account.is_verified ? "text-success" : "text-foreground"}`}>{account.is_verified ? "Verified" : "Not verified"}</p>
                       </div>
                       <div>
-                        <p className="text-muted-foreground">KYC</p>
+                        <p className="text-muted-foreground">{t("admin.kyc")}</p>
                         <p className="mt-1 font-semibold text-foreground">{account.is_kyc_verified ? "Approved" : "Pending"}</p>
                       </div>
                       <div>
-                        <p className="text-muted-foreground">Joined</p>
-                        <p className="mt-1 font-semibold text-foreground">{formatDate(account.date_joined)}</p>
+                        <p className="text-muted-foreground">{t("admin.joined")}</p>
+                        <p className="mt-1 font-semibold text-foreground">{formatLocalizedDate(account.date_joined, { year: "numeric", month: "short", day: "numeric" })}</p>
                       </div>
                       <div>
-                        <p className="text-muted-foreground">Last login</p>
-                        <p className="mt-1 font-semibold text-foreground">{formatDate(account.last_login)}</p>
+                        <p className="text-muted-foreground">{t("admin.lastLogin")}</p>
+                        <p className="mt-1 font-semibold text-foreground">{account.last_login ? formatLocalizedDate(account.last_login, { year: "numeric", month: "short", day: "numeric" }) : t("adminForm.never")}</p>
                       </div>
                     </div>
                   </article>
@@ -638,10 +624,8 @@ const AdminUsersPage = () => {
               <p className="text-xs text-muted-foreground">Page {page} of {totalPages}</p>
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" onClick={() => setPage((current) => Math.max(current - 1, 1))} disabled={!usersQuery.data?.previous || usersQuery.isFetching}>
-                  <ChevronLeft className="h-4 w-4" /> Previous
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => setPage((current) => current + 1)} disabled={!usersQuery.data?.next || usersQuery.isFetching}>
-                  Next <ChevronRight className="h-4 w-4" />
+                  <ChevronLeft className="h-4 w-4" />{t("common.previous")}</Button>
+                <Button variant="outline" size="sm" onClick={() => setPage((current) => current + 1)} disabled={!usersQuery.data?.next || usersQuery.isFetching}>{t("common.next")}<ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
             </div>
@@ -683,20 +667,19 @@ const AdminUsersPage = () => {
               <div className="mb-2 flex h-11 w-11 items-center justify-center rounded-xl bg-destructive/10 text-destructive">
                 {confirmAction?.type === "delete" ? <Trash2 className="h-5 w-5" /> : <UserX className="h-5 w-5" />}
               </div>
-              <AlertDialogTitle>{confirmAction?.type === "delete" ? "Permanently delete this account?" : "Deactivate this account?"}</AlertDialogTitle>
+              <AlertDialogTitle>{t(confirmAction?.type === "delete" ? "adminForm.deleteAccountQuestion" : "adminForm.deactivateAccountQuestion")}</AlertDialogTitle>
               <AlertDialogDescription>
                 {confirmAction?.type === "delete" ? (
-                  <>
-                    Deleting <strong className="font-semibold text-foreground">{confirmAction.user.full_name || confirmAction.user.email}</strong> also
+                  <>{t("admin.deleting")}<strong className="font-semibold text-foreground">{confirmAction.user.full_name || confirmAction.user.email}</strong> also
                     permanently deletes their owned projects, investments, repayments, milestones, and notifications through database cascades. This action cannot be undone.
                   </>
                 ) : (
-                  <><strong className="font-semibold text-foreground">{confirmAction?.user.full_name || confirmAction?.user.email}</strong> will immediately lose sign-in access. You can reactivate the account later.</>
+                  <>{t("admin.accountDeactivation", { name: confirmAction?.user.full_name || confirmAction?.user.email })}</>
                 )}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel disabled={mutationPending}>Cancel</AlertDialogCancel>
+              <AlertDialogCancel disabled={mutationPending}>{t("common.cancel")}</AlertDialogCancel>
               <AlertDialogAction
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 disabled={mutationPending}
@@ -707,7 +690,7 @@ const AdminUsersPage = () => {
                   else accountStatusMutation.mutate({ user: confirmAction.user, isActive: false });
                 }}
               >
-                {mutationPending ? "Working..." : confirmAction?.type === "delete" ? "Delete permanently" : "Deactivate account"}
+                {mutationPending ? t("adminForm.working") : t(confirmAction?.type === "delete" ? "adminForm.deletePermanently" : "adminForm.deactivateAccount")}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

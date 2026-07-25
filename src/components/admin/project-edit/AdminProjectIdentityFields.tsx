@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -19,19 +20,21 @@ const AdminProjectIdentityFields = ({
   errors,
   owners,
   categories,
-}: AdminProjectIdentityProps) => (
+}: AdminProjectIdentityProps) => {
+  const { t } = useTranslation();
+  return (
   <div className="space-y-6">
     <div>
-      <h2 className="text-lg font-semibold text-foreground">Project identity</h2>
+      <h2 className="text-lg font-semibold text-foreground">{t("adminForm.projectIdentity")}</h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        Ownership, catalogue placement, location, and public copy.
+        {t("adminForm.identityHelp")}
       </p>
     </div>
     <div className="grid gap-5 sm:grid-cols-2">
       <div className="space-y-2">
-        <Label htmlFor="admin-project-owner">Project owner *</Label>
+        <Label htmlFor="admin-project-owner">{t("adminForm.projectOwner")}</Label>
         <Select value={form.entrepreneur} onValueChange={(value) => update("entrepreneur", value)}>
-          <SelectTrigger id="admin-project-owner"><SelectValue placeholder="Select owner" /></SelectTrigger>
+          <SelectTrigger id="admin-project-owner"><SelectValue placeholder={t("adminForm.selectOwner")} /></SelectTrigger>
           <SelectContent>
             {owners.map((owner) => (
               <SelectItem key={owner.id} value={owner.id}>
@@ -43,9 +46,9 @@ const AdminProjectIdentityFields = ({
         <FieldError message={errors.entrepreneur} />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="admin-project-category">Category *</Label>
+        <Label htmlFor="admin-project-category">{t("adminForm.categoryRequired")}</Label>
         <Select value={form.category} onValueChange={(value) => update("category", value)}>
-          <SelectTrigger id="admin-project-category"><SelectValue placeholder="Select category" /></SelectTrigger>
+          <SelectTrigger id="admin-project-category"><SelectValue placeholder={t("adminForm.selectCategory")} /></SelectTrigger>
           <SelectContent>
             {categories.map((category) => (
               <SelectItem key={category.id} value={category.id}>{category.name}</SelectItem>
@@ -55,7 +58,7 @@ const AdminProjectIdentityFields = ({
         <FieldError message={errors.category} />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="admin-project-title">Title *</Label>
+        <Label htmlFor="admin-project-title">{t("adminForm.titleRequired")}</Label>
         <Input
           id="admin-project-title"
           maxLength={100}
@@ -65,18 +68,18 @@ const AdminProjectIdentityFields = ({
         <FieldError message={errors.title} />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="admin-project-slug">URL slug</Label>
+        <Label htmlFor="admin-project-slug">{t("adminForm.urlSlug")}</Label>
         <Input
           id="admin-project-slug"
           maxLength={140}
           value={form.slug || ""}
           onChange={(event) => update("slug", event.target.value)}
-          placeholder="Generated from title when blank"
+          placeholder={t("adminForm.titleSlugGenerated")}
         />
         <FieldError message={errors.slug} />
       </div>
       <div className="space-y-2 sm:col-span-2">
-        <Label htmlFor="admin-project-short">Short description *</Label>
+        <Label htmlFor="admin-project-short">{t("adminForm.shortDescription")}</Label>
         <Textarea
           id="admin-project-short"
           rows={2}
@@ -86,11 +89,11 @@ const AdminProjectIdentityFields = ({
         />
         <div className="flex items-center justify-between">
           <FieldError message={errors.short_description} />
-          <p className="ml-auto text-xs text-muted-foreground">{form.short_description.length}/200</p>
+          <p className="ms-auto text-xs text-muted-foreground">{form.short_description.length}/200</p>
         </div>
       </div>
       <div className="space-y-2 sm:col-span-2">
-        <Label htmlFor="admin-project-description">Full description *</Label>
+        <Label htmlFor="admin-project-description">{t("adminForm.fullDescription")}</Label>
         <Textarea
           id="admin-project-description"
           rows={8}
@@ -100,7 +103,7 @@ const AdminProjectIdentityFields = ({
         <FieldError message={errors.description} />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="admin-project-location">Location *</Label>
+        <Label htmlFor="admin-project-location">{t("adminForm.locationRequired")}</Label>
         <Input
           id="admin-project-location"
           maxLength={120}
@@ -110,7 +113,7 @@ const AdminProjectIdentityFields = ({
         <FieldError message={errors.location} />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="admin-project-governorate">Governorate</Label>
+        <Label htmlFor="admin-project-governorate">{t("adminForm.governorate")}</Label>
         <Input
           id="admin-project-governorate"
           maxLength={120}
@@ -119,7 +122,7 @@ const AdminProjectIdentityFields = ({
         />
       </div>
       <div className="space-y-2 sm:col-span-2">
-        <Label htmlFor="admin-project-video">Video URL</Label>
+        <Label htmlFor="admin-project-video">{t("adminForm.videoUrl")}</Label>
         <Input
           id="admin-project-video"
           type="url"
@@ -131,6 +134,7 @@ const AdminProjectIdentityFields = ({
       </div>
     </div>
   </div>
-);
+  );
+};
 
 export default AdminProjectIdentityFields;

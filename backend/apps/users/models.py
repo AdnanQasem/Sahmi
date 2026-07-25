@@ -37,6 +37,8 @@ class User(AbstractUser):
     bio = models.TextField(blank=True)
     country = models.CharField(max_length=80, blank=True)
     city = models.CharField(max_length=80, blank=True)
+    website = models.URLField(blank=True)
+    timezone = models.CharField(max_length=64, default="Asia/Riyadh (UTC+3)")
     is_verified = models.BooleanField(default=False)
     is_kyc_verified = models.BooleanField(default=False)
     kyc_document = models.FileField(upload_to="kyc/", blank=True, null=True)

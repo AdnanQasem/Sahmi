@@ -59,12 +59,6 @@ const getFieldErrors = (error: unknown): Record<string, string> => {
   }
 
   const data = error.response?.data as any;
-  const code = data?.code ?? data?.error?.code;
-  if (typeof code === "string" && i18n.exists(`errors.codes.${code}`)) {
-    return i18n.t(`errors.codes.${code}`);
-  }
-  const statusKey: Record<number, string> = { 401: "unauthorized", 403: "forbidden", 404: "notFound" };
-  const translatedStatus = error.response?.status ? statusKey[error.response.status] : undefined;
   const source = data?.error && typeof data.error === "object" ? data.error : data;
   if (!source || typeof source !== "object") {
     return {};

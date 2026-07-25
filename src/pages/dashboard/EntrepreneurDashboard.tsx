@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { formatCurrency, formatDate, formatNumber } from "@/i18n/format";
 import { Link, useNavigate } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, type Variants } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import {
   Area,
@@ -145,7 +145,7 @@ const EntrepreneurDashboard = () => {
     },
   ];
 
-  const containerVariants = {
+  const containerVariants: Variants = {
     hidden: { opacity: 0 },
     visible: {
       opacity: 1,
@@ -153,7 +153,7 @@ const EntrepreneurDashboard = () => {
     }
   };
 
-  const itemVariants = {
+  const itemVariants: Variants = {
     hidden: { opacity: 0, y: 24, scale: 0.96 },
     visible: { 
       opacity: 1, 
@@ -199,9 +199,9 @@ const EntrepreneurDashboard = () => {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.3, duration: 0.5 }}
               >
-                Welcome back, <br className="sm:hidden" />
+                {t("dashboard.welcomeBackName", { name: "" })}<br className="sm:hidden" />
                 <span className="bg-gradient-to-r from-primary via-primary/80 to-secondary bg-clip-text text-transparent">
-                  {user?.full_name?.split(" ")[0] || "Founder"}
+                  <bdi dir="auto">{user?.full_name?.split(" ")[0] || t("dashboard.founder")}</bdi>
                 </span>
               </motion.h1>
               <motion.p 
@@ -210,7 +210,7 @@ const EntrepreneurDashboard = () => {
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.4, duration: 0.5 }}
               >
-                {isLoading ? "Loading your dashboard..." : `${totalInvestors} investor${totalInvestors === 1 ? "" : "s"} across ${projects.length} project${projects.length === 1 ? "" : "s"}`}
+                {isLoading ? t("dashboard.dashboardLoading") : t("dashboard.entrepreneurSummary", { investors: formatNumber(totalInvestors), projects: formatNumber(projects.length) })}
               </motion.p>
             </div>
             <motion.div 
@@ -243,9 +243,7 @@ const EntrepreneurDashboard = () => {
                   className="group relative overflow-hidden bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-secondary shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 transition-all duration-300"
                 >
                   <Link to={`/projects/${firstProject.slug}`}>
-                    <Eye className="mr-2 h-4 w-4" />
-                    View Latest
-                    <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform duration-300" />
+                    <Eye className="mr-2 h-4 w-4" />{t("dashboard.viewLatest")}<ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform duration-300" />
                   </Link>
                 </Button>
               )}
@@ -276,7 +274,7 @@ const EntrepreneurDashboard = () => {
           >
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary/50 via-secondary/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
             <SectionHeader 
-              title="Funding Raised Over Time" 
+              title={t("dashboard.fundingOverTime")} 
               subtitle="Monthly investment records" 
             />
             <ResponsiveContainer width="100%" height={240}>
@@ -311,7 +309,7 @@ const EntrepreneurDashboard = () => {
           >
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-secondary/50 via-primary/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
             <SectionHeader 
-              title="Investors per Month" 
+              title={t("dashboard.investorsPerMonth")} 
               subtitle="Unique investor activity" 
             />
             <ResponsiveContainer width="100%" height={240}>
@@ -343,7 +341,7 @@ const EntrepreneurDashboard = () => {
         >
           <div className="px-6 py-5 border-b border-border bg-gradient-to-r from-card via-muted/20 to-card">
             <SectionHeader 
-              title="Project" 
+              title={t("dashboard.project")} 
               subtitle="Manage and track your projects" 
               ctaLabel="Add New Project" 
               ctaIcon={PlusSquare} 
@@ -362,7 +360,7 @@ const EntrepreneurDashboard = () => {
               >
                 <EmptyState 
                   icon={FolderOpen} 
-                  title="No projects yet" 
+                  title={t("dashboard.noProjects")} 
                   description="Create your first project and start raising funds from the Sahmi community." 
                   ctaLabel="Add New Project" 
                   ctaHref="/start-project" 
@@ -400,16 +398,13 @@ const EntrepreneurDashboard = () => {
                         <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
                           <span className="flex items-center gap-1.5 hover:text-primary transition-colors duration-200">
                             <Users className="h-3.5 w-3.5" /> 
-                            <span className="font-medium">{project.investor_count}</span> investors
-                          </span>
+                            <span className="font-medium">{project.investor_count}</span>{t("dashboard.investorsCount")}</span>
                           <span className="flex items-center gap-1.5 hover:text-primary transition-colors duration-200">
                             <Clock className="h-3.5 w-3.5" /> 
-                            <span className="font-medium">{project.days_left ?? 0}</span> days
-                          </span>
+                            <span className="font-medium">{project.days_left ?? 0}</span>{t("dashboard.daysCount")}</span>
                           <span className="flex items-center gap-1.5 hover:text-primary transition-colors duration-200">
                             <Eye className="h-3.5 w-3.5" /> 
-                            <span className="font-medium">{formatNumber(project.view_count ?? 0)}</span> views
-                          </span>
+                            <span className="font-medium">{formatNumber(project.view_count ?? 0)}</span>{t("dashboard.viewsCount")}</span>
                         </div>
                         {project.status === "active" && (
                           <div className="mt-4">
@@ -436,8 +431,7 @@ const EntrepreneurDashboard = () => {
                           className="hover:bg-primary/10 hover:border-primary/30 hover:text-primary transition-all duration-200"
                         >
                           <Link to={`/projects/${project.slug}/edit`}>
-                            <Edit className="mr-1.5 h-3.5 w-3.5" /> Edit
-                          </Link>
+                            <Edit className="mr-1.5 h-3.5 w-3.5" />{t("common.edit")}</Link>
                         </Button>
                         <Button 
                           size="sm" 
@@ -446,8 +440,7 @@ const EntrepreneurDashboard = () => {
                           className="hover:bg-primary hover:text-primary-foreground transition-all duration-200"
                         >
                           <Link to={`/projects/${project.slug}`}>
-                            <Eye className="mr-1.5 h-3.5 w-3.5" /> View
-                          </Link>
+                            <Eye className="mr-1.5 h-3.5 w-3.5" />{t("common.view")}</Link>
                         </Button>
                       </div>
                     </motion.div>
@@ -461,10 +454,10 @@ const EntrepreneurDashboard = () => {
         <motion.div variants={itemVariants} className="grid gap-6 lg:grid-cols-3">
           <motion.div 
             className="lg:col-span-2 relative overflow-hidden rounded-2xl border border-border bg-card p-6 shadow-sm"
-            whileHover={{ shadow: "0 20px 40px rgba(0,0,0,0.1)" }}
+            whileHover={{ boxShadow: "0 20px 40px rgba(0,0,0,0.1)" }}
           >
             <SectionHeader 
-              title="Investor Activity" 
+              title={t("dashboard.investorActivity")} 
               subtitle="Recent contributions" 
             />
             <AnimatePresence mode="wait">
@@ -476,7 +469,7 @@ const EntrepreneurDashboard = () => {
                 >
                   <EmptyState 
                     icon={Users} 
-                    title="No activity yet" 
+                    title={t("dashboard.noActivityYet")} 
                     description="Investment records will appear here once your project receives funding." 
                   />
                 </motion.div>
@@ -538,7 +531,7 @@ const EntrepreneurDashboard = () => {
                   </div>
                   <h3 className="font-semibold text-foreground">{t("dashboard.messages")}</h3>
                 </div>
-                <Badge variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/20 border-0">2 New</Badge>
+                <Badge variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/20 border-0">{t("dashboard.newCount", { count: formatNumber(2) })}</Badge>
               </div>
               <div className="space-y-3">
                 {[

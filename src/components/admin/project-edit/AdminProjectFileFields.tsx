@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useRef } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -32,6 +33,7 @@ const FileControl = ({
   onFile,
   onClear,
 }: FileControlProps) => {
+  const { t } = useTranslation();
   const inputRef = useRef<HTMLInputElement>(null);
 
   return (
@@ -41,10 +43,10 @@ const FileControl = ({
           <Label htmlFor={id}>{label}</Label>
           <p className="mt-1 text-xs text-muted-foreground">
             {file
-              ? "Replacement selected: " + file.name
+              ? t("adminForm.replacementSelected", { name: file.name })
               : currentUrl
-                ? "A file is currently attached."
-                : "No file attached."}
+                ? t("adminForm.fileAttached")
+                : t("adminForm.noFileAttached")}
           </p>
         </div>
         {currentUrl && !clear ? (
@@ -54,7 +56,7 @@ const FileControl = ({
             rel="noreferrer"
             className="shrink-0 text-xs font-semibold text-primary hover:underline"
           >
-            Open current
+            {t("adminForm.openCurrent")}
           </a>
         ) : null}
       </div>
@@ -80,7 +82,7 @@ const FileControl = ({
             }}
           />
           <Label htmlFor={id + "-clear"} className="text-xs font-normal text-muted-foreground">
-            Remove the current file when saving
+            {t("adminForm.removeCurrent")}
           </Label>
         </div>
       ) : null}
@@ -89,6 +91,7 @@ const FileControl = ({
 };
 
 const AdminProjectFileFields = ({ form, update, project }: AdminProjectFilesProps) => {
+  const { t } = useTranslation();
   const setFile = (fileKey: FileField, clearKey: ClearField, file?: File) => {
     update(fileKey, file);
     if (file) update(clearKey, false);
@@ -104,7 +107,7 @@ const AdminProjectFileFields = ({ form, update, project }: AdminProjectFilesProp
   }> = [
     {
       id: "admin-project-cover",
-      label: "Cover image",
+      label: t("adminForm.coverImage"),
       fileKey: "cover_image",
       clearKey: "clear_cover_image",
       currentUrl: project?.cover_image,
@@ -112,21 +115,21 @@ const AdminProjectFileFields = ({ form, update, project }: AdminProjectFilesProp
     },
     {
       id: "admin-project-business-plan",
-      label: "Business plan",
+      label: t("adminForm.businessPlan"),
       fileKey: "business_plan",
       clearKey: "clear_business_plan",
       currentUrl: project?.business_plan,
     },
     {
       id: "admin-project-financial-projections",
-      label: "Financial projections",
+      label: t("adminForm.financialProjections"),
       fileKey: "financial_projections",
       clearKey: "clear_financial_projections",
       currentUrl: project?.financial_projections,
     },
     {
       id: "admin-project-ownership-proof",
-      label: "Ownership proof",
+      label: t("adminForm.ownershipProof"),
       fileKey: "ownership_proof",
       clearKey: "clear_ownership_proof",
       currentUrl: project?.ownership_proof,
@@ -136,9 +139,9 @@ const AdminProjectFileFields = ({ form, update, project }: AdminProjectFilesProp
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-semibold text-foreground">Primary project files</h2>
+        <h2 className="text-lg font-semibold text-foreground">{t("adminForm.primaryFiles")}</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Replace or clear the main media and compliance documents.
+          {t("adminForm.filesHelp")}
         </p>
       </div>
       <div className="grid gap-4 lg:grid-cols-2">

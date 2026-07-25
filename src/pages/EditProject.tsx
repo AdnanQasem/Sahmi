@@ -66,7 +66,7 @@ const EditProject = () => {
   const updateMutation = useMutation({
     mutationFn: () => projectsService.updateProject(id as string, form),
     onSuccess: (project) => {
-      toast.success("Project updated.");
+      toast.success(t("projects.successUpdate"));
       navigate(user?.is_staff ? adminReturnPath : `/projects/${project.slug}`);
     },
     onError: (error) => {

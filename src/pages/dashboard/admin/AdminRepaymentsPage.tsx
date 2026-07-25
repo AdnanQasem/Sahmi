@@ -1,3 +1,6 @@
+import { useTranslation } from "react-i18next";
+import i18n from "@/i18n";
+import { formatCurrency as formatLocaleCurrency, formatDate } from "@/i18n/format";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Edit3, HandCoins, Plus, Search, Trash2 } from "lucide-react";
@@ -34,32 +37,25 @@ import adminFinanceService, {
 
 const PAGE_SIZE = 12;
 
-const currency = (value: string | number) =>
-  new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 2,
-  }).format(Number(value) || 0);
+const currency = (value: string | number) => formatLocaleCurrency(Number(value) || 0);
 
-const date = (value: string) =>
-  new Intl.DateTimeFormat("en-US", { dateStyle: "medium" }).format(
-    new Date(value + (value.length === 10 ? "T00:00:00" : "")),
-  );
+const date = (value: string) => formatDate(value + (value.length === 10 ? "T00:00:00" : ""), { dateStyle: "medium" });
 
 const paymentLabel = (method: string) =>
-  ({ bank_transfer: "Bank transfer", card: "Card", paypal: "PayPal" })[method] || method;
+  i18n.t(`payment.${method}`, { defaultValue: method });
 
 const repaymentIdentity = (repayment: AdminRepayment) => {
   return {
     investor:
       repayment.investor_detail?.full_name ||
       repayment.investor_detail?.email ||
-      "Unknown investor",
-    project: repayment.project_detail?.title || "Unknown project",
+      i18n.t("admin.unknownInvestor"),
+    project: repayment.project_detail?.title || i18n.t("admin.unknownProject"),
   };
 };
 
 const AdminRepaymentsPage = () => {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
@@ -105,24 +101,24 @@ const AdminRepaymentsPage = () => {
         ? adminFinanceService.updateRepayment(repayment.id, payload)
         : adminFinanceService.createRepayment(payload),
     onSuccess: (_, variables) => {
-      toast.success(variables.repayment ? "Repayment updated." : "Repayment created.");
+      toast.success(t(variables.repayment ? "admin.updated" : "admin.created", { item: t("admin.repaymentItem") }));
       setDialogOpen(false);
       setEditing(null);
       refresh();
     },
-    onError: (error) => toast.error(getErrorMessage(error, "Could not save this repayment.")),
+    onError: (error) => toast.error(getErrorMessage(error, t("admin.saveFailed", { item: t("admin.repaymentItem") }))),
   });
 
   const deleteMutation = useMutation({
     mutationFn: (repayment: AdminRepayment) =>
       adminFinanceService.deleteRepayment(repayment.id),
     onSuccess: () => {
-      toast.success("Repayment deleted.");
+      toast.success(t("admin.deleted", { item: t("admin.repaymentItem") }));
       setDeleting(null);
       if (records.length === 1 && page > 1) setPage((current) => current - 1);
       refresh();
     },
-    onError: (error) => toast.error(getErrorMessage(error, "Could not delete this repayment.")),
+    onError: (error) => toast.error(getErrorMessage(error, t("admin.deleteFailed", { item: t("admin.repaymentItem") }))),
   });
 
   const openCreate = () => {
@@ -143,31 +139,29 @@ const AdminRepaymentsPage = () => {
       <div className="space-y-8">
         <AdminPageHeader
           icon={HandCoins}
-          title="Repayment schedule"
-          description="Schedule, mark paid, correct, or remove every investor repayment from the custom administration workspace."
+          title={t("admin.repaymentsTitle")}
+          description={t("admin.repaymentsText")}
           actions={
             <Button onClick={openCreate}>
-              <Plus className="h-4 w-4" />
-              New repayment
-            </Button>
+              <Plus className="h-4 w-4" />{t("admin.newRepayment")}</Button>
           }
         />
 
         <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
           <div className="flex flex-col gap-4 border-b border-border p-5 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <h2 className="font-semibold text-foreground">All repayments</h2>
+              <h2 className="font-semibold text-foreground">{t("admin.allRepayments")}</h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                {data ? data.count.toLocaleString() + " scheduled returns" : "Loading schedule..."}
+                {data ? t("admin.repaymentRecords", { count: data.count }) : t("admin.loadingRepayments")}
               </p>
             </div>
             <div className="grid gap-2 sm:grid-cols-3 lg:w-[42rem]">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
-                  aria-label="Search repayments"
+                  aria-label={t("admin.searchRepaymentsLabel")}
                   className="pl-9"
-                  placeholder="Investor or transaction"
+                  placeholder={t("admin.searchRepayments")}
                   value={search}
                   onChange={(event) => {
                     setSearch(event.target.value);
@@ -182,13 +176,13 @@ const AdminRepaymentsPage = () => {
                   setPage(1);
                 }}
               >
-                <SelectTrigger aria-label="Filter repayments by status"><SelectValue placeholder="Status" /></SelectTrigger>
+                <SelectTrigger aria-label={t("admin.filterRepaymentStatus")}><SelectValue placeholder={t("admin.status")} /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All statuses</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="paid">Paid</SelectItem>
-                  <SelectItem value="overdue">Overdue</SelectItem>
-                  <SelectItem value="canceled">Canceled</SelectItem>
+                  <SelectItem value="all">{t("admin.allStatuses")}</SelectItem>
+                  <SelectItem value="pending">{t("status.pending")}</SelectItem>
+                  <SelectItem value="paid">{t("status.paid")}</SelectItem>
+                  <SelectItem value="overdue">{t("status.overdue")}</SelectItem>
+                  <SelectItem value="canceled">{t("status.canceled")}</SelectItem>
                 </SelectContent>
               </Select>
               <Select
@@ -198,12 +192,12 @@ const AdminRepaymentsPage = () => {
                   setPage(1);
                 }}
               >
-                <SelectTrigger aria-label="Filter repayments by payment method"><SelectValue placeholder="Payment" /></SelectTrigger>
+                <SelectTrigger aria-label={t("admin.filterRepaymentMethod")}><SelectValue placeholder={t("admin.payment")} /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All payment methods</SelectItem>
-                  <SelectItem value="bank_transfer">Bank transfer</SelectItem>
-                  <SelectItem value="card">Card</SelectItem>
-                  <SelectItem value="paypal">PayPal</SelectItem>
+                  <SelectItem value="all">{t("admin.allPaymentMethods")}</SelectItem>
+                  <SelectItem value="bank_transfer">{t("payment.bank_transfer")}</SelectItem>
+                  <SelectItem value="card">{t("payment.card")}</SelectItem>
+                  <SelectItem value="paypal">{t("payment.paypal")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -217,16 +211,14 @@ const AdminRepaymentsPage = () => {
             </div>
           ) : repaymentsQuery.isError ? (
             <div className="p-10 text-center">
-              <p className="font-medium text-destructive">Repayments could not be loaded.</p>
-              <Button className="mt-4" variant="outline" onClick={() => void repaymentsQuery.refetch()}>
-                Try again
-              </Button>
+              <p className="font-medium text-destructive">{t("admin.repaymentsLoadError")}</p>
+              <Button className="mt-4" variant="outline" onClick={() => void repaymentsQuery.refetch()}>{t("admin.tryAgain")}</Button>
             </div>
           ) : records.length === 0 ? (
             <div className="p-12 text-center">
               <HandCoins className="mx-auto h-10 w-10 text-muted-foreground/50" />
-              <h3 className="mt-4 font-semibold text-foreground">No repayments found</h3>
-              <p className="mt-1 text-sm text-muted-foreground">Adjust the filters or schedule a return.</p>
+              <h3 className="mt-4 font-semibold text-foreground">{t("admin.noRepayments")}</h3>
+              <p className="mt-1 text-sm text-muted-foreground">{t("admin.adjustOrRepayment")}</p>
             </div>
           ) : (
             <>
@@ -234,12 +226,12 @@ const AdminRepaymentsPage = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Investor / project</TableHead>
-                      <TableHead>Amount</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Scheduled</TableHead>
-                      <TableHead>Payment</TableHead>
-                      <TableHead className="w-24 text-right">Actions</TableHead>
+                      <TableHead>{t("admin.investorProject")}</TableHead>
+                      <TableHead>{t("common.amount")}</TableHead>
+                      <TableHead>{t("common.status")}</TableHead>
+                      <TableHead>{t("admin.scheduled")}</TableHead>
+                      <TableHead>{t("admin.payment")}</TableHead>
+                      <TableHead className="w-24 text-right">{t("admin.actions")}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -272,7 +264,7 @@ const AdminRepaymentsPage = () => {
                             <div className="flex justify-end gap-1">
                               <Button variant="ghost" size="icon" onClick={() => openEdit(repayment)}>
                                 <Edit3 className="h-4 w-4" />
-                                <span className="sr-only">Edit repayment</span>
+                                <span className="sr-only">{t("admin.editRepayment")}</span>
                               </Button>
                               <Button
                                 variant="ghost"
@@ -281,7 +273,7 @@ const AdminRepaymentsPage = () => {
                                 onClick={() => setDeleting(repayment)}
                               >
                                 <Trash2 className="h-4 w-4" />
-                                <span className="sr-only">Delete repayment</span>
+                                <span className="sr-only">{t("admin.deleteRepayment")}</span>
                               </Button>
                             </div>
                           </TableCell>
@@ -306,11 +298,11 @@ const AdminRepaymentsPage = () => {
                       </div>
                       <div className="grid grid-cols-2 gap-3 rounded-xl bg-muted/40 p-3 text-sm">
                         <div>
-                          <p className="text-xs text-muted-foreground">Amount</p>
+                          <p className="text-xs text-muted-foreground">{t("common.amount")}</p>
                           <p className="mt-1 font-semibold text-foreground">{currency(repayment.amount)}</p>
                         </div>
                         <div>
-                          <p className="text-xs text-muted-foreground">Scheduled</p>
+                          <p className="text-xs text-muted-foreground">{t("admin.scheduled")}</p>
                           <p className="mt-1 font-medium text-foreground">{date(repayment.scheduled_date)}</p>
                         </div>
                       </div>
@@ -318,8 +310,7 @@ const AdminRepaymentsPage = () => {
                         <p className="text-xs text-muted-foreground">{paymentLabel(repayment.payment_method)}</p>
                         <div className="flex gap-1">
                           <Button variant="outline" size="sm" onClick={() => openEdit(repayment)}>
-                            <Edit3 className="h-4 w-4" /> Edit
-                          </Button>
+                            <Edit3 className="h-4 w-4" />{t("common.edit")}</Button>
                           <Button
                             variant="outline"
                             size="icon"
@@ -327,7 +318,7 @@ const AdminRepaymentsPage = () => {
                             onClick={() => setDeleting(repayment)}
                           >
                             <Trash2 className="h-4 w-4" />
-                            <span className="sr-only">Delete repayment</span>
+                            <span className="sr-only">{t("admin.deleteRepayment")}</span>
                           </Button>
                         </div>
                       </div>
@@ -360,8 +351,8 @@ const AdminRepaymentsPage = () => {
 
       <AdminDeleteDialog
         open={!!deleting}
-        title="Delete this repayment?"
-        description="This permanently removes the scheduled or completed payment record. This cannot be undone."
+        title={t("admin.deleteRepaymentQuestion")}
+        description={t("admin.deleteRepaymentText")}
         pending={deleteMutation.isPending}
         onOpenChange={(open) => !open && setDeleting(null)}
         onConfirm={() => deleting && deleteMutation.mutate(deleting)}
