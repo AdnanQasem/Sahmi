@@ -11,6 +11,8 @@ import {
 } from "@/components/ui/select";
 import type { AdminProject, AdminProjectPayload } from "@/services/adminProjectsService";
 import type { AdminProjectSectionProps } from "./AdminProjectFormTypes";
+import ProjectCostTableEditor from "@/components/projects/ProjectCostTableEditor";
+import ProjectTimelineEditor from "@/components/projects/ProjectTimelineEditor";
 
 const decimalFields: Array<{
   key: keyof AdminProjectPayload;
@@ -50,6 +52,17 @@ const AdminProjectFinanceFields = ({ form, update, errors }: AdminProjectSection
         matching transaction records.
       </p>
     </div>
+    <ProjectCostTableEditor
+      items={form.cost_items}
+      goalAmount={form.goal_amount}
+      onChange={(items) => update("cost_items", items)}
+      error={errors.cost_items}
+    />
+    <ProjectTimelineEditor
+      milestones={form.milestones}
+      onChange={(milestones) => update("milestones", milestones)}
+      error={errors.milestones}
+    />
     <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
       {decimalFields.map((field) => (
         <div className="space-y-2" key={field.key}>

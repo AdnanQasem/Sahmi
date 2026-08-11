@@ -1,9 +1,12 @@
+import json
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
+
+from apps.investments.models import Milestone
 
 from .models import Project, ProjectCategory
 
@@ -43,6 +46,330 @@ class ProjectAPITestCase(APITestCase):
             minimum_investment=Decimal("100.00"),
             expected_roi=Decimal("12.00"),
         )
+
+
+class ProjectCostTableTests(ProjectAPITestCase):
+    def project_payload(self, **overrides):
+        payload = {
+            "title": "Solar Workshop",
+            "description": "A solar equipment workshop.",
+            "short_description": "Solar workshop",
+            "category": str(self.category.pk),
+            "location": "Ramallah",
+            "goal_amount": "10000.00",
+            "minimum_investment": "100.00",
+            "expected_roi": "10.00",
+            "funding_period_days": 30,
+            "cost_items": [
+                {
+                    "name": "Equipment",
+                    "description": "Workshop equipment",
+                    "quantity": "2",
+                    "unit_cost": "4000",
+                },
+                {
+                    "name": "Initial materials",
+                    "description": "Opening inventory",
+                    "quantity": "1",
+                    "unit_cost": "2000",
+                },
+            ],
+            "milestones": [
+                {
+                    "title": "Workshop launch",
+                    "description": "Install equipment and open the workshop.",
+                    "target_date": "2027-02-01",
+                    "deliverables": "Operational workshop",
+                    "percentage_of_project": "100.00",
+                    "order": 99,
+                }
+            ],
+        }
+        payload.update(overrides)
+        return payload
+
+    def test_entrepreneur_can_create_project_with_normalized_cost_table(self):
+        self.client.force_authenticate(self.entrepreneur)
+
+        response = self.client.post(
+            reverse("project-list"),
+            self.project_payload(),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        self.assertEqual(response.data["cost_items"][0]["name"], "1")
+        self.assertEqual(response.data["cost_items"][0]["quantity"], "2")
+        self.assertEqual(response.data["cost_items"][0]["unit_cost"], "4000.00")
+        created = Project.objects.get(slug="solar-workshop")
+        self.assertEqual(created.cost_items, response.data["cost_items"])
+        self.assertEqual(created.milestone_count, 1)
+        milestone = created.milestones.get()
+        self.assertEqual(milestone.order, 1)
+        self.assertEqual(milestone.status, Milestone.Status.PENDING)
+        self.assertEqual(milestone.funding_released, Decimal("0.00"))
+
+    def test_multipart_creation_accepts_json_encoded_cost_table(self):
+        self.client.force_authenticate(self.entrepreneur)
+        payload = self.project_payload(title="Multipart Costs")
+        payload["cost_items"] = json.dumps(payload["cost_items"])
+        payload["milestones"] = json.dumps(payload["milestones"])
+
+        response = self.client.post(reverse("project-list"), payload, format="multipart")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        self.assertEqual(response.data["cost_items"][1]["name"], "2")
+        self.assertEqual(response.data["cost_items"][1]["description"], "Opening inventory")
+        self.assertEqual(response.data["milestones"][0]["title"], "Workshop launch")
+
+    def test_anonymous_and_non_entrepreneur_users_cannot_create_costed_projects(self):
+        anonymous_response = self.client.post(
+            reverse("project-list"),
+            self.project_payload(),
+            format="json",
+        )
+        investor = User.objects.create_user(
+            email="investor-project@example.com",
+            username="investor-project",
+            password="password",
+            user_type=User.UserType.INVESTOR,
+        )
+        self.client.force_authenticate(investor)
+        investor_response = self.client.post(
+            reverse("project-list"),
+            self.project_payload(title="Investor Project"),
+            format="json",
+        )
+
+        self.assertEqual(anonymous_response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(investor_response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_cross_user_cannot_replace_project_cost_table(self):
+        self.project.cost_items = self.project_payload()["cost_items"]
+        self.project.save(update_fields=["cost_items", "updated_at"])
+        other_owner = User.objects.create_user(
+            email="other-owner@example.com",
+            username="other-owner",
+            password="password",
+            user_type=User.UserType.ENTREPRENEUR,
+        )
+        self.client.force_authenticate(other_owner)
+
+        response = self.client.patch(
+            reverse("project-detail", args=[self.project.slug]),
+            {"cost_items": [{"name": "Tampered", "description": "", "quantity": "1", "unit_cost": "10000"}]},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.project.refresh_from_db()
+        self.assertEqual(self.project.cost_items[0]["name"], "Equipment")
+
+    def test_rejects_missing_zero_mismatched_and_oversized_cost_tables(self):
+        self.client.force_authenticate(self.entrepreneur)
+        invalid_tables = {
+            "missing": None,
+            "zero quantity": [
+                {"name": "ignored", "description": "Equipment", "quantity": "0", "unit_cost": "10000"}
+            ],
+            "fractional quantity": [
+                {"name": "ignored", "description": "Equipment", "quantity": "1.5", "unit_cost": "10000"}
+            ],
+            "missing description": [
+                {"name": "ignored", "description": "", "quantity": "1", "unit_cost": "10000"}
+            ],
+            "unbounded numeric input": [
+                {"name": "ignored", "description": "Equipment", "quantity": "1e999999", "unit_cost": "10000"}
+            ],
+            "mismatched total": [
+                {"name": "ignored", "description": "Equipment", "quantity": "1", "unit_cost": "9999"}
+            ],
+            "more than fifty rows": [
+                {"name": f"Item {index}", "description": "", "quantity": "1", "unit_cost": "200"}
+                for index in range(51)
+            ],
+        }
+
+        for label, cost_items in invalid_tables.items():
+            with self.subTest(label=label):
+                payload = self.project_payload(title=f"Invalid {label}")
+                if cost_items is None:
+                    payload.pop("cost_items")
+                else:
+                    payload["cost_items"] = cost_items
+                response = self.client.post(reverse("project-list"), payload, format="json")
+                self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+                self.assertIn("cost_items", response.data)
+
+    def test_owner_can_replace_cost_table_when_total_matches_goal(self):
+        self.project.cost_items = [
+            {"name": "Original", "description": "", "quantity": "1.00", "unit_cost": "10000.00"}
+        ]
+        self.project.save(update_fields=["cost_items", "updated_at"])
+        self.client.force_authenticate(self.entrepreneur)
+
+        response = self.client.patch(
+            reverse("project-detail", args=[self.project.slug]),
+            {
+                "cost_items": [
+                    {"name": "Equipment", "description": "Machinery", "quantity": "2", "unit_cost": "3000"},
+                    {"name": "Materials", "description": "Inventory", "quantity": "1", "unit_cost": "4000"},
+                ]
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.project.refresh_from_db()
+        self.assertEqual([item["name"] for item in self.project.cost_items], ["1", "2"])
+
+    def test_public_detail_exposes_cost_table_but_legacy_project_remains_editable(self):
+        self.client.force_authenticate(self.entrepreneur)
+        update_response = self.client.patch(
+            reverse("project-detail", args=[self.project.slug]),
+            {"short_description": "Updated legacy description"},
+            format="json",
+        )
+        self.assertEqual(update_response.status_code, status.HTTP_200_OK, update_response.data)
+
+        self.project.cost_items = [
+            {"name": "Equipment", "description": "", "quantity": "1.00", "unit_cost": "10000.00"}
+        ]
+        self.project.status = Project.Status.ACTIVE
+        self.project.is_verified = True
+        self.project.save(update_fields=["cost_items", "status", "is_verified", "updated_at"])
+        self.client.force_authenticate(user=None)
+
+        public_response = self.client.get(reverse("project-detail", args=[self.project.slug]))
+
+        self.assertEqual(public_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(public_response.data["cost_items"][0]["name"], "Equipment")
+
+    def test_rejects_invalid_timeline_without_creating_a_partial_project(self):
+        self.client.force_authenticate(self.entrepreneur)
+        invalid_timelines = {
+            "missing": None,
+            "percentage mismatch": [
+                {
+                    "title": "Launch",
+                    "description": "Launch the workshop",
+                    "target_date": "2027-02-01",
+                    "deliverables": "Workshop",
+                    "percentage_of_project": "90",
+                }
+            ],
+            "past target": [
+                {
+                    "title": "Launch",
+                    "description": "Launch the workshop",
+                    "target_date": "2020-01-01",
+                    "deliverables": "Workshop",
+                    "percentage_of_project": "100",
+                }
+            ],
+            "unordered dates": [
+                {
+                    "title": "Later",
+                    "description": "Later stage",
+                    "target_date": "2027-05-01",
+                    "deliverables": "Later output",
+                    "percentage_of_project": "50",
+                },
+                {
+                    "title": "Earlier",
+                    "description": "Earlier stage",
+                    "target_date": "2027-03-01",
+                    "deliverables": "Earlier output",
+                    "percentage_of_project": "50",
+                },
+            ],
+        }
+
+        for label, milestones in invalid_timelines.items():
+            with self.subTest(label=label):
+                title = f"Invalid timeline {label}"
+                payload = self.project_payload(title=title)
+                if milestones is None:
+                    payload.pop("milestones")
+                else:
+                    payload["milestones"] = milestones
+                response = self.client.post(reverse("project-list"), payload, format="json")
+                self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+                self.assertIn("milestones", response.data)
+                self.assertFalse(Project.objects.filter(title=title).exists())
+
+    def test_owner_timeline_edit_preserves_server_controlled_progress(self):
+        milestone = Milestone.objects.create(
+            project=self.project,
+            title="Original stage",
+            description="Original description",
+            target_date="2027-02-01",
+            percentage_of_project=Decimal("100.00"),
+            status=Milestone.Status.IN_PROGRESS,
+            funding_released=Decimal("500.00"),
+            order=1,
+        )
+        self.client.force_authenticate(self.entrepreneur)
+
+        response = self.client.patch(
+            reverse("project-detail", args=[self.project.slug]),
+            {
+                "milestones": [
+                    {
+                        "id": str(milestone.id),
+                        "title": "Updated stage",
+                        "description": "Updated plan",
+                        "target_date": "2027-03-01",
+                        "deliverables": "Updated deliverable",
+                        "percentage_of_project": "100",
+                        "status": Milestone.Status.COMPLETED,
+                        "funding_released": "9999",
+                    }
+                ]
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        milestone.refresh_from_db()
+        self.assertEqual(milestone.title, "Updated stage")
+        self.assertEqual(milestone.status, Milestone.Status.IN_PROGRESS)
+        self.assertEqual(milestone.funding_released, Decimal("500.00"))
+
+    def test_project_edit_cannot_remove_a_started_milestone_and_rolls_back(self):
+        Milestone.objects.create(
+            project=self.project,
+            title="Started stage",
+            description="Work started",
+            target_date="2027-02-01",
+            percentage_of_project=Decimal("100.00"),
+            status=Milestone.Status.IN_PROGRESS,
+            order=1,
+        )
+        original_title = self.project.title
+        self.client.force_authenticate(self.entrepreneur)
+
+        response = self.client.patch(
+            reverse("project-detail", args=[self.project.slug]),
+            {
+                "title": "Should roll back",
+                "milestones": [
+                    {
+                        "title": "Replacement",
+                        "description": "Replacement stage",
+                        "target_date": "2027-04-01",
+                        "deliverables": "Replacement output",
+                        "percentage_of_project": "100",
+                    }
+                ],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.project.refresh_from_db()
+        self.assertEqual(self.project.title, original_title)
+        self.assertEqual(self.project.milestones.count(), 1)
 
 
 class ProjectCategoryPermissionTests(ProjectAPITestCase):

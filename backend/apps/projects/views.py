@@ -32,7 +32,9 @@ class ProjectCategoryViewSet(viewsets.ModelViewSet):
 
 
 class ProjectViewSet(viewsets.ModelViewSet):
-    queryset = Project.objects.select_related("entrepreneur", "category").prefetch_related("images", "supporting_documents")
+    queryset = Project.objects.select_related("entrepreneur", "category").prefetch_related(
+        "images", "supporting_documents", "milestones"
+    )
     serializer_class = ProjectSerializer
     permission_classes = [ProjectPermission]
     filterset_class = ProjectFilter

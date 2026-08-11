@@ -1,5 +1,7 @@
 from datetime import timedelta
+from decimal import Decimal, DecimalException
 
+from django.db import transaction
 from django.utils import timezone
 from rest_framework import serializers
 
@@ -99,6 +101,30 @@ class ProjectCategoryRelatedField(serializers.PrimaryKeyRelatedField):
             raise exc
 
 
+class ProjectMilestonesField(serializers.JSONField):
+    def to_representation(self, value):
+        milestones = value.all().order_by("order", "target_date", "created_at")
+        return [
+            {
+                "id": str(milestone.id),
+                "title": milestone.title,
+                "description": milestone.description,
+                "target_date": milestone.target_date.isoformat(),
+                "actual_completion_date": (
+                    milestone.actual_completion_date.isoformat()
+                    if milestone.actual_completion_date
+                    else None
+                ),
+                "status": milestone.status,
+                "deliverables": milestone.deliverables,
+                "percentage_of_project": f"{milestone.percentage_of_project:.2f}",
+                "funding_released": f"{milestone.funding_released:.2f}",
+                "order": milestone.order,
+            }
+            for milestone in milestones
+        ]
+
+
 class ProjectSerializer(serializers.ModelSerializer):
     """
     Full serializer used by the owner (``entrepreneur``) and staff for create /
@@ -110,6 +136,8 @@ class ProjectSerializer(serializers.ModelSerializer):
     category_detail = ProjectCategorySerializer(source="category", read_only=True)
     images = ProjectImageSerializer(many=True, read_only=True)
     supporting_documents = ProjectDocumentSerializer(many=True, read_only=True)
+    cost_items = serializers.JSONField(required=False)
+    milestones = ProjectMilestonesField(required=False)
     days_left = serializers.SerializerMethodField()
     funding_percent = serializers.SerializerMethodField()
 
@@ -118,14 +146,14 @@ class ProjectSerializer(serializers.ModelSerializer):
         fields = [
             "id", "entrepreneur", "title", "slug", "description", "short_description",
             "category", "category_detail", "location", "location_governorate",
-            "goal_amount", "funded_amount", "minimum_investment", "expected_roi",
+            "goal_amount", "funded_amount", "minimum_investment", "expected_roi", "cost_items",
             "funding_period_days", "start_date", "end_date", "status", "is_verified",
             "verified_at", "verification_notes", "business_plan", "financial_projections",
             "ownership_proof", "cover_image", "images", "video_url",
             "ai_classified_category", "ai_confidence_score", "ai_classification_at",
             "ai_generated_summary", "milestone_count", "repayment_status",
             "total_repaid", "next_repayment_date", "view_count", "investor_count",
-            "rating", "reviews_count", "supporting_documents", "days_left",
+            "rating", "reviews_count", "supporting_documents", "milestones", "days_left",
             "funding_percent", "created_at", "updated_at",
         ]
         read_only_fields = [
@@ -146,6 +174,170 @@ class ProjectSerializer(serializers.ModelSerializer):
             return 0
         return round((obj.funded_amount / obj.goal_amount) * 100, 2)
 
+    def validate_cost_items(self, value):
+        if not isinstance(value, list):
+            raise serializers.ValidationError("Cost items must be a list.")
+        if not value:
+            raise serializers.ValidationError("Add at least one project cost item.")
+        if len(value) > 50:
+            raise serializers.ValidationError("A project cost table may contain at most 50 items.")
+
+        normalized = []
+        item_errors = {}
+        for index, item in enumerate(value):
+            errors = {}
+            if not isinstance(item, dict):
+                item_errors[index] = {"non_field_errors": ["Each cost item must be an object."]}
+                continue
+
+            raw_description = item.get("description", "")
+            description = raw_description.strip() if isinstance(raw_description, str) else ""
+            if not description:
+                errors["description"] = ["Cost description is required."]
+            elif len(description) > 500:
+                errors["description"] = ["Description may contain at most 500 characters."]
+
+            decimals = {}
+            for field_name, max_digits in (("quantity", 10), ("unit_cost", 12)):
+                raw_value = item.get(field_name)
+                try:
+                    decimal_value = Decimal(str(raw_value))
+                except (DecimalException, TypeError, ValueError):
+                    errors[field_name] = ["Enter a valid number."]
+                    continue
+                if not decimal_value.is_finite():
+                    errors[field_name] = ["Enter a valid number."]
+                    continue
+                if decimal_value <= 0:
+                    errors[field_name] = ["Value must be greater than zero."]
+                    continue
+                if field_name == "quantity" and decimal_value != decimal_value.to_integral_value():
+                    errors[field_name] = ["Quantity must be a whole number."]
+                    continue
+                try:
+                    normalized_value = decimal_value.quantize(Decimal("0.01"))
+                except DecimalException:
+                    errors[field_name] = ["Enter a valid number."]
+                    continue
+                whole_digits = len(str(abs(normalized_value)).split(".")[0])
+                if whole_digits > max_digits - 2:
+                    errors[field_name] = [
+                        f"Ensure there are no more than {max_digits - 2} digits before the decimal point."
+                    ]
+                    continue
+                decimals[field_name] = normalized_value
+
+            if errors:
+                item_errors[index] = errors
+                continue
+
+            normalized.append(
+                {
+                    "name": str(index + 1),
+                    "description": description,
+                    "quantity": str(int(decimals["quantity"])),
+                    "unit_cost": f'{decimals["unit_cost"]:.2f}',
+                }
+            )
+
+        if item_errors:
+            raise serializers.ValidationError(item_errors)
+        return normalized
+
+    def validate_milestones(self, value):
+        if not isinstance(value, list):
+            raise serializers.ValidationError("Milestones must be a list.")
+        if not value:
+            raise serializers.ValidationError("Add at least one project milestone.")
+        if len(value) > 20:
+            raise serializers.ValidationError("A project timeline may contain at most 20 milestones.")
+
+        date_field = serializers.DateField()
+        percentage_field = serializers.DecimalField(
+            max_digits=5,
+            decimal_places=2,
+            min_value=Decimal("0.01"),
+            max_value=Decimal("100.00"),
+        )
+        id_field = serializers.UUIDField()
+        normalized = []
+        item_errors = {}
+        previous_target_date = None
+
+        for index, item in enumerate(value):
+            errors = {}
+            if not isinstance(item, dict):
+                item_errors[index] = {"non_field_errors": ["Each milestone must be an object."]}
+                continue
+
+            title = item.get("title", "")
+            description = item.get("description", "")
+            deliverables = item.get("deliverables", "")
+            title = title.strip() if isinstance(title, str) else ""
+            description = description.strip() if isinstance(description, str) else ""
+            deliverables = deliverables.strip() if isinstance(deliverables, str) else ""
+            if not title:
+                errors["title"] = ["Milestone title is required."]
+            elif len(title) > 120:
+                errors["title"] = ["Milestone title may contain at most 120 characters."]
+            if not description:
+                errors["description"] = ["Milestone description is required."]
+            elif len(description) > 2000:
+                errors["description"] = ["Milestone description may contain at most 2000 characters."]
+            if len(deliverables) > 2000:
+                errors["deliverables"] = ["Deliverables may contain at most 2000 characters."]
+
+            milestone_id = None
+            if item.get("id"):
+                try:
+                    milestone_id = id_field.run_validation(item["id"])
+                except serializers.ValidationError as exc:
+                    errors["id"] = exc.detail
+            try:
+                target_date = date_field.run_validation(item.get("target_date"))
+            except serializers.ValidationError as exc:
+                errors["target_date"] = exc.detail
+                target_date = None
+            try:
+                percentage = percentage_field.run_validation(item.get("percentage_of_project"))
+            except serializers.ValidationError as exc:
+                errors["percentage_of_project"] = exc.detail
+                percentage = None
+
+            if target_date:
+                if self.instance is None and target_date < timezone.localdate():
+                    errors["target_date"] = ["Target date cannot be in the past."]
+                if previous_target_date and target_date < previous_target_date:
+                    errors["target_date"] = ["Milestones must be ordered by target date."]
+                previous_target_date = target_date
+
+            if errors:
+                item_errors[index] = errors
+                continue
+            normalized.append(
+                {
+                    "id": milestone_id,
+                    "title": title,
+                    "description": description,
+                    "target_date": target_date,
+                    "deliverables": deliverables,
+                    "percentage_of_project": percentage,
+                    "order": index + 1,
+                }
+            )
+
+        if item_errors:
+            raise serializers.ValidationError(item_errors)
+        percentage_total = sum(
+            (item["percentage_of_project"] for item in normalized),
+            Decimal("0.00"),
+        ).quantize(Decimal("0.01"))
+        if percentage_total != Decimal("100.00"):
+            raise serializers.ValidationError(
+                f"Milestone percentages must total 100.00; current total is {percentage_total:.2f}."
+            )
+        return normalized
+
     def validate(self, attrs):
         attrs = super().validate(attrs)
         if attrs.get("goal_amount") is not None and attrs["goal_amount"] <= 0:
@@ -154,19 +346,102 @@ class ProjectSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({"minimum_investment": "Minimum investment must be greater than zero."})
         if attrs.get("funding_period_days") is not None and attrs["funding_period_days"] <= 0:
             raise serializers.ValidationError({"funding_period_days": "Campaign duration must be greater than zero."})
+
+        supplied_cost_items = attrs.get("cost_items")
+        if self.instance is None and not supplied_cost_items:
+            raise serializers.ValidationError({"cost_items": "Add at least one project cost item."})
+        if self.instance is None and not attrs.get("milestones"):
+            raise serializers.ValidationError({"milestones": "Add at least one project milestone."})
+
+        goal_amount = attrs.get("goal_amount", getattr(self.instance, "goal_amount", None))
+        effective_cost_items = supplied_cost_items
+        if effective_cost_items is None and self.instance is not None:
+            effective_cost_items = self.instance.cost_items
+        if goal_amount is not None and effective_cost_items:
+            cost_total = sum(
+                Decimal(item["quantity"]) * Decimal(item["unit_cost"])
+                for item in effective_cost_items
+            ).quantize(Decimal("0.01"))
+            if cost_total != goal_amount.quantize(Decimal("0.01")):
+                raise serializers.ValidationError(
+                    {
+                        "cost_items": (
+                            f"Cost table total ({cost_total:.2f}) must equal "
+                            f"the funding goal ({goal_amount:.2f})."
+                        )
+                    }
+                )
+        elif "goal_amount" in attrs and self.instance is not None:
+            raise serializers.ValidationError(
+                {"cost_items": "Add a project cost table before changing the funding goal."}
+            )
         return attrs
 
+    @transaction.atomic
     def create(self, validated_data):
+        milestones = validated_data.pop("milestones")
         if not validated_data.get("end_date"):
             start_date = validated_data.get("start_date") or timezone.now()
             validated_data["end_date"] = start_date + timedelta(days=validated_data.get("funding_period_days", 30))
-        return super().create(validated_data)
+        project = super().create(validated_data)
+        self._sync_milestones(project, milestones)
+        return project
 
+    @transaction.atomic
     def update(self, instance, validated_data):
+        milestones = validated_data.pop("milestones", serializers.empty)
         if "funding_period_days" in validated_data and "end_date" not in validated_data:
             start_date = validated_data.get("start_date") or instance.start_date or timezone.now()
             validated_data["end_date"] = start_date + timedelta(days=validated_data["funding_period_days"])
-        return super().update(instance, validated_data)
+        project = super().update(instance, validated_data)
+        if milestones is not serializers.empty:
+            self._sync_milestones(project, milestones)
+        return project
+
+    @staticmethod
+    def _sync_milestones(project, milestone_data):
+        from apps.investments.models import Milestone
+
+        existing = {milestone.id: milestone for milestone in project.milestones.all()}
+        seen_ids = set()
+        new_milestones = []
+        for item in milestone_data:
+            item = dict(item)
+            milestone_id = item.pop("id", None)
+            if milestone_id:
+                if milestone_id in seen_ids or milestone_id not in existing:
+                    raise serializers.ValidationError(
+                        {"milestones": "A milestone id was duplicated or does not belong to this project."}
+                    )
+                seen_ids.add(milestone_id)
+                milestone = existing.pop(milestone_id)
+                for field_name, value in item.items():
+                    setattr(milestone, field_name, value)
+                milestone.save(
+                    update_fields=[
+                        "title", "description", "target_date", "deliverables",
+                        "percentage_of_project", "order", "updated_at",
+                    ]
+                )
+            else:
+                new_milestones.append(Milestone(project=project, **item))
+
+        protected = [
+            milestone
+            for milestone in existing.values()
+            if milestone.status != Milestone.Status.PENDING or milestone.funding_released != 0
+        ]
+        if protected:
+            raise serializers.ValidationError(
+                {"milestones": "Started, completed, delayed, or funded milestones cannot be removed from the project editor."}
+            )
+        if existing:
+            Milestone.objects.filter(pk__in=existing).delete()
+        if new_milestones:
+            Milestone.objects.bulk_create(new_milestones)
+        getattr(project, "_prefetched_objects_cache", {}).pop("milestones", None)
+        project.milestone_count = project.milestones.count()
+        project.save(update_fields=["milestone_count", "updated_at"])
 
 
 class PublicProjectSerializer(serializers.ModelSerializer):
@@ -182,6 +457,7 @@ class PublicProjectSerializer(serializers.ModelSerializer):
     entrepreneur = ProjectOwnerSummarySerializer(read_only=True)
     category_detail = ProjectCategorySerializer(source="category", read_only=True)
     images = PublicProjectImageSerializer(many=True, read_only=True)
+    milestones = ProjectMilestonesField(read_only=True)
     days_left = serializers.SerializerMethodField()
     funding_percent = serializers.SerializerMethodField()
 
@@ -190,10 +466,10 @@ class PublicProjectSerializer(serializers.ModelSerializer):
         fields = [
             "id", "entrepreneur", "title", "slug", "description", "short_description",
             "category_detail", "location", "location_governorate",
-            "goal_amount", "funded_amount", "minimum_investment", "expected_roi",
+            "goal_amount", "funded_amount", "minimum_investment", "expected_roi", "cost_items",
             "funding_period_days", "start_date", "end_date", "status", "is_verified",
             "verified_at", "cover_image", "images", "video_url",
-            "milestone_count", "repayment_status",
+            "milestone_count", "milestones", "repayment_status",
             "next_repayment_date", "investor_count",
             "days_left", "funding_percent", "created_at", "updated_at",
         ]

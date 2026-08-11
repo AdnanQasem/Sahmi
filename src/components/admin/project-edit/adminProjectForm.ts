@@ -21,6 +21,15 @@ export const freshAdminProjectForm = (): AdminProjectPayload => ({
   funded_amount: "0",
   minimum_investment: "100",
   expected_roi: "0",
+  cost_items: [{ name: "1", description: "", quantity: "1", unit_cost: "" }],
+  milestones: [{
+    title: "",
+    description: "",
+    target_date: "",
+    deliverables: "",
+    percentage_of_project: "100",
+    order: 1,
+  }],
   funding_period_days: 30,
   start_date: toLocalDateTime(new Date().toISOString()),
   end_date: null,
@@ -62,6 +71,19 @@ export const adminProjectToForm = (project: AdminProject): AdminProjectPayload =
   funded_amount: project.funded_amount,
   minimum_investment: project.minimum_investment,
   expected_roi: project.expected_roi,
+  cost_items: project.cost_items?.length
+    ? project.cost_items
+    : [{ name: "1", description: "", quantity: "1", unit_cost: "" }],
+  milestones: project.milestones?.length
+    ? project.milestones
+    : [{
+        title: "",
+        description: "",
+        target_date: "",
+        deliverables: "",
+        percentage_of_project: "100",
+        order: 1,
+      }],
   funding_period_days: project.funding_period_days,
   start_date: toLocalDateTime(project.start_date),
   end_date: project.end_date ? toLocalDateTime(project.end_date) : null,

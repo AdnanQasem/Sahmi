@@ -10,8 +10,12 @@ import { Label } from "@/components/ui/label";
 import projectsService, { ProjectCreatePayload } from "@/services/projectsService";
 import { getFieldErrors, getErrorMessage } from "@/services/api";
 import { CheckCircle, ArrowLeft, ArrowRight } from "lucide-react";
+import ProjectCostTableEditor from "@/components/projects/ProjectCostTableEditor";
+import { emptyProjectCostItem, validateProjectCostTable } from "@/lib/projectCosts";
+import ProjectTimelineEditor from "@/components/projects/ProjectTimelineEditor";
+import { emptyProjectMilestone, validateProjectMilestones } from "@/lib/projectMilestones";
 
-const steps = ["Basic Info", "Project Story", "Funding Goal", "Media", "Review"];
+const steps = ["Basic Info", "Project Story", "Funding Goal", "Timeline", "Media", "Review"];
 
 const initialForm: ProjectCreatePayload = {
   title: "",
@@ -23,6 +27,8 @@ const initialForm: ProjectCreatePayload = {
   goal_amount: "",
   minimum_investment: "100",
   expected_roi: "0",
+  cost_items: [emptyProjectCostItem()],
+  milestones: [emptyProjectMilestone()],
   funding_period_days: "30",
   video_url: "",
   cover_image: null,
@@ -63,7 +69,10 @@ const StartProject = () => {
     },
   });
 
-  const updateForm = (field: keyof ProjectCreatePayload, value: string | File | null) => {
+  const updateForm = <K extends keyof ProjectCreatePayload>(
+    field: K,
+    value: ProjectCreatePayload[K],
+  ) => {
     setForm((current) => ({ ...current, [field]: value }));
     setFieldErrors((current) => {
       const next = { ...current };
@@ -86,8 +95,14 @@ const StartProject = () => {
     if (currentStep === 2) {
       if (!form.goal_amount) errors.goal_amount = "Funding goal is required.";
       if (!form.funding_period_days) errors.funding_period_days = "Campaign duration is required.";
+      const costError = validateProjectCostTable(form.cost_items, form.goal_amount);
+      if (costError) errors.cost_items = costError;
     }
-    if (currentStep === 4) {
+    if (currentStep === 3) {
+      const milestoneError = validateProjectMilestones(form.milestones);
+      if (milestoneError) errors.milestones = milestoneError;
+    }
+    if (currentStep === 5) {
       if (!acceptedTerms) errors.terms = "You must accept the terms before submitting.";
       if (!acceptedUpdates) errors.transparency = "You must commit to supporter updates.";
     }
@@ -230,11 +245,25 @@ const StartProject = () => {
                   <Label htmlFor="funding_breakdown">{t("projects.breakdown")}</Label>
                   <Textarea id="funding_breakdown" placeholder={t("projects.breakdownPlaceholder")} className="mt-1.5" rows={4} value={fundingBreakdown} onChange={(event) => setFundingBreakdown(event.target.value)} />
                 </div>
+                <ProjectCostTableEditor
+                  items={form.cost_items}
+                  goalAmount={form.goal_amount}
+                  onChange={(items) => updateForm("cost_items", items)}
+                  error={fieldErrors.cost_items}
+                />
               </div>
             </div>
           )}
 
           {currentStep === 3 && (
+            <ProjectTimelineEditor
+              milestones={form.milestones}
+              onChange={(milestones) => updateForm("milestones", milestones)}
+              error={fieldErrors.milestones}
+            />
+          )}
+
+          {currentStep === 4 && (
             <div className="space-y-5">
               <h2 className="text-xl font-semibold text-foreground">{t("projects.media")}</h2>
               <p className="text-sm text-muted-foreground">{t("projects.mediaHelp")}</p>
@@ -254,7 +283,7 @@ const StartProject = () => {
             </div>
           )}
 
-          {currentStep === 4 && (
+          {currentStep === 5 && (
             <div className="space-y-5">
               <h2 className="text-xl font-semibold text-foreground">{t("common.submit")}</h2>
               <p className="text-sm text-muted-foreground">{t("projects.reviewText")}</p>

@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -47,6 +47,7 @@ const AdminProjectEditPage = () => {
   const queryClient = useQueryClient();
   const [form, setForm] = useState<AdminProjectPayload>(freshAdminProjectForm);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const initializedProjectId = useRef<string | null>(null);
 
   const projectQuery = useQuery({
     queryKey: ["admin", "project", projectId],
@@ -67,7 +68,9 @@ const AdminProjectEditPage = () => {
   });
 
   useEffect(() => {
-    if (projectQuery.data) setForm(adminProjectToForm(projectQuery.data));
+    if (!projectQuery.data || initializedProjectId.current === projectQuery.data.id) return;
+    setForm(adminProjectToForm(projectQuery.data));
+    initializedProjectId.current = projectQuery.data.id;
   }, [projectQuery.data]);
 
   const update: AdminProjectUpdate = (key, value: AdminProjectFormValue) => {

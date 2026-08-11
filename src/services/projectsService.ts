@@ -31,6 +31,26 @@ export interface ConfirmedPayment {
   payment_method: string;
 }
 
+export interface ProjectCostItem {
+  name: string;
+  description: string;
+  quantity: string;
+  unit_cost: string;
+}
+
+export interface ProjectMilestone {
+  id?: string;
+  title: string;
+  description: string;
+  target_date: string;
+  actual_completion_date?: string | null;
+  status?: "pending" | "in_progress" | "completed" | "delayed";
+  deliverables: string;
+  percentage_of_project: string;
+  funding_released?: string;
+  order: number;
+}
+
 export interface Project {
   id: string;
   entrepreneur?: UserSummary;
@@ -46,6 +66,8 @@ export interface Project {
   funded_amount: string;
   minimum_investment: string;
   expected_roi: string;
+  cost_items: ProjectCostItem[];
+  milestones: ProjectMilestone[];
   funding_period_days: number;
   start_date?: string;
   end_date?: string | null;
@@ -95,6 +117,8 @@ export interface ProjectCreatePayload {
   goal_amount: string;
   minimum_investment?: string;
   expected_roi?: string;
+  cost_items: ProjectCostItem[];
+  milestones: ProjectMilestone[];
   funding_period_days: string;
   video_url?: string;
   cover_image?: File | null;
@@ -106,7 +130,7 @@ const toFormData = (payload: ProjectCreatePayload) => {
     if (value === undefined || value === null || value === "") {
       return;
     }
-    formData.append(key, value);
+    formData.append(key, Array.isArray(value) ? JSON.stringify(value) : value);
   });
   return formData;
 };

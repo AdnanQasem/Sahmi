@@ -49,6 +49,7 @@ class Project(UUIDTimestampModel):
     funded_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     minimum_investment = models.DecimalField(max_digits=10, decimal_places=2, default=100)
     expected_roi = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    cost_items = models.JSONField(default=list, blank=True)
     funding_period_days = models.PositiveIntegerField(default=30)
     start_date = models.DateTimeField(default=timezone.now)
     end_date = models.DateTimeField(blank=True, null=True)

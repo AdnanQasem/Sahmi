@@ -2,6 +2,8 @@ import api from "./api";
 import type {
   PaginatedResponse,
   Project,
+  ProjectCostItem,
+  ProjectMilestone,
   ProjectCategoryPayload,
   ProjectModerationPayload,
 } from "./projectsService";
@@ -65,6 +67,8 @@ export interface AdminProject {
   funded_amount: string;
   minimum_investment: string;
   expected_roi: string;
+  cost_items: ProjectCostItem[];
+  milestones: ProjectMilestone[];
   funding_period_days: number;
   start_date: string;
   end_date: string | null;
@@ -113,6 +117,8 @@ export interface AdminProjectPayload {
   funded_amount?: string;
   minimum_investment?: string;
   expected_roi?: string;
+  cost_items: ProjectCostItem[];
+  milestones: ProjectMilestone[];
   funding_period_days?: number;
   start_date?: string;
   end_date?: string | null;
@@ -186,6 +192,10 @@ const toFormData = (payload: Partial<AdminProjectPayload>) => {
     }
     if (value instanceof File) {
       formData.append(key, value);
+      return;
+    }
+    if (Array.isArray(value)) {
+      formData.append(key, JSON.stringify(value));
       return;
     }
     formData.append(key, String(value));

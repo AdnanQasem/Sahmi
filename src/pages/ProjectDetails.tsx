@@ -12,6 +12,8 @@ import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import ProjectCard from "@/components/ProjectCard";
 import projectsService, { Project, ConfirmedPayment } from "@/services/projectsService";
+import ProjectCostTable from "@/components/projects/ProjectCostTable";
+import ProjectTimeline from "@/components/projects/ProjectTimeline";
 import investmentsService from "@/services/investmentsService";
 import { API_BASE_URL, getFieldErrors, getErrorMessage } from "@/services/api";
 import { useAuth } from "@/hooks/useAuth";
@@ -312,7 +314,7 @@ const ProjectDetails = () => {
 
             <Tabs defaultValue="overview" className="w-full">
               <TabsList className="mb-6 w-full justify-start border-b border-border bg-transparent p-0">
-                {["Overview", "Story", "Funding Plan", "Recent Payments", "Updates", "Team", "FAQ"].map((tab) => (
+                {["Overview", "Story", "Funding Plan", "Timeline", "Recent Payments", "Updates", "Team", "FAQ"].map((tab) => (
                   <TabsTrigger
                     key={tab}
                     value={tab.toLowerCase().replace(" ", "-")}
@@ -357,7 +359,16 @@ const ProjectDetails = () => {
                   <p className="text-sm text-muted-foreground">
                     Goal: {formatCurrency(Number(project.goal_amount))} | Minimum investment: {formatCurrency(Number(project.minimum_investment))} | Campaign duration: {project.funding_period_days} days
                   </p>
+                  <div className="space-y-2 pt-2">
+                    <h4 className="text-sm font-semibold text-foreground">{t("projects.costTable")}</h4>
+                    <ProjectCostTable items={project.cost_items ?? []} />
+                  </div>
                 </div>
+              </TabsContent>
+
+              <TabsContent value="timeline" className="space-y-4">
+                <h3 className="text-lg font-semibold text-foreground">{t("projects.timeline")}</h3>
+                <ProjectTimeline milestones={project.milestones ?? []} />
               </TabsContent>
 
               <TabsContent value="recent-payments" className="space-y-4">

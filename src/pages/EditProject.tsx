@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -11,6 +11,10 @@ import projectsService, { ProjectCreatePayload } from "@/services/projectsServic
 import { getFieldErrors, getErrorMessage } from "@/services/api";
 import { useAuth } from "@/hooks/useAuth";
 import { ArrowLeft } from "lucide-react";
+import ProjectCostTableEditor from "@/components/projects/ProjectCostTableEditor";
+import { emptyProjectCostItem, validateProjectCostTable } from "@/lib/projectCosts";
+import ProjectTimelineEditor from "@/components/projects/ProjectTimelineEditor";
+import { emptyProjectMilestone, validateProjectMilestones } from "@/lib/projectMilestones";
 
 const EditProject = () => {
   const { t } = useTranslation();
@@ -19,6 +23,7 @@ const EditProject = () => {
   const { user } = useAuth();
   const adminReturnPath = "/dashboard/admin#projects-section";
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const initializedProjectId = useRef<string | null>(null);
   const [form, setForm] = useState<ProjectCreatePayload>({
     title: "",
     category: "",
@@ -29,6 +34,8 @@ const EditProject = () => {
     goal_amount: "",
     minimum_investment: "",
     expected_roi: "",
+    cost_items: [emptyProjectCostItem()],
+    milestones: [emptyProjectMilestone()],
     funding_period_days: "",
     video_url: "",
     cover_image: null,
@@ -46,7 +53,7 @@ const EditProject = () => {
   });
 
   useEffect(() => {
-    if (!projectQuery.data) return;
+    if (!projectQuery.data || initializedProjectId.current === projectQuery.data.id) return;
     setForm({
       title: projectQuery.data.title,
       category: projectQuery.data.category,
@@ -57,10 +64,17 @@ const EditProject = () => {
       goal_amount: projectQuery.data.goal_amount,
       minimum_investment: projectQuery.data.minimum_investment,
       expected_roi: projectQuery.data.expected_roi,
+      cost_items: projectQuery.data.cost_items?.length
+        ? projectQuery.data.cost_items
+        : [emptyProjectCostItem()],
+      milestones: projectQuery.data.milestones?.length
+        ? projectQuery.data.milestones
+        : [emptyProjectMilestone()],
       funding_period_days: String(projectQuery.data.funding_period_days),
       video_url: projectQuery.data.video_url ?? "",
       cover_image: null,
     });
+    initializedProjectId.current = projectQuery.data.id;
   }, [projectQuery.data]);
 
   const updateMutation = useMutation({
@@ -75,7 +89,10 @@ const EditProject = () => {
     },
   });
 
-  const updateForm = (field: keyof ProjectCreatePayload, value: string | File | null) => {
+  const updateForm = <K extends keyof ProjectCreatePayload>(
+    field: K,
+    value: ProjectCreatePayload[K],
+  ) => {
     setForm((current) => ({ ...current, [field]: value }));
   };
 
@@ -109,6 +126,16 @@ const EditProject = () => {
         className="container max-w-3xl space-y-6 py-8"
         onSubmit={(event) => {
           event.preventDefault();
+          const costError = validateProjectCostTable(form.cost_items, form.goal_amount);
+          if (costError) {
+            setFieldErrors((current) => ({ ...current, cost_items: costError }));
+            return;
+          }
+          const milestoneError = validateProjectMilestones(form.milestones);
+          if (milestoneError) {
+            setFieldErrors((current) => ({ ...current, milestones: milestoneError }));
+            return;
+          }
           updateMutation.mutate();
         }}
       >
@@ -162,6 +189,17 @@ const EditProject = () => {
               <Label htmlFor="cover_image">{t("projects.replaceCover")}</Label>
               <Input id="cover_image" type="file" accept="image/*" className="mt-1.5" onChange={(event) => updateForm("cover_image", event.target.files?.[0] ?? null)} />
             </div>
+            <ProjectCostTableEditor
+              items={form.cost_items}
+              goalAmount={form.goal_amount}
+              onChange={(items) => updateForm("cost_items", items)}
+              error={fieldErrors.cost_items}
+            />
+            <ProjectTimelineEditor
+              milestones={form.milestones}
+              onChange={(milestones) => updateForm("milestones", milestones)}
+              error={fieldErrors.milestones}
+            />
           </div>
         </div>
 

@@ -227,6 +227,24 @@ class AdminProjectAPITests(AdminAPIBase):
                 "funded_amount": "7500.00",
                 "minimum_investment": "250.00",
                 "expected_roi": "16.50",
+                "cost_items": [
+                    {
+                        "name": "Project setup",
+                        "description": "Complete setup budget",
+                        "quantity": "1",
+                        "unit_cost": "50000.00",
+                    }
+                ],
+                "milestones": [
+                    {
+                        "title": "Complete setup",
+                        "description": "Finish the project setup.",
+                        "target_date": "2027-02-01",
+                        "deliverables": "Operational project",
+                        "percentage_of_project": "100.00",
+                        "order": 1,
+                    }
+                ],
                 "funding_period_days": 90,
                 "status": Project.Status.PAUSED,
                 "is_verified": True,
