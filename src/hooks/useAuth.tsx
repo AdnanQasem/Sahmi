@@ -1,20 +1,24 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import authService, { User } from "@/services/authService";
+import authService, { type RegisterPayload, type User } from "@/services/authService";
 import { getErrorMessage } from "@/services/api";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
+import { changeLanguage } from "@/i18n";
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (data: any) => Promise<void>;
-  logout: () => void;
+  register: (data: RegisterPayload) => Promise<void>;
+  logout: () => Promise<void>;
+  refreshUser: () => Promise<User | null>;
   isAuthenticated: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
+  const { t } = useTranslation();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -24,10 +28,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (token) {
         try {
           const userData = await authService.getCurrentUser();
+          await changeLanguage(userData.preferred_language);
           setUser(userData);
         } catch (error) {
           console.error("Auth initialization failed:", error);
-          authService.logout();
+          await authService.logout();
         }
       }
       setLoading(false);
@@ -39,30 +44,43 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const login = async (email: string, password: string) => {
     try {
       const data = await authService.login(email, password);
+      await changeLanguage(data.preferred_language);
       setUser(data);
-      toast.success("Welcome back.");
-    } catch (error: any) {
-      const message = getErrorMessage(error, "Invalid credentials. Please try again.");
+      toast.success(t("auth.welcomeBack"));
+    } catch (error: unknown) {
+      const message = getErrorMessage(error, t("auth.invalidCredentials"));
       toast.error(message);
       throw error;
     }
   };
 
-  const register = async (data: any) => {
+  const register = async (data: RegisterPayload) => {
     try {
       await authService.register(data);
-      toast.success("Account created successfully! Please sign in.");
-    } catch (error: any) {
-      const message = getErrorMessage(error, "Registration failed. Please check your details.");
+      toast.success(t("auth.registrationSuccess"));
+    } catch (error: unknown) {
+      const message = getErrorMessage(error, t("auth.registrationFailed"));
       toast.error(message);
       throw error;
     }
   };
 
-  const logout = () => {
-    authService.logout();
-    setUser(null);
-    toast.info("Signed out successfully.");
+  const logout = async () => {
+    try {
+      await authService.logout();
+    } finally {
+      setUser(null);
+      toast.info(t("auth.signedOut"));
+    }
+  };
+
+  const refreshUser = async () => {
+    const token = localStorage.getItem("accessToken");
+    if (!token) return null;
+    const refreshed = await authService.getCurrentUser();
+    localStorage.setItem("user", JSON.stringify(refreshed));
+    setUser(refreshed);
+    return refreshed;
   };
 
   return (
@@ -73,6 +91,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         login,
         register,
         logout,
+        refreshUser,
         isAuthenticated: !!user,
       }}
     >

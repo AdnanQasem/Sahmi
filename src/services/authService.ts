@@ -6,12 +6,16 @@ export interface User {
   email: string;
   full_name: string;
   user_type: "investor" | "entrepreneur" | "admin";
+  is_staff: boolean;
+  preferred_language: "en" | "ar";
   phone_number?: string;
   country?: string;
   city?: string;
+  website?: string;
+  timezone?: string;
   bio?: string;
   business_name?: string;
-  profile_picture?: string;
+  profile_picture?: string | null;
   is_verified?: boolean;
   is_kyc_verified?: boolean;
   date_joined?: string;
@@ -34,7 +38,25 @@ export interface RegisterPayload {
   phone_number?: string;
   country?: string;
   city?: string;
+  website?: string;
+  timezone?: string;
   business_name?: string;
+  business_registration_number?: string;
+  business_established_date?: string | null;
+  business_address?: string;
+  risk_preference?: "low" | "medium" | "high";
+}
+
+
+export interface PasswordResetRequestResponse {
+  message: string;
+}
+
+export interface PasswordResetConfirmPayload {
+  uid: string;
+  token: string;
+  new_password: string;
+  confirm_password: string;
 }
 
 export interface ChangePasswordPayload {
@@ -59,10 +81,33 @@ const authService = {
     return await api.post("auth/register/", userData);
   },
 
-  logout: () => {
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("refreshToken");
-    localStorage.removeItem("user");
+  logout: async () => {
+    const refresh = localStorage.getItem("refreshToken");
+    try {
+      if (refresh) {
+        await api.post("auth/logout/", { refresh });
+      }
+    } finally {
+      localStorage.removeItem("accessToken");
+      localStorage.removeItem("refreshToken");
+      localStorage.removeItem("user");
+    }
+  },
+
+  updateCurrentUser: async (payload: Partial<Pick<User, "email" | "preferred_language" | "full_name" | "phone_number" | "country" | "city" | "website" | "timezone" | "bio" | "business_name" | "business_registration_number" | "business_established_date" | "business_address" | "risk_preference" | "profile_picture">>): Promise<User> => {
+    const user: User = await api.patch("auth/me/", payload);
+    localStorage.setItem("user", JSON.stringify(user));
+    return user;
+  },
+
+  uploadProfilePicture: async (file: File): Promise<User> => {
+    const payload = new FormData();
+    payload.append("profile_picture", file);
+    const user: User = await api.patch("auth/me/", payload, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    localStorage.setItem("user", JSON.stringify(user));
+    return user;
   },
 
   getCurrentUser: async (): Promise<User> => {
@@ -71,6 +116,14 @@ const authService = {
 
   changePassword: async (payload: ChangePasswordPayload): Promise<{ message?: string }> => {
     return await api.post("auth/change-password/", payload);
+  },
+
+  requestPasswordReset: async (email: string): Promise<PasswordResetRequestResponse> => {
+    return await api.post("auth/password-reset/", { email });
+  },
+
+  confirmPasswordReset: async (payload: PasswordResetConfirmPayload): Promise<{ message: string }> => {
+    return await api.post("auth/password-reset/confirm/", payload);
   },
 };
 

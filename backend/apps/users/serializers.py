@@ -1,8 +1,12 @@
 from django.contrib.auth import authenticate, get_user_model
 from django.contrib.auth.password_validation import validate_password
+from django.contrib.auth.tokens import default_token_generator
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.utils.encoding import force_str
+from django.utils.http import urlsafe_base64_decode
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 User = get_user_model()
 
@@ -12,17 +16,53 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             "id", "username", "email", "full_name", "phone_number", "user_type",
-            "profile_picture", "bio", "country", "city", "is_verified", "is_kyc_verified",
+            "preferred_language",
+            "profile_picture", "bio", "country", "city", "website", "timezone", "is_verified", "is_kyc_verified",
             "investor_tier", "total_invested", "total_returned", "average_roi",
             "risk_preference", "business_name", "business_registration_number",
             "business_established_date", "business_address", "total_funded",
-            "total_repaid", "reputation_score", "date_joined", "last_login",
+            "total_repaid", "reputation_score", "is_staff", "date_joined", "last_login",
         ]
         read_only_fields = [
-            "id", "is_verified", "is_kyc_verified", "total_invested", "total_returned",
-            "average_roi", "total_funded", "total_repaid", "reputation_score",
-            "date_joined", "last_login",
+            "id", "user_type", "is_verified", "is_kyc_verified", "total_invested",
+            "total_returned", "average_roi", "total_funded", "total_repaid",
+            "reputation_score", "is_staff", "date_joined", "last_login",
         ]
+
+    def validate_email(self, value):
+        value = value.strip().lower()
+        duplicate = User.objects.filter(email__iexact=value)
+        if self.instance:
+            duplicate = duplicate.exclude(pk=self.instance.pk)
+        if duplicate.exists():
+            raise serializers.ValidationError("A user with this email already exists.")
+        return value
+
+    def validate_timezone(self, value):
+        value = value.strip()
+        try:
+            ZoneInfo(value)
+        except ZoneInfoNotFoundError:
+            raise serializers.ValidationError("Choose a valid time zone.")
+        return value
+
+    def validate_profile_picture(self, value):
+        if value and value.size > 5 * 1024 * 1024:
+            raise serializers.ValidationError("Profile pictures may not exceed 5 MB.")
+        return value
+
+    def update(self, instance, validated_data):
+        old_email = instance.email
+        old_picture_name = instance.profile_picture.name if instance.profile_picture else ""
+        picture_is_changing = "profile_picture" in validated_data
+        new_email = validated_data.get("email", old_email)
+        if new_email != old_email:
+            instance.is_verified = False
+        updated = super().update(instance, validated_data)
+        new_picture_name = updated.profile_picture.name if updated.profile_picture else ""
+        if picture_is_changing and old_picture_name and old_picture_name != new_picture_name:
+            updated.profile_picture.storage.delete(old_picture_name)
+        return updated
 
 
 def build_auth_payload(user, context=None):
@@ -60,6 +100,17 @@ class RegisterSerializer(serializers.ModelSerializer):
         if not attrs.get("full_name"):
             raise serializers.ValidationError({"full_name": "Full name is required."})
         return attrs
+
+    def validate_user_type(self, value):
+        public_user_types = {
+            User.UserType.INVESTOR,
+            User.UserType.ENTREPRENEUR,
+        }
+        if value not in public_user_types:
+            raise serializers.ValidationError(
+                "Public registration is limited to investors and entrepreneurs."
+            )
+        return value
 
     def create(self, validated_data):
         password = validated_data.pop("password")
@@ -100,6 +151,50 @@ class PasswordChangeSerializer(serializers.Serializer):
         return user
 
 
+class PasswordResetRequestSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+    def validate_email(self, value):
+        return value.strip().lower()
+
+
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    uid = serializers.CharField(write_only=True)
+    token = serializers.CharField(write_only=True)
+    new_password = serializers.CharField(write_only=True, trim_whitespace=False)
+    confirm_password = serializers.CharField(write_only=True, trim_whitespace=False)
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        if attrs["new_password"] != attrs["confirm_password"]:
+            raise serializers.ValidationError(
+                {"confirm_password": "New passwords do not match."}
+            )
+        try:
+            user_id = force_str(urlsafe_base64_decode(attrs["uid"]))
+            user = User.objects.get(pk=user_id, is_active=True)
+        except (TypeError, ValueError, OverflowError, UnicodeDecodeError, User.DoesNotExist):
+            raise serializers.ValidationError(
+                {"token": "This password reset link is invalid or has expired."}
+            )
+        if not default_token_generator.check_token(user, attrs["token"]):
+            raise serializers.ValidationError(
+                {"token": "This password reset link is invalid or has expired."}
+            )
+        try:
+            validate_password(attrs["new_password"], user)
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError({"new_password": list(exc.messages)})
+        attrs["user"] = user
+        return attrs
+
+    def save(self, **kwargs):
+        user = self.validated_data["user"]
+        user.set_password(self.validated_data["new_password"])
+        user.save(update_fields=["password"])
+        return user
+
+
 class EmailTokenObtainPairSerializer(TokenObtainPairSerializer):
     username_field = User.EMAIL_FIELD
 
@@ -110,7 +205,17 @@ class EmailTokenObtainPairSerializer(TokenObtainPairSerializer):
             raise serializers.ValidationError({"email": "Email is required."})
         if not password:
             raise serializers.ValidationError({"password": "Password is required."})
-        user = authenticate(request=self.context.get("request"), username=email, password=password)
+        try:
+            authentication_email = User.objects.only("email").get(
+                email__iexact=email
+            ).email
+        except (User.DoesNotExist, User.MultipleObjectsReturned):
+            authentication_email = email
+        user = authenticate(
+            request=self.context.get("request"),
+            username=authentication_email,
+            password=password,
+        )
         if not user:
             raise serializers.ValidationError({"non_field_errors": ["Invalid email or password."]})
         if not user.is_active:

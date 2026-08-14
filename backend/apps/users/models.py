@@ -5,6 +5,10 @@ from django.db import models
 
 
 class User(AbstractUser):
+    class PreferredLanguage(models.TextChoices):
+        ENGLISH = "en", "English"
+        ARABIC = "ar", "Arabic"
+
     class UserType(models.TextChoices):
         INVESTOR = "investor", "Investor"
         ENTREPRENEUR = "entrepreneur", "Entrepreneur"
@@ -23,6 +27,9 @@ class User(AbstractUser):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     email = models.EmailField(unique=True)
+    preferred_language = models.CharField(
+        max_length=2, choices=PreferredLanguage.choices, default=PreferredLanguage.ENGLISH
+    )
     full_name = models.CharField(max_length=150)
     phone_number = models.CharField(max_length=32, blank=True)
     user_type = models.CharField(max_length=20, choices=UserType.choices, default=UserType.INVESTOR)
@@ -30,6 +37,8 @@ class User(AbstractUser):
     bio = models.TextField(blank=True)
     country = models.CharField(max_length=80, blank=True)
     city = models.CharField(max_length=80, blank=True)
+    website = models.URLField(blank=True)
+    timezone = models.CharField(max_length=64, default="Asia/Hebron")
     is_verified = models.BooleanField(default=False)
     is_kyc_verified = models.BooleanField(default=False)
     kyc_document = models.FileField(upload_to="kyc/", blank=True, null=True)
@@ -51,8 +60,14 @@ class User(AbstractUser):
     REQUIRED_FIELDS = ["username", "full_name"]
 
     def save(self, *args, **kwargs):
+        if self.email:
+            self.email = self.email.strip().lower()
         if not self.username:
             self.username = self.email
-        if self.user_type == self.UserType.ADMIN:
-            self.is_staff = True
+        # NOTE: We intentionally do NOT force ``is_staff = True`` when
+        # ``user_type == ADMIN`` here. Granting staff privileges is a
+        # server-controlled operation performed only by the admin endpoints
+        # (see ``apps/users/admin_views.py``) or a superuser at the Django
+        # admin. A model ``save()`` side effect would let any code path that
+        # touches ``user_type`` silently escalate privileges.
         super().save(*args, **kwargs)

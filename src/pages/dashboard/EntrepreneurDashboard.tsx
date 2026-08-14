@@ -1,5 +1,7 @@
+import { useTranslation } from "react-i18next";
+import { formatCurrency, formatDate, formatNumber } from "@/i18n/format";
 import { Link, useNavigate } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, type Variants } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import {
   Area,
@@ -40,9 +42,9 @@ import {
   MessageSquare,
 } from "lucide-react";
 
-const currency = (value: number) => `$${Math.round(value).toLocaleString()}`;
-const monthLabel = (value: string) => new Intl.DateTimeFormat("en", { month: "short" }).format(new Date(value));
-const shortDate = (value: string) => new Intl.DateTimeFormat("en", { month: "short", day: "numeric" }).format(new Date(value));
+const currency = (value: number) => formatCurrency(Math.round(value));
+const monthLabel = (value: string) => formatDate(value, { month: "short" });
+const shortDate = (value: string) => formatDate(value, { month: "short", day: "numeric" });
 
 const amountOf = (investment: Investment) => Number(investment.amount || 0);
 const projectRaised = (project: Project) => Number(project.funded_amount || 0);
@@ -80,6 +82,7 @@ const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?:
 };
 
 const EntrepreneurDashboard = () => {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const navigate = useNavigate();
   const projectsQuery = useQuery({
@@ -96,6 +99,9 @@ const EntrepreneurDashboard = () => {
   const projects = projectsQuery.data?.results ?? [];
   const investments = investmentsQuery.data?.results ?? [];
   const activeProjects = projects.filter((project) => project.status === "active").length;
+  const completedProjects = projects.filter(
+    (project) => project.status === "successful" || projectRaised(project) >= projectGoal(project),
+  ).length;
   const pendingProjects = projects.filter((project) => project.status === "draft" || !project.is_verified).length;
   const totalRaised = projects.reduce((sum, project) => sum + projectRaised(project), 0);
   const totalInvestors = projects.reduce((sum, project) => sum + (project.investor_count ?? 0), 0);
@@ -105,36 +111,36 @@ const EntrepreneurDashboard = () => {
 
   const kpiCards = [
     {
-      label: "Total Projects",
+      label: t("dashboard.totalProjects"),
       value: projects.length.toString(),
-      subtext: `${activeProjects} active`,
+      subtext: t("dashboard.completedProjectCount", { count: completedProjects }),
       icon: FolderOpen,
       trend: "neutral" as const,
       iconColorClass: "text-secondary",
       iconBgClass: "bg-secondary/10",
     },
     {
-      label: "Active Projects",
+      label: t("dashboard.activeProjects"),
       value: activeProjects.toString(),
-      subtext: "Currently live",
+      subtext: t("dashboard.liveProjectCount", { count: activeProjects }),
       icon: Zap,
       trend: "neutral" as const,
       iconColorClass: "text-success",
       iconBgClass: "bg-success/10",
     },
     {
-      label: "Total Funding Raised",
+      label: t("dashboard.totalFundingRaised"),
       value: currency(totalRaised),
-      subtext: "Across all projects",
+      subtext: t("dashboard.acrossAllProjects"),
       icon: DollarSign,
       trend: "neutral" as const,
       iconColorClass: "text-primary",
       iconBgClass: "bg-primary/10",
     },
     {
-      label: "Pending Review",
+      label: t("dashboard.pendingReview"),
       value: pendingProjects.toString(),
-      subtext: "Draft or unverified",
+      subtext: t("dashboard.draftOrUnverified"),
       icon: Clock,
       trend: "neutral" as const,
       iconColorClass: "text-warning",
@@ -142,7 +148,7 @@ const EntrepreneurDashboard = () => {
     },
   ];
 
-  const containerVariants = {
+  const containerVariants: Variants = {
     hidden: { opacity: 0 },
     visible: {
       opacity: 1,
@@ -150,7 +156,7 @@ const EntrepreneurDashboard = () => {
     }
   };
 
-  const itemVariants = {
+  const itemVariants: Variants = {
     hidden: { opacity: 0, y: 24, scale: 0.96 },
     visible: { 
       opacity: 1, 
@@ -188,7 +194,7 @@ const EntrepreneurDashboard = () => {
                 className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20"
               >
                 <Sparkles className="h-3.5 w-3.5 text-primary" />
-                <span className="text-xs font-medium text-primary">Entrepreneur Dashboard</span>
+                <span className="text-xs font-medium text-primary">{t("dashboard.entrepreneur")}</span>
               </motion.div>
               <motion.h1 
                 className="text-3xl sm:text-4xl font-bold text-foreground tracking-tight"
@@ -196,9 +202,9 @@ const EntrepreneurDashboard = () => {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.3, duration: 0.5 }}
               >
-                Welcome back, <br className="sm:hidden" />
+                {t("dashboard.welcomeBackName", { name: "" })}<br className="sm:hidden" />
                 <span className="bg-gradient-to-r from-primary via-primary/80 to-secondary bg-clip-text text-transparent">
-                  {user?.full_name?.split(" ")[0] || "Founder"}
+                  <bdi dir="auto">{user?.full_name?.split(" ")[0] || t("dashboard.founder")}</bdi>
                 </span>
               </motion.h1>
               <motion.p 
@@ -207,7 +213,7 @@ const EntrepreneurDashboard = () => {
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.4, duration: 0.5 }}
               >
-                {isLoading ? "Loading your dashboard..." : `${totalInvestors} investor${totalInvestors === 1 ? "" : "s"} across ${projects.length} project${projects.length === 1 ? "" : "s"}`}
+                {isLoading ? t("dashboard.dashboardLoading") : t("dashboard.entrepreneurSummary", { investors: formatNumber(totalInvestors), projects: formatNumber(projects.length) })}
               </motion.p>
             </div>
             <motion.div 
@@ -230,7 +236,7 @@ const EntrepreneurDashboard = () => {
                     transition={{ duration: 0.5 }}
                   />
                   <PlusSquare className="mr-2 h-4 w-4 group-hover:rotate-12 transition-transform duration-300" />
-                  <span className="relative">New Project</span>
+                  <span className="relative">{t("projects.startTitle")}</span>
                 </Link>
               </Button>
               {firstProject && (
@@ -240,9 +246,7 @@ const EntrepreneurDashboard = () => {
                   className="group relative overflow-hidden bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-secondary shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 transition-all duration-300"
                 >
                   <Link to={`/projects/${firstProject.slug}`}>
-                    <Eye className="mr-2 h-4 w-4" />
-                    View Latest
-                    <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform duration-300" />
+                    <Eye className="me-2 h-4 w-4" />{t("dashboard.viewLatest")}<ArrowRight className="ms-2 h-4 w-4 group-hover:translate-x-1 transition-transform duration-300 rtl-flip" />
                   </Link>
                 </Button>
               )}
@@ -273,8 +277,8 @@ const EntrepreneurDashboard = () => {
           >
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary/50 via-secondary/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
             <SectionHeader 
-              title="Funding Raised Over Time" 
-              subtitle="Monthly investment records" 
+              title={t("dashboard.fundingOverTime")} 
+              subtitle={t("dashboard.monthlyInvestmentRecords")}
             />
             <ResponsiveContainer width="100%" height={240}>
               <AreaChart data={monthly}>
@@ -308,8 +312,8 @@ const EntrepreneurDashboard = () => {
           >
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-secondary/50 via-primary/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
             <SectionHeader 
-              title="Investors per Month" 
-              subtitle="Unique investor activity" 
+              title={t("dashboard.investorsPerMonth")} 
+              subtitle={t("dashboard.uniqueInvestorActivity")}
             />
             <ResponsiveContainer width="100%" height={240}>
               <BarChart data={monthly} barSize={32}>
@@ -340,9 +344,9 @@ const EntrepreneurDashboard = () => {
         >
           <div className="px-6 py-5 border-b border-border bg-gradient-to-r from-card via-muted/20 to-card">
             <SectionHeader 
-              title="Project" 
-              subtitle="Manage and track your projects" 
-              ctaLabel="Add New Project" 
+              title={t("dashboard.project")} 
+              subtitle={t("dashboard.manageTrackProjects")}
+              ctaLabel={t("dashboard.addNewProject")}
               ctaIcon={PlusSquare} 
               onCta={() => navigate("/start-project")} 
             />
@@ -359,9 +363,9 @@ const EntrepreneurDashboard = () => {
               >
                 <EmptyState 
                   icon={FolderOpen} 
-                  title="No projects yet" 
-                  description="Create your first project and start raising funds from the Sahmi community." 
-                  ctaLabel="Add New Project" 
+                  title={t("dashboard.noProjects")} 
+                  description={t("dashboard.createFirstProjectText")}
+                  ctaLabel={t("dashboard.addNewProject")}
                   ctaHref="/start-project" 
                 />
               </motion.div>
@@ -373,7 +377,6 @@ const EntrepreneurDashboard = () => {
                 animate={{ opacity: 1 }}
               >
                 {projects.map((project: Project, index: number) => {
-                  const percent = Math.min(Math.round((projectRaised(project) / projectGoal(project)) * 100), 100) || 0;
                   return (
                     <motion.div 
                       key={project.id} 
@@ -392,21 +395,18 @@ const EntrepreneurDashboard = () => {
                         <div className="mb-2 flex flex-wrap items-center gap-2">
                           <p className="font-semibold text-foreground group-hover:text-primary transition-colors duration-300">{project.title}</p>
                           <StatusBadge status={project.status} />
-                          <Badge variant="outline" className="text-xs border-primary/20">{project.category_detail?.name ?? "Project"}</Badge>
+                          <Badge variant="outline" className="text-xs border-primary/20">{project.category_detail?.name ?? t("projects.projectFallback")}</Badge>
                         </div>
                         <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
                           <span className="flex items-center gap-1.5 hover:text-primary transition-colors duration-200">
                             <Users className="h-3.5 w-3.5" /> 
-                            <span className="font-medium">{project.investor_count}</span> investors
-                          </span>
+                            <span className="font-medium">{project.investor_count}</span>{t("dashboard.investorsCount")}</span>
                           <span className="flex items-center gap-1.5 hover:text-primary transition-colors duration-200">
                             <Clock className="h-3.5 w-3.5" /> 
-                            <span className="font-medium">{project.days_left ?? 0}</span> days
-                          </span>
+                            <span className="font-medium">{project.days_left ?? 0}</span>{t("dashboard.daysCount")}</span>
                           <span className="flex items-center gap-1.5 hover:text-primary transition-colors duration-200">
                             <Eye className="h-3.5 w-3.5" /> 
-                            <span className="font-medium">{(project.view_count ?? 0).toLocaleString()}</span> views
-                          </span>
+                            <span className="font-medium">{formatNumber(project.view_count ?? 0)}</span>{t("dashboard.viewsCount")}</span>
                         </div>
                         {project.status === "active" && (
                           <div className="mt-4">
@@ -420,7 +420,7 @@ const EntrepreneurDashboard = () => {
                             className="mt-3 flex items-center gap-2 text-xs text-warning bg-warning/10 px-3 py-1.5 rounded-full w-fit"
                           >
                             <AlertCircle className="h-3.5 w-3.5" /> 
-                            <span>Pending platform review</span>
+                            <span>{t("dashboard.pendingReview")}</span>
                           </motion.div>
                         )}
                       </div>
@@ -433,8 +433,7 @@ const EntrepreneurDashboard = () => {
                           className="hover:bg-primary/10 hover:border-primary/30 hover:text-primary transition-all duration-200"
                         >
                           <Link to={`/projects/${project.slug}/edit`}>
-                            <Edit className="mr-1.5 h-3.5 w-3.5" /> Edit
-                          </Link>
+                            <Edit className="mr-1.5 h-3.5 w-3.5" />{t("common.edit")}</Link>
                         </Button>
                         <Button 
                           size="sm" 
@@ -443,8 +442,7 @@ const EntrepreneurDashboard = () => {
                           className="hover:bg-primary hover:text-primary-foreground transition-all duration-200"
                         >
                           <Link to={`/projects/${project.slug}`}>
-                            <Eye className="mr-1.5 h-3.5 w-3.5" /> View
-                          </Link>
+                            <Eye className="mr-1.5 h-3.5 w-3.5" />{t("common.view")}</Link>
                         </Button>
                       </div>
                     </motion.div>
@@ -458,11 +456,11 @@ const EntrepreneurDashboard = () => {
         <motion.div variants={itemVariants} className="grid gap-6 lg:grid-cols-3">
           <motion.div 
             className="lg:col-span-2 relative overflow-hidden rounded-2xl border border-border bg-card p-6 shadow-sm"
-            whileHover={{ shadow: "0 20px 40px rgba(0,0,0,0.1)" }}
+            whileHover={{ boxShadow: "0 20px 40px rgba(0,0,0,0.1)" }}
           >
             <SectionHeader 
-              title="Investor Activity" 
-              subtitle="Recent contributions" 
+              title={t("dashboard.investorActivity")} 
+              subtitle={t("dashboard.recentContributions")}
             />
             <AnimatePresence mode="wait">
               {investments.length === 0 ? (
@@ -473,8 +471,8 @@ const EntrepreneurDashboard = () => {
                 >
                   <EmptyState 
                     icon={Users} 
-                    title="No activity yet" 
-                    description="Investment records will appear here once your project receives funding." 
+                    title={t("dashboard.noActivityYet")} 
+                    description={t("dashboard.investmentRecordsAppear")}
                   />
                 </motion.div>
               ) : (
@@ -533,15 +531,15 @@ const EntrepreneurDashboard = () => {
                   <div className="p-2 rounded-lg bg-primary/10">
                     <MessageSquare className="h-5 w-5 text-primary" />
                   </div>
-                  <h3 className="font-semibold text-foreground">Recent Messages</h3>
+                  <h3 className="font-semibold text-foreground">{t("dashboard.messages")}</h3>
                 </div>
-                <Badge variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/20 border-0">2 New</Badge>
+                <Badge variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/20 border-0">{t("dashboard.newCount", { count: formatNumber(2) })}</Badge>
               </div>
               <div className="space-y-3">
                 {[
-                  { id: 1, sender: "Sarah Ahmed", message: "I'm very interested in your...", time: "5m ago", unread: true, initials: "SA" },
-                  { id: 2, sender: "Layla Khaled", message: "The project proposal looks...", time: "1d ago", unread: false, initials: "LK", status: "premium" },
-                  { id: 3, sender: "Mohammad H.", message: "What's the funding goal...", time: "2d ago", unread: false, initials: "MH" }
+                  { id: 1, sender: "Sarah Ahmed", message: t("dashboard.sampleMessageInterest"), time: t("dashboard.minutesAgo", { count: 5 }), unread: true, initials: "SA" },
+                  { id: 2, sender: "Layla Khaled", message: t("dashboard.sampleMessageProposal"), time: t("dashboard.daysAgo", { count: 1 }), unread: false, initials: "LK", status: "premium" },
+                  { id: 3, sender: "Mohammad H.", message: t("dashboard.sampleMessageGoal"), time: t("dashboard.daysAgo", { count: 2 }), unread: false, initials: "MH" }
                 ].map((msg) => (
                   <Link to="/dashboard/entrepreneur/messages" key={msg.id} className="block group">
                     <div className={`p-3 rounded-xl border transition-all duration-200 flex items-start gap-3 ${msg.unread ? 'bg-primary/5 border-primary/20 hover:bg-primary/10' : 'bg-transparent border-border hover:border-primary/30 hover:bg-muted/50'}`}>
@@ -566,7 +564,7 @@ const EntrepreneurDashboard = () => {
                               {msg.sender}
                             </p>
                             {msg.status === "premium" && (
-                              <Badge variant="secondary" className="px-1 py-0 h-4 text-[10px] bg-warning/10 text-warning border-0">Premium</Badge>
+                              <Badge variant="secondary" className="px-1 py-0 h-4 text-[10px] bg-warning/10 text-warning border-0">{t("dashboard.premium")}</Badge>
                             )}
                           </div>
                           <span className="text-xs text-muted-foreground shrink-0">{msg.time}</span>
@@ -583,7 +581,7 @@ const EntrepreneurDashboard = () => {
                 ))}
               </div>
               <Button variant="ghost" className="w-full mt-2 text-xs text-muted-foreground hover:text-primary transition-colors" asChild>
-                <Link to="/dashboard/entrepreneur/messages">View All Messages <ArrowRight className="ml-1.5 h-3.5 w-3.5" /></Link>
+                <Link to="/dashboard/entrepreneur/messages">{t("dashboard.messages")} <ArrowRight className="ms-1.5 h-3.5 w-3.5 rtl-flip" /></Link>
               </Button>
             </div>
           </motion.div>

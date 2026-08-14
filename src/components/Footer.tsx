@@ -1,8 +1,10 @@
 import { Link } from "react-router-dom";
 import SahmiLogo from "@/components/SahmiLogo";
 import { useAuth } from "@/hooks/useAuth";
+import { useTranslation } from "react-i18next";
 
 const Footer = () => {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const canCreateProject = !user || user.user_type === "entrepreneur" || user.user_type === "admin";
 
@@ -15,36 +17,36 @@ const Footer = () => {
               <SahmiLogo size="sm" variant="full" />
             </Link>
             <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-              Empowering Palestinian entrepreneurs through transparent, community-driven crowdfunding.
+              {t("footer.tagline")}
             </p>
           </div>
 
           <div>
-            <h4 className="mb-3 text-sm font-semibold text-foreground">Platform</h4>
+            <h4 className="mb-3 text-sm font-semibold text-foreground">{t("footer.platform")}</h4>
             <div className="flex flex-col gap-2">
-              <Link to="/projects" className="text-sm text-muted-foreground hover:text-primary">Explore Projects</Link>
+              <Link to="/projects" className="text-sm text-muted-foreground hover:text-primary">{t("footer.explore")}</Link>
               {canCreateProject && (
-                <Link to="/start-project" className="text-sm text-muted-foreground hover:text-primary">Start a Project</Link>
+                <Link to="/start-project" className="text-sm text-muted-foreground hover:text-primary">{t("footer.start")}</Link>
               )}
-              <Link to="/how-it-works" className="text-sm text-muted-foreground hover:text-primary">How It Works</Link>
-              <Link to="/about" className="text-sm text-muted-foreground hover:text-primary">About</Link>
+              <Link to="/how-it-works" className="text-sm text-muted-foreground hover:text-primary">{t("nav.how")}</Link>
+              <Link to="/about" className="text-sm text-muted-foreground hover:text-primary">{t("footer.about")}</Link>
             </div>
           </div>
 
           <div>
-            <h4 className="mb-3 text-sm font-semibold text-foreground">Support</h4>
+            <h4 className="mb-3 text-sm font-semibold text-foreground">{t("footer.support")}</h4>
             <div className="flex flex-col gap-2">
-              <Link to="/contact" className="text-sm text-muted-foreground hover:text-primary">Contact Us</Link>
-              <Link to="/how-it-works#faq" className="text-sm text-muted-foreground hover:text-primary">FAQ</Link>
-              <Link to="/privacy" className="text-sm text-muted-foreground hover:text-primary">Privacy Policy</Link>
-              <Link to="/terms" className="text-sm text-muted-foreground hover:text-primary">Terms & Conditions</Link>
+              <Link to="/contact" className="text-sm text-muted-foreground hover:text-primary">{t("footer.contact")}</Link>
+              <Link to="/how-it-works#faq" className="text-sm text-muted-foreground hover:text-primary">{t("footer.faq")}</Link>
+              <Link to="/privacy" className="text-sm text-muted-foreground hover:text-primary">{t("footer.privacy")}</Link>
+              <Link to="/terms" className="text-sm text-muted-foreground hover:text-primary">{t("footer.terms")}</Link>
             </div>
           </div>
 
           <div>
-            <h4 className="mb-3 text-sm font-semibold text-foreground">Stay Connected</h4>
+            <h4 className="mb-3 text-sm font-semibold text-foreground">{t("footer.connected")}</h4>
             <p className="text-sm text-muted-foreground">
-              Follow us for updates on new projects and success stories.
+              {t("footer.connectedText")}
             </p>
             <div className="mt-3 flex gap-3">
               <a href="#" className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-muted-foreground transition-colors hover:bg-primary hover:text-primary-foreground" aria-label="Twitter">
@@ -58,7 +60,7 @@ const Footer = () => {
         </div>
 
         <div className="mt-10 border-t border-border pt-6 text-center text-sm text-muted-foreground">
-          © {new Date().getFullYear()} Sahmi. All rights reserved. Built with hope.
+          © {new Date().getFullYear()} Sahmi. {t("footer.rights")}
         </div>
       </div>
     </footer>

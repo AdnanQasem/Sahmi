@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useState, useRef } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
@@ -48,32 +49,15 @@ const slideInLeft = {
   transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] },
 };
 
-const benefits = [
-  { icon: Briefcase, text: "Access to verified projects" },
-  { icon: TrendingUp, text: "Track your investments" },
-  { icon: Leaf, text: "Support local entrepreneurs" },
-];
-
-const testimonials = [
-  {
-    quote: "Joining Sahmi was the best decision for my startup. The community support is incredible.",
-    author: "Maria A.",
-    role: "Entrepreneur, Nablus",
-  },
-  {
-    quote: "I've found amazing investment opportunities that I couldn't find anywhere else.",
-    author: "Khaled M.",
-    role: "Investor",
-  },
-];
-
+const benefits = [Briefcase, TrendingUp, Leaf];
+const testimonials = [{ author: "Maria A." }, { author: "Khaled M." }];
 const passwordRequirements = [
-  { label: "At least 8 characters", check: (p: string) => p.length >= 8 },
-  { label: "Contains a number", check: (p: string) => /\d/.test(p) },
-  { label: "Contains a special character", check: (p: string) => /[!@#$%^&*]/.test(p) },
+  { labelKey: "settings.password8", check: (p: string) => p.length >= 8 },
+  { labelKey: "settings.passwordNumber", check: (p: string) => /\d/.test(p) },
+  { labelKey: "settings.passwordSpecial", check: (p: string) => /[!@#$%^&*]/.test(p) },
 ];
-
 const RegisterPage = () => {
+  const { t } = useTranslation();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -167,12 +151,10 @@ const RegisterPage = () => {
             transition={{ delay: 0.5, duration: 0.6 }}
           >
             <h2 className="text-4xl xl:text-5xl font-bold mb-6 leading-tight">
-              Join the Movement for{" "}
-              <span className="text-teal-200">Change</span>
+              {t("auth.registerHero")}
             </h2>
             <p className="text-lg text-white/80 mb-10 max-w-md leading-relaxed">
-              Whether you're an entrepreneur with a vision or an investor seeking impact,
-              Sahmi is your gateway to meaningful connections.
+              {t("auth.registerHeroText")}
             </p>
           </motion.div>
 
@@ -183,18 +165,18 @@ const RegisterPage = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.7, duration: 0.6 }}
           >
-            {benefits.map((benefit, index) => (
+            {benefits.map((BenefitIcon, index) => (
               <motion.div
-                key={benefit.text}
+                key={index}
                 className="flex items-center gap-3"
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.8 + index * 0.1 }}
               >
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 backdrop-blur-sm">
-                  <benefit.icon className="h-5 w-5 text-teal-200" />
+                  <BenefitIcon className="h-5 w-5 text-teal-200" />
                 </div>
-                <span className="font-medium">{benefit.text}</span>
+                <span className="font-medium">{t(`auth.registerBenefits.${index}`)}</span>
               </motion.div>
             ))}
           </motion.div>
@@ -216,14 +198,14 @@ const RegisterPage = () => {
                 transition={{ duration: 0.3 }}
               >
                 <p className="text-white/90 mb-4 italic">
-                  "{testimonials[currentTestimonial].quote}"
+                  “{t(`auth.registerTestimonials.${currentTestimonial}.quote`)}”
                 </p>
                 <div>
                   <p className="font-semibold text-white">
                     {testimonials[currentTestimonial].author}
                   </p>
                   <p className="text-sm text-white/60">
-                    {testimonials[currentTestimonial].role}
+                    {t(`auth.registerTestimonials.${currentTestimonial}.role`)}
                   </p>
                 </div>
               </motion.div>
@@ -256,7 +238,7 @@ const RegisterPage = () => {
         <motion.div variants={fadeInUp} className="mb-10">
           <Link to="/" className="inline-flex items-center gap-2 group">
             <SahmiLogo variant="icon" size="md" />
-            <span className="text-xl font-bold text-primary">Back to Home</span>
+            <span className="text-xl font-bold text-primary">{t("nav.home")}</span>
           </Link>
         </motion.div>
 
@@ -277,12 +259,8 @@ const RegisterPage = () => {
                 >
                   <Check className="h-10 w-10 text-success" />
                 </motion.div>
-                <h2 className="text-2xl font-bold text-foreground mb-2">
-                  Account Created!
-                </h2>
-                <p className="text-muted-foreground">
-                  Redirecting you to sign in...
-                </p>
+                <h2 className="text-2xl font-bold text-foreground mb-2">{t("auth.accountCreated")}</h2>
+                <p className="text-muted-foreground">{t("auth.redirecting")}</p>
               </motion.div>
             ) : (
               <motion.div
@@ -297,13 +275,13 @@ const RegisterPage = () => {
                     whileHover={{ scale: 1.05 }}
                   >
                     <Rocket className="h-4 w-4 text-secondary" />
-                    <span className="text-xs font-medium text-secondary">Get Started</span>
+                    <span className="text-xs font-medium text-secondary">{t("nav.register")}</span>
                   </motion.div>
                   <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-3">
-                    Create your account
+                    {t("auth.registerTitle")}
                   </h1>
                   <p className="text-muted-foreground">
-                    Join Sahmi and start making an impact today
+                    {t("auth.registerSubtitle")}
                   </p>
                 </div>
 
@@ -319,7 +297,7 @@ const RegisterPage = () => {
                     className="mb-6"
                   >
                     <Label className="text-foreground font-medium mb-3 block">
-                      I want to
+                      {t("auth.accountType")}
                     </Label>
                     <div className="grid grid-cols-2 gap-3">
                       <motion.button
@@ -334,7 +312,7 @@ const RegisterPage = () => {
                         }`}
                       >
                         <TrendingUp className="h-6 w-6 mx-auto mb-2" />
-                        <p className="font-medium text-sm">Invest</p>
+                        <p className="font-medium text-sm">{t("auth.investor")}</p>
                       </motion.button>
                       <motion.button
                         type="button"
@@ -348,7 +326,7 @@ const RegisterPage = () => {
                         }`}
                       >
                         <Briefcase className="h-6 w-6 mx-auto mb-2" />
-                        <p className="font-medium text-sm">Entrepreneur</p>
+                        <p className="font-medium text-sm">{t("auth.entrepreneur")}</p>
                       </motion.button>
                     </div>
                   </motion.div>
@@ -360,14 +338,14 @@ const RegisterPage = () => {
                       transition={{ delay: 0.4 }}
                     >
                       <Label htmlFor="full_name" className="text-foreground font-medium">
-                        Full Name
+                        {t("auth.fullName")}
                       </Label>
                       <div className="relative mt-2">
-                        <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                        <User className="absolute start-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                         <Input
                           id="full_name"
-                          placeholder="Your full name"
-                          className="pl-10 h-12 rounded-xl border-border/60 focus:border-primary focus:ring-primary"
+                          placeholder={t("auth.fullName")}
+                          className="ps-10 h-12 rounded-xl border-border/60 focus:border-primary focus:ring-primary"
                           value={name}
                           onChange={(event) => setName(event.target.value)}
                           autoComplete="name"
@@ -391,15 +369,15 @@ const RegisterPage = () => {
                       transition={{ delay: 0.5 }}
                     >
                       <Label htmlFor="email" className="text-foreground font-medium">
-                        Email Address
+                        {t("auth.email")}
                       </Label>
                       <div className="relative mt-2">
-                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                        <Mail className="absolute start-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                         <Input
                           id="email"
                           type="email"
                           placeholder="you@example.com"
-                          className="pl-10 h-12 rounded-xl border-border/60 focus:border-primary focus:ring-primary"
+                          className="ps-10 h-12 rounded-xl border-border/60 focus:border-primary focus:ring-primary"
                           value={email}
                           onChange={(event) => setEmail(event.target.value)}
                           autoComplete="email"
@@ -423,15 +401,15 @@ const RegisterPage = () => {
                       transition={{ delay: 0.6 }}
                     >
                       <Label htmlFor="password" className="text-foreground font-medium">
-                        Password
+                        {t("auth.password")}
                       </Label>
                       <div className="relative mt-2">
-                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                        <Lock className="absolute start-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                         <Input
                           id="password"
                           type={showPassword ? "text" : "password"}
-                          placeholder="Create a strong password"
-                          className="pl-10 pr-10 h-12 rounded-xl border-border/60 focus:border-primary focus:ring-primary"
+                          placeholder={t("auth.password")}
+                          className="ps-10 pe-10 h-12 rounded-xl border-border/60 focus:border-primary focus:ring-primary"
                           value={password}
                           onChange={(event) => setPassword(event.target.value)}
                           autoComplete="new-password"
@@ -440,7 +418,7 @@ const RegisterPage = () => {
                         <button
                           type="button"
                           onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                          className="absolute end-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                         >
                           {showPassword ? (
                             <EyeOff className="h-5 w-5" />
@@ -454,7 +432,7 @@ const RegisterPage = () => {
                       <div className="mt-3 space-y-2">
                         {passwordRequirements.map((req) => (
                           <motion.div
-                            key={req.label}
+                            key={t(req.labelKey)}
                             className="flex items-center gap-2 text-sm"
                             initial={false}
                             animate={{
@@ -470,7 +448,7 @@ const RegisterPage = () => {
                             >
                               <Check className={`h-4 w-4 ${req.check(password) ? "text-success" : "text-muted-foreground"}`} />
                             </motion.div>
-                            <span>{req.label}</span>
+                            <span>{t(req.labelKey)}</span>
                           </motion.div>
                         ))}
                       </div>
@@ -501,10 +479,10 @@ const RegisterPage = () => {
                         htmlFor="terms"
                         className="text-sm text-muted-foreground cursor-pointer"
                       >
-                        I agree to the{" "}
-                        <Link to="/terms" className="text-primary hover:underline">Terms</Link>{" "}
-                        and{" "}
-                        <Link to="/privacy" className="text-primary hover:underline">Privacy Policy</Link>
+                        {t("auth.agreePrefix")}{" "}
+                        <Link to="/terms" className="text-primary hover:underline">{t("auth.terms")}</Link>{" "}
+                        {t("common.and")}{" "}
+                        <Link to="/privacy" className="text-primary hover:underline">{t("auth.privacy")}</Link>
                       </label>
                     </motion.div>
 
@@ -537,13 +515,9 @@ const RegisterPage = () => {
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                           >
-                            <Loader2 className="h-5 w-5 animate-spin" />
-                            Creating account...
-                          </motion.div>
+                            <Loader2 className="h-5 w-5 animate-spin" />{t("auth.registering")}</motion.div>
                         ) : (
-                          <span className="flex items-center gap-2">
-                            Create Account
-                            <ArrowRight className="h-5 w-5" />
+                          <span className="flex items-center gap-2">{t("auth.register")}<ArrowRight className="h-5 w-5 rtl-flip" />
                           </span>
                         )}
                       </Button>
@@ -555,14 +529,12 @@ const RegisterPage = () => {
                   variants={fadeInUp}
                   className="mt-8 text-center text-sm text-muted-foreground"
                 >
-                  Already have an account?{" "}
+                  {t("auth.haveAccount")}{" "}
                   <Link
                     to="/login"
                     className="font-semibold text-primary hover:text-primary/80 transition-colors inline-flex items-center gap-1"
-                  >
-                    Sign in
-                    <motion.span whileHover={{ x: 2 }}>
-                      <ArrowRight className="h-4 w-4" />
+                  >{t("auth.login")}<motion.span whileHover={{ x: 2 }}>
+                      <ArrowRight className="h-4 w-4 rtl-flip" />
                     </motion.span>
                   </Link>
                 </motion.p>

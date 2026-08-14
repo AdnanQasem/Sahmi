@@ -1,3 +1,6 @@
+import { useTranslation } from "react-i18next";
+import i18n from "@/i18n";
+import { formatCurrency, formatDate, formatNumber, formatPercent } from "@/i18n/format";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { motion, type Variants } from "framer-motion";
@@ -21,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import DashboardLayout from "./DashboardLayout";
 import EmptyState from "@/components/dashboard/EmptyState";
 import FundingProgressBar from "@/components/dashboard/FundingProgressBar";
+import { calculateFundingPercent } from "@/lib/fundingProgress";
 import StatusBadge from "@/components/dashboard/StatusBadge";
 import investmentsService, { Investment } from "@/services/investmentsService";
 import projectsService, { Project } from "@/services/projectsService";
@@ -39,9 +43,9 @@ import {
   Users,
 } from "lucide-react";
 
-const currency = (value: number) => `$${Math.round(value).toLocaleString()}`;
-const compactNumber = (value: number) => Intl.NumberFormat("en", { notation: "compact" }).format(value);
-const percent = (value: number) => `${Math.round(value)}%`;
+const currency = (value: number) => formatCurrency(value);
+const compactNumber = (value: number) => formatNumber(value, { notation: "compact" });
+const percent = (value: number) => formatPercent(value);
 
 const amountOf = (investment: Investment) => Number(investment.amount || 0);
 const expectedOf = (investment: Investment) => Number(investment.expected_return || 0);
@@ -49,11 +53,7 @@ const projectRaised = (project: Project) => Number(project.funded_amount || 0);
 const projectGoal = (project: Project) => Number(project.goal_amount || 0);
 
 const projectFundingPercent = (project: Project) => {
-  const apiPercent = Number(project.funding_percent || 0);
-  if (apiPercent > 0) return Math.min(Math.round(apiPercent), 100);
-
-  const goal = projectGoal(project);
-  return goal > 0 ? Math.min(Math.round((projectRaised(project) / goal) * 100), 100) : 0;
+  return calculateFundingPercent(projectRaised(project), projectGoal(project));
 };
 
 export type Timeframe = "1M" | "3M" | "6M" | "1Y" | "ALL";
@@ -79,17 +79,17 @@ const buildPerformanceData = (investments: Investment[], timeframe: Timeframe) =
       let sortKey = "";
       
       if (timeframe === "1M") {
-        key = new Intl.DateTimeFormat("en", { month: "short", day: "numeric" }).format(date);
+        key = formatDate(date, { month: "short", day: "numeric" });
         sortKey = date.toISOString().split("T")[0];
       } else if (timeframe === "3M") {
         const d = new Date(date);
         const day = d.getDay();
         const diff = d.getDate() - day + (day === 0 ? -6 : 1);
         const startOfWeek = new Date(d.setDate(diff));
-        key = `Week of ${new Intl.DateTimeFormat("en", { month: "short", day: "numeric" }).format(startOfWeek)}`;
+        key = i18n.t("analytics.weekOf", { date: formatDate(startOfWeek, { month: "short", day: "numeric" }) });
         sortKey = startOfWeek.toISOString().split("T")[0];
       } else {
-        key = new Intl.DateTimeFormat("en", { month: "short", year: timeframe === "ALL" ? "numeric" : undefined }).format(date);
+        key = formatDate(date, { month: "short", year: timeframe === "ALL" ? "numeric" : undefined });
         sortKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
       }
 
@@ -111,7 +111,7 @@ const buildPerformanceData = (investments: Investment[], timeframe: Timeframe) =
       investors: data.investors.size,
     }));
 
-  return rows.length ? rows : [{ label: "No data", raised: 0, transactions: 0, investors: 0 }];
+  return rows.length ? rows : [{ label: i18n.t("analytics.noData"), raised: 0, transactions: 0, investors: 0 }];
 };
 
 const buildStatusMix = (projects: Project[]) => {
@@ -130,12 +130,12 @@ const buildStatusMix = (projects: Project[]) => {
   }, {});
 
   const rows = Object.entries(grouped).map(([status, value], index) => ({
-    name: status.replace(/_/g, " "),
+    name: i18n.t(`status.${status}`, { defaultValue: status.replace(/_/g, " ") }),
     value,
     color: colors[index % colors.length],
   }));
 
-  return rows.length ? rows : [{ name: "No projects", value: 1, color: "hsl(var(--muted))" }];
+  return rows.length ? rows : [{ name: i18n.t("analytics.noProjects"), value: 1, color: "hsl(var(--muted))" }];
 };
 
 const chartProjectName = (title: string) => (title.length > 16 ? `${title.slice(0, 15)}...` : title);
@@ -167,6 +167,7 @@ const MoneyTooltip = ({
   payload?: { name?: string; value?: number | string }[];
   label?: string;
 }) => {
+  const { t } = useTranslation();
   if (!active || !payload?.length) return null;
 
   return (
@@ -178,8 +179,8 @@ const MoneyTooltip = ({
           const isMoney = item.name === "raised" || item.name === "goal";
           return (
             <p key={item.name} className="flex items-center justify-between gap-5 text-foreground">
-              <span className="capitalize text-muted-foreground">{item.name}</span>
-              <span className="font-bold">{isMoney ? currency(value) : value.toLocaleString()}</span>
+              <span className="text-muted-foreground">{t(`analytics.${item.name}`, { defaultValue: item.name })}</span>
+              <span className="font-bold">{isMoney ? currency(value) : formatNumber(value)}</span>
             </p>
           );
         })}
@@ -189,6 +190,7 @@ const MoneyTooltip = ({
 };
 
 const EntrepreneurAnalyticsPage = () => {
+  const { t } = useTranslation();
   const projectsQuery = useQuery({
     queryKey: ["dashboard", "entrepreneur", "analytics", "projects"],
     queryFn: projectsService.listMyProjects,
@@ -239,47 +241,47 @@ const EntrepreneurAnalyticsPage = () => {
         goal: projectGoal(project),
         progress: projectFundingPercent(project),
       }))
-    : [{ name: "No projects", raised: 0, goal: 0, progress: 0 }];
+    : [{ name: t("analytics.noProjects"), raised: 0, goal: 0, progress: 0 }];
 
   const funnelSteps = [
-    { label: "Project views", value: totalViews, icon: Eye, color: "bg-secondary" },
-    { label: "Investor interest", value: totalInvestors, icon: Users, color: "bg-primary" },
-    { label: "Confirmed payments", value: confirmedInvestments.length, icon: CircleDollarSign, color: "bg-success" },
+    { label: t("analytics.projectViews"), value: totalViews, icon: Eye, color: "bg-secondary" },
+    { label: t("analytics.investorInterest"), value: totalInvestors, icon: Users, color: "bg-primary" },
+    { label: t("analytics.confirmedPaymentLabel"), value: confirmedInvestments.length, icon: CircleDollarSign, color: "bg-success" },
   ];
   const funnelMax = Math.max(...funnelSteps.map((step) => step.value), 1);
 
   const metricCards = [
     {
-      label: "Total raised",
+      label: t("analytics.totalRaised"),
       value: currency(totalRaised),
-      subtext: `${percent(totalGoal > 0 ? (totalRaised / totalGoal) * 100 : 0)} of funding goal`,
+      subtext: t("analytics.ofFundingGoal", { percent: percent(totalGoal > 0 ? (totalRaised / totalGoal) * 100 : 0) }),
       icon: CircleDollarSign,
       iconClass: "from-primary/20 to-primary/5 text-primary",
       glowClass: "from-primary/40 to-primary/5",
       borderClass: "hover:border-primary/50",
     },
     {
-      label: "Average progress",
+      label: t("analytics.averageProgress"),
       value: percent(avgFunding),
-      subtext: `${activeProjects} active, ${fundedProjects} funded`,
+      subtext: t("analytics.activeFunded", { active: formatNumber(activeProjects), funded: formatNumber(fundedProjects) }),
       icon: Target,
       iconClass: "from-secondary/20 to-secondary/5 text-secondary",
       glowClass: "from-secondary/40 to-secondary/5",
       borderClass: "hover:border-secondary/50",
     },
     {
-      label: "Investor reach",
+      label: t("analytics.investorReach"),
       value: totalInvestors.toString(),
-      subtext: `${compactNumber(totalViews)} total project views`,
+      subtext: t("analytics.totalViews", { count: compactNumber(totalViews) }),
       icon: Users,
       iconClass: "from-success/20 to-success/5 text-success",
       glowClass: "from-success/40 to-success/5",
       borderClass: "hover:border-success/50",
     },
     {
-      label: "Avg. transaction",
+      label: t("analytics.averageTransaction"),
       value: currency(averageTicket),
-      subtext: `${confirmedInvestments.length} confirmed payments`,
+      subtext: t("analytics.confirmedPayments", { count: formatNumber(confirmedInvestments.length) }),
       icon: Activity,
       iconClass: "from-warning/20 to-warning/5 text-warning",
       glowClass: "from-warning/40 to-warning/5",
@@ -292,14 +294,14 @@ const EntrepreneurAnalyticsPage = () => {
       <motion.div className="space-y-7" variants={containerVariants} initial="hidden" animate="visible">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between mb-2">
           <div>
-            <h1 className="text-3xl font-black tracking-tight text-foreground">Analytics Console</h1>
+            <h1 className="text-3xl font-black tracking-tight text-foreground">{t("analytics.title")}</h1>
             <p className="text-sm font-medium text-muted-foreground mt-1">
-              Track funding momentum, investor conversion, and portfolio performance.
+              {t("analytics.subtitle")}
             </p>
           </div>
           <div className="flex items-center gap-3 mt-4 sm:mt-0">
             <div className="flex items-center gap-2 rounded-xl border border-border/50 bg-card/40 backdrop-blur-sm px-4 py-2">
-              <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Portfolio Funding</span>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{t("analytics.portfolioFunding")}</span>
               <span className="font-black text-primary">{currency(totalRaised)}</span>
             </div>
           </div>
@@ -330,9 +332,9 @@ const EntrepreneurAnalyticsPage = () => {
           <motion.div variants={itemVariants}>
             <EmptyState
               icon={FolderOpen}
-              title="No analytics yet"
-              description="Create your first project to start tracking funding, investors, views, and transaction performance."
-              ctaLabel="Start a project"
+              title={t("analytics.noAnalytics")}
+              description={t("analytics.noAnalyticsText")}
+              ctaLabel={t("analytics.startProject")}
               ctaHref="/start-project"
             />
           </motion.div>
@@ -346,9 +348,9 @@ const EntrepreneurAnalyticsPage = () => {
                       <TrendingUp className="h-5 w-5" />
                     </div>
                     <div>
-                      <h2 className="text-lg font-black tracking-tight text-foreground">Funding Momentum</h2>
+                      <h2 className="text-lg font-black tracking-tight text-foreground">{t("analytics.fundingMomentum")}</h2>
                       <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                        {timeframe === "1M" ? "Daily" : timeframe === "3M" ? "Weekly" : "Monthly"} raised amount
+                        {t(timeframe === "1M" ? "analytics.dailyRaised" : timeframe === "3M" ? "analytics.weeklyRaised" : "analytics.monthlyRaised")}
                       </p>
                     </div>
                   </div>
@@ -397,14 +399,14 @@ const EntrepreneurAnalyticsPage = () => {
                       <Target className="h-5 w-5" />
                     </div>
                     <div>
-                      <h2 className="text-lg font-black tracking-tight text-foreground">Active Projects</h2>
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Funding Progress</p>
+                      <h2 className="text-lg font-black tracking-tight text-foreground">{t("analytics.activeProjects")}</h2>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{t("analytics.fundingProgress")}</p>
                     </div>
                   </div>
                 </div>
                 {projects.filter(p => p.status === 'active').length === 0 ? (
                   <div className="flex-1 flex items-center justify-center text-center">
-                    <p className="text-sm font-medium text-muted-foreground">No active projects to display.</p>
+                    <p className="text-sm font-medium text-muted-foreground">{t("analytics.noActive")}</p>
                   </div>
                 ) : (
                   <>
@@ -471,8 +473,8 @@ const EntrepreneurAnalyticsPage = () => {
                       <CalendarClock className="h-5 w-5" />
                     </div>
                     <div>
-                      <h2 className="text-lg font-black tracking-tight text-foreground">Project Interactions</h2>
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Engagement Metrics</p>
+                      <h2 className="text-lg font-black tracking-tight text-foreground">{t("analytics.interactions")}</h2>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{t("analytics.engagement")}</p>
                     </div>
                   </div>
                 </div>
@@ -485,7 +487,7 @@ const EntrepreneurAnalyticsPage = () => {
                         </span>
                         <span className="text-base font-bold text-foreground">{step.label}</span>
                       </div>
-                      <span className="text-2xl font-black text-foreground">{step.value.toLocaleString()}</span>
+                      <span className="text-2xl font-black text-foreground">{formatNumber(step.value)}</span>
                     </div>
                   ))}
                 </div>
@@ -498,15 +500,15 @@ const EntrepreneurAnalyticsPage = () => {
                       <BarChart3 className="h-5 w-5" />
                     </div>
                     <div>
-                      <h2 className="text-lg font-black tracking-tight text-foreground">Top Performance</h2>
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Raised vs Goal</p>
+                      <h2 className="text-lg font-black tracking-tight text-foreground">{t("analytics.topPerformance")}</h2>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{t("analytics.raisedVsGoal")}</p>
                     </div>
                   </div>
                   {topProject && (
                     <Button variant="outline" size="sm" asChild className="rounded-full border-primary/20 text-primary hover:bg-primary/10 font-bold px-4">
                       <Link to={`/projects/${topProject.slug}`}>
-                        Open top project
-                        <ArrowRight className="ml-2 h-4 w-4" />
+                        {t("analytics.openTop")}
+                        <ArrowRight className="ms-2 h-4 w-4 rtl:rotate-180" />
                       </Link>
                     </Button>
                   )}
@@ -533,14 +535,14 @@ const EntrepreneurAnalyticsPage = () => {
                     <FolderOpen className="h-5 w-5" />
                   </div>
                   <div>
-                    <h2 className="text-lg font-black tracking-tight text-foreground">Project List</h2>
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Visibility and status</p>
+                    <h2 className="text-lg font-black tracking-tight text-foreground">{t("analytics.projectList")}</h2>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{t("analytics.visibility")}</p>
                   </div>
                 </div>
                 <Button size="sm" asChild className="w-fit bg-primary hover:bg-primary/90 rounded-full font-bold shadow-md shadow-primary/20 px-5">
                   <Link to="/start-project">
-                    <PlusSquare className="mr-2 h-4 w-4" />
-                    New project
+                    <PlusSquare className="me-2 h-4 w-4" />
+                    {t("analytics.newProject")}
                   </Link>
                 </Button>
               </div>
@@ -556,7 +558,7 @@ const EntrepreneurAnalyticsPage = () => {
                         <StatusBadge status={project.status} />
                       </div>
                       <p className="mt-1 line-clamp-1 text-sm text-muted-foreground">
-                        {project.category_detail?.name || project.category || "Uncategorized"} in {project.location || "No location"}
+                        {t("analytics.categoryLocation", { category: project.category_detail?.name || project.category || t("analytics.uncategorized"), location: project.location || t("analytics.noLocation") })}
                       </p>
                     </div>
                     <div>
@@ -565,13 +567,13 @@ const EntrepreneurAnalyticsPage = () => {
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Users className="h-4 w-4 text-primary" />
                       <span>
-                        <strong className="text-foreground">{project.investor_count || 0}</strong> investors
+                        {t("analytics.investors", { count: formatNumber(project.investor_count || 0) })}
                       </span>
                     </div>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Eye className="h-4 w-4 text-secondary" />
                       <span>
-                        <strong className="text-foreground">{Number(project.view_count || 0).toLocaleString()}</strong> views
+                        {t("analytics.views", { count: formatNumber(Number(project.view_count || 0)) })}
                       </span>
                     </div>
                   </div>

@@ -1,5 +1,7 @@
+import { useTranslation } from "react-i18next";
+import { formatCurrency, formatDate, formatNumber } from "@/i18n/format";
 import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, type Variants } from "framer-motion";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import DashboardLayout from "./DashboardLayout";
@@ -31,11 +33,10 @@ import {
   Eye,
 } from "lucide-react";
 
-const currency = (value: number) => `$${Math.round(value).toLocaleString()}`;
-const shortDate = (value: string) => 
-  new Intl.DateTimeFormat("en", { month: "short", day: "numeric", year: "numeric" }).format(new Date(value));
+const currency = (value: number) => formatCurrency(value);
+const shortDate = (value: string) => formatDate(value, { month: "short", day: "numeric", year: "numeric" });
 
-const containerVariants = {
+const containerVariants: Variants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
@@ -43,7 +44,7 @@ const containerVariants = {
   }
 };
 
-const itemVariants = {
+const itemVariants: Variants = {
   hidden: { opacity: 0, y: 20, scale: 0.98 },
   visible: { 
     opacity: 1, 
@@ -63,7 +64,7 @@ const mockInvestors = [
     projectCount: 4,
     lastInvestment: new Date(Date.now() - 1000 * 60 * 60 * 24 * 2),
     status: "active",
-    projects: ["Solar Energy Initiative", "Clean Water Project"],
+    projects: ["solarEnergy", "cleanWater"],
     joinDate: new Date(Date.now() - 1000 * 60 * 60 * 24 * 90),
   },
   {
@@ -75,7 +76,7 @@ const mockInvestors = [
     projectCount: 3,
     lastInvestment: new Date(Date.now() - 1000 * 60 * 60 * 24 * 5),
     status: "active",
-    projects: ["Tech Hub Development"],
+    projects: ["techHub"],
     joinDate: new Date(Date.now() - 1000 * 60 * 60 * 24 * 60),
   },
   {
@@ -87,7 +88,7 @@ const mockInvestors = [
     projectCount: 6,
     lastInvestment: new Date(Date.now() - 1000 * 60 * 60 * 24 * 1),
     status: "premium",
-    projects: ["Solar Energy Initiative", "Clean Water Project", "Youth Education"],
+    projects: ["solarEnergy", "cleanWater", "youthEducation"],
     joinDate: new Date(Date.now() - 1000 * 60 * 60 * 24 * 180),
   },
   {
@@ -99,7 +100,7 @@ const mockInvestors = [
     projectCount: 2,
     lastInvestment: new Date(Date.now() - 1000 * 60 * 60 * 24 * 14),
     status: "active",
-    projects: ["Agricultural Innovation"],
+    projects: ["agriculturalInnovation"],
     joinDate: new Date(Date.now() - 1000 * 60 * 60 * 24 * 30),
   },
   {
@@ -111,7 +112,7 @@ const mockInvestors = [
     projectCount: 5,
     lastInvestment: new Date(Date.now() - 1000 * 60 * 60 * 24 * 3),
     status: "premium",
-    projects: ["Tech Hub Development", "Healthcare Access", "Clean Water Project"],
+    projects: ["techHub", "healthcareAccess", "cleanWater"],
     joinDate: new Date(Date.now() - 1000 * 60 * 60 * 24 * 120),
   },
   {
@@ -123,12 +124,13 @@ const mockInvestors = [
     projectCount: 2,
     lastInvestment: new Date(Date.now() - 1000 * 60 * 60 * 24 * 7),
     status: "active",
-    projects: ["Solar Energy Initiative"],
+    projects: ["solarEnergy"],
     joinDate: new Date(Date.now() - 1000 * 60 * 60 * 24 * 45),
   },
 ];
 
 const InvestorsPage = () => {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<"recent" | "amount" | "name">("recent");
@@ -167,36 +169,36 @@ const InvestorsPage = () => {
 
   const kpiCards = [
     {
-      label: "Total Investors",
-      value: filteredInvestors.length.toString(),
-      subtext: `${activeInvestors} active`,
+      label: t("investorPage.totalInvestors"),
+      value: formatNumber(filteredInvestors.length),
+      subtext: t("investorPage.activeCount", { count: formatNumber(activeInvestors) }),
       icon: Users,
       gradient: "from-primary to-primary/80",
       bgColor: "bg-primary/10",
       iconColor: "text-primary",
     },
     {
-      label: "Total Invested",
+      label: t("investorPage.totalInvested"),
       value: currency(totalInvestments),
-      subtext: "Across all projects",
+      subtext: t("investorPage.acrossProjects"),
       icon: DollarSign,
       gradient: "from-success to-success/80",
       bgColor: "bg-success/10",
       iconColor: "text-success",
     },
     {
-      label: "Premium Investors",
-      value: premiumInvestors.toString(),
-      subtext: "Top supporters",
+      label: t("investorPage.premiumInvestors"),
+      value: formatNumber(premiumInvestors),
+      subtext: t("investorPage.topSupporters"),
       icon: Sparkles,
       gradient: "from-warning to-warning/80",
       bgColor: "bg-warning/10",
       iconColor: "text-warning",
     },
     {
-      label: "Avg. Investment",
+      label: t("investorPage.averageInvestment"),
       value: currency(avgInvestment),
-      subtext: "Per investor",
+      subtext: t("investorPage.perInvestor"),
       icon: TrendingUp,
       gradient: "from-secondary to-secondary/80",
       bgColor: "bg-secondary/10",
@@ -224,7 +226,7 @@ const InvestorsPage = () => {
                 className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20"
               >
                 <Users className="h-3.5 w-3.5 text-primary" />
-                <span className="text-xs font-medium text-primary">Investor Network</span>
+                <span className="text-xs font-medium text-primary">{t("investorPage.badge")}</span>
               </motion.div>
               <motion.h1 
                 className="text-3xl sm:text-4xl font-bold text-foreground tracking-tight"
@@ -232,7 +234,7 @@ const InvestorsPage = () => {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.3 }}
               >
-                Your <span className="gradient-text">Investors</span>
+                {t("investorPage.title")}
               </motion.h1>
               <motion.p 
                 className="text-muted-foreground"
@@ -240,7 +242,7 @@ const InvestorsPage = () => {
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.4 }}
               >
-                Manage and connect with your project supporters
+                {t("investorPage.subtitle")}
               </motion.p>
             </div>
             <motion.div 
@@ -254,15 +256,15 @@ const InvestorsPage = () => {
                 size="lg"
                 className="group bg-background/80 backdrop-blur-sm border-2 hover:border-primary/50 transition-all duration-300"
               >
-                <Download className="mr-2 h-4 w-4" />
-                Export Data
+                <Download className="me-2 h-4 w-4" />
+                {t("investorPage.export")}
               </Button>
               <Button 
                 size="lg"
                 className="group bg-gradient-to-r from-primary to-primary/80 hover:from-primary hover:to-secondary shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all duration-300"
               >
-                <Send className="mr-2 h-4 w-4 group-hover:rotate-12 transition-transform" />
-                Send Update
+                <Send className="me-2 h-4 w-4 group-hover:rotate-12 transition-transform" />
+                {t("investorPage.sendUpdate")}
               </Button>
             </motion.div>
           </div>
@@ -313,12 +315,12 @@ const InvestorsPage = () => {
         {/* Search and Filters */}
         <motion.div variants={itemVariants} className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search investors by name or email..."
-              className="pl-10 h-11 bg-background border-border focus:border-primary focus:ring-primary/20 transition-all"
+              placeholder={t("investorPage.search")}
+              className="ps-10 h-11 bg-background border-border focus:border-primary focus:ring-primary/20 transition-all"
             />
           </div>
           
@@ -334,7 +336,7 @@ const InvestorsPage = () => {
                       : "text-muted-foreground hover:text-foreground hover:bg-muted"
                   }`}
                 >
-                  {status.charAt(0).toUpperCase() + status.slice(1)}
+                  {t(status === "all" ? "common.all" : status === "premium" ? "dashboard.premium" : "status.active")}
                 </button>
               ))}
             </div>
@@ -343,13 +345,13 @@ const InvestorsPage = () => {
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-                className="h-11 appearance-none rounded-xl border border-border bg-card px-4 pr-10 text-sm font-medium text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all cursor-pointer"
+                className="h-11 appearance-none rounded-xl border border-border bg-card px-4 pe-10 text-sm font-medium text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all cursor-pointer"
               >
-                <option value="recent">Most Recent</option>
-                <option value="amount">Highest Amount</option>
-                <option value="name">Name A-Z</option>
+                <option value="recent">{t("investorPage.mostRecent")}</option>
+                <option value="amount">{t("investorPage.highestAmount")}</option>
+                <option value="name">{t("investorPage.nameOrder")}</option>
               </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+              <ChevronDown className="absolute end-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
             </div>
           </div>
         </motion.div>
@@ -373,9 +375,9 @@ const InvestorsPage = () => {
                   >
                     <Users className="h-10 w-10 text-primary" />
                   </motion.div>
-                  <h3 className="text-lg font-semibold text-foreground mb-2">No investors found</h3>
+                  <h3 className="text-lg font-semibold text-foreground mb-2">{t("investorPage.noInvestors")}</h3>
                   <p className="text-muted-foreground max-w-sm mx-auto">
-                    {searchQuery ? "Try adjusting your search or filters." : "Investors will appear here when they back your projects."}
+                    {t(searchQuery ? "investorPage.adjustSearch" : "investorPage.backersAppear")}
                   </p>
                 </motion.div>
               ) : (
@@ -432,16 +434,16 @@ const InvestorsPage = () => {
                                     : "bg-success/10 text-success border-success/20"
                                 }`}
                               >
-                                {investor.status === "premium" ? "Premium Investor" : "Active"}
+                                {t(investor.status === "premium" ? "investorPage.premiumInvestor" : "investorPage.active")}
                               </Badge>
                               <span className="text-xs text-muted-foreground">
-                                {investor.projectCount} projects
+                                {t("investorPage.projectCount", { count: formatNumber(investor.projectCount) })}
                               </span>
                             </div>
                           </div>
-                          <div className="text-right">
+                          <div className="text-end">
                             <p className="text-lg font-bold text-foreground">{currency(investor.totalInvested)}</p>
-                            <p className="text-xs text-muted-foreground">Total invested</p>
+                            <p className="text-xs text-muted-foreground">{t("investorPage.totalInvested")}</p>
                           </div>
                         </div>
 
@@ -449,12 +451,12 @@ const InvestorsPage = () => {
                         <div className="flex flex-wrap items-center gap-2 mb-3">
                           {investor.projects.slice(0, 2).map((project) => (
                             <Badge key={project} variant="outline" className="text-xs border-primary/20">
-                              {project}
+                              {t(`investorPage.sampleProjects.${project}`)}
                             </Badge>
                           ))}
                           {investor.projects.length > 2 && (
                             <Badge variant="outline" className="text-xs bg-muted border-muted">
-                              +{investor.projects.length - 2} more
+                              {t("investorPage.more", { count: formatNumber(investor.projects.length - 2) })}
                             </Badge>
                           )}
                         </div>
@@ -463,7 +465,7 @@ const InvestorsPage = () => {
                         <div className="flex items-center gap-4 text-xs text-muted-foreground">
                           <span className="flex items-center gap-1">
                             <Calendar className="h-3 w-3" />
-                            Last: {shortDate(investor.lastInvestment.toISOString())}
+                            {t("investorPage.last", { date: shortDate(investor.lastInvestment.toISOString()) })}
                           </span>
                           <span className="flex items-center gap-1">
                             <Mail className="h-3 w-3" />
@@ -477,7 +479,7 @@ const InvestorsPage = () => {
                         className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 opacity-0 group-hover:opacity-100 transition-opacity"
                         whileHover={{ x: 2 }}
                       >
-                        <ArrowRight className="h-4 w-4 text-primary" />
+                        <ArrowRight className="h-4 w-4 text-primary rtl:rotate-180" />
                       </motion.div>
                     </div>
 
@@ -522,28 +524,28 @@ const InvestorsPage = () => {
                     <motion.h3 layoutId={`name-${selectedInvestor.id}`} className="mt-4 text-lg font-semibold text-foreground">
                       {selectedInvestor.name}
                     </motion.h3>
-                    <p className="text-sm text-muted-foreground">{selectedInvestor.email}</p>
+                    <p className="text-sm text-muted-foreground" dir="ltr"><bdi>{selectedInvestor.email}</bdi></p>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4 mb-6">
                     <div className="text-center p-3 rounded-xl bg-muted/50">
                       <p className="text-2xl font-bold text-primary">{currency(selectedInvestor.totalInvested)}</p>
-                      <p className="text-xs text-muted-foreground">Total Invested</p>
+                      <p className="text-xs text-muted-foreground">{t("investorPage.totalInvested")}</p>
                     </div>
                     <div className="text-center p-3 rounded-xl bg-muted/50">
                       <p className="text-2xl font-bold text-secondary">{selectedInvestor.projectCount}</p>
-                      <p className="text-xs text-muted-foreground">Projects</p>
+                      <p className="text-xs text-muted-foreground">{t("investorPage.projects")}</p>
                     </div>
                   </div>
 
                   <div className="space-y-3">
                     <Button className="w-full group">
-                      <Mail className="mr-2 h-4 w-4 group-hover:rotate-12 transition-transform" />
-                      Send Message
+                      <Mail className="me-2 h-4 w-4 group-hover:rotate-12 transition-transform" />
+                      {t("investorPage.sendMessage")}
                     </Button>
                     <Button variant="outline" className="w-full">
-                      <Eye className="mr-2 h-4 w-4" />
-                      View Activity
+                      <Eye className="me-2 h-4 w-4" />
+                      {t("investorPage.viewActivity")}
                     </Button>
                   </div>
                 </motion.div>
@@ -562,9 +564,9 @@ const InvestorsPage = () => {
                     >
                       <Users className="h-8 w-8 text-primary" />
                     </motion.div>
-                    <h4 className="font-semibold text-foreground mb-2">Select an Investor</h4>
+                    <h4 className="font-semibold text-foreground mb-2">{t("investorPage.selectInvestor")}</h4>
                     <p className="text-sm text-muted-foreground">
-                      Click on an investor card to view their details and send messages.
+                      {t("investorPage.selectText")}
                     </p>
                   </div>
                 </motion.div>
@@ -584,10 +586,10 @@ const InvestorsPage = () => {
               <div className="relative">
                 <div className="flex items-center gap-2 mb-3">
                   <Sparkles className="h-5 w-5 text-primary" />
-                  <h4 className="font-semibold text-foreground">Pro Tip</h4>
+                  <h4 className="font-semibold text-foreground">{t("investorPage.tip")}</h4>
                 </div>
                 <p className="text-sm text-muted-foreground leading-relaxed">
-                  Premium investors contribute 3x more on average. Consider offering them exclusive updates and early access to new projects.
+                  {t("investorPage.tipText")}
                 </p>
               </div>
             </motion.div>

@@ -3,8 +3,9 @@ import { useAuth } from "@/hooks/useAuth";
 
 /**
  * Redirects /dashboard to the role-specific dashboard.
+ * Staff → /dashboard/admin
  * Investor → /dashboard/investor
- * Entrepreneur/Admin → /dashboard/entrepreneur
+ * Entrepreneur → /dashboard/entrepreneur
  */
 const DashboardRedirect = () => {
   const { user, loading } = useAuth();
@@ -21,11 +22,14 @@ const DashboardRedirect = () => {
     return <Navigate to="/login" replace />;
   }
 
+  if (user.is_staff) {
+    return <Navigate to="/dashboard/admin" replace />;
+  }
+
   if (user.user_type === "investor") {
     return <Navigate to="/dashboard/investor" replace />;
   }
 
-  // entrepreneur or admin → entrepreneur dashboard
   return <Navigate to="/dashboard/entrepreneur" replace />;
 };
 

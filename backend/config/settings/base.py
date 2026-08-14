@@ -20,6 +20,7 @@ INSTALLED_APPS = [
     "corsheaders",
     "rest_framework",
     "rest_framework_simplejwt",
+    "rest_framework_simplejwt.token_blacklist",
     "django_filters",
     "drf_spectacular",
     "apps.core",
@@ -27,6 +28,8 @@ INSTALLED_APPS = [
     "apps.projects",
     "apps.investments",
     "apps.notifications",
+    "apps.messaging",
+    "apps.audit",
 ]
 
 MIDDLEWARE = [
@@ -38,6 +41,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "apps.core.middleware.RequestIDMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -65,6 +69,9 @@ DATABASES = {
 }
 
 AUTH_USER_MODEL = "users.User"
+AUTHENTICATION_BACKENDS = [
+    "apps.users.backends.CaseInsensitiveEmailBackend",
+]
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
@@ -92,6 +99,31 @@ CORS_ALLOWED_ORIGINS = [
 ]
 CORS_ALLOW_CREDENTIALS = True
 
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
+    "AUTH_HEADER_TYPES": ("Bearer",),
+    "TOKEN_TYPE_CLAIM": "access",
+}
+
+# Throttling
+from datetime import timedelta as _td  # noqa: E402
+ANON_THROTTLE_RATE = config("DJANGO_ANON_THROTTLE_RATE", default="60/min")
+USER_THROTTLE_RATE = config("DJANGO_USER_THROTTLE_RATE", default="180/min")
+LOGIN_THROTTLE_RATE = config("DJANGO_LOGIN_THROTTLE_RATE", default="5/min")
+REGISTER_THROTTLE_RATE = config("DJANGO_REGISTER_THROTTLE_RATE", default="3/min")
+REFRESH_THROTTLE_RATE = config("DJANGO_REFRESH_THROTTLE_RATE", default="10/min")
+PASSWORD_CHANGE_THROTTLE_RATE = config("DJANGO_PASSWORD_CHANGE_THROTTLE_RATE", default="5/hour")
+PASSWORD_RESET_THROTTLE_RATE = config("DJANGO_PASSWORD_RESET_THROTTLE_RATE", default="5/hour")
+MESSAGE_SEND_THROTTLE_RATE = config("DJANGO_MESSAGE_SEND_THROTTLE_RATE", default="30/min")
+CONVERSATION_CREATE_THROTTLE_RATE = config("DJANGO_CONVERSATION_CREATE_THROTTLE_RATE", default="10/hour")
+NOTIFICATION_READ_THROTTLE_RATE = config("DJANGO_NOTIFICATION_READ_THROTTLE_RATE", default="120/min")
+ADMIN_VERIFICATION_THROTTLE_RATE = config("DJANGO_ADMIN_VERIFICATION_THROTTLE_RATE", default="30/hour")
+PROJECT_TRANSLATION_THROTTLE_RATE = config("DJANGO_PROJECT_TRANSLATION_THROTTLE_RATE", default="60/hour")
+CONTACT_MESSAGE_THROTTLE_RATE = config("DJANGO_CONTACT_MESSAGE_THROTTLE_RATE", default="5/hour")
+
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": ("rest_framework_simplejwt.authentication.JWTAuthentication",),
     "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticatedOrReadOnly",),
@@ -104,12 +136,26 @@ REST_FRAMEWORK = {
         "rest_framework.filters.SearchFilter",
         "rest_framework.filters.OrderingFilter",
     ),
+    "DEFAULT_THROTTLE_CLASSES": (
+        "apps.core.throttling.AnonRateThrottle",
+        "apps.core.throttling.UserRateThrottle",
+    ),
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": ANON_THROTTLE_RATE,
+        "user": USER_THROTTLE_RATE,
+        "login": LOGIN_THROTTLE_RATE,
+        "register": REGISTER_THROTTLE_RATE,
+        "refresh": REFRESH_THROTTLE_RATE,
+        "password_change": PASSWORD_CHANGE_THROTTLE_RATE,
+        "password_reset": PASSWORD_RESET_THROTTLE_RATE,
+        "message_send": MESSAGE_SEND_THROTTLE_RATE,
+        "conversation_create": CONVERSATION_CREATE_THROTTLE_RATE,
+        "notification_read": NOTIFICATION_READ_THROTTLE_RATE,
+        "admin_verification": ADMIN_VERIFICATION_THROTTLE_RATE,
+        "project_translation": PROJECT_TRANSLATION_THROTTLE_RATE,
+        "contact_message": CONTACT_MESSAGE_THROTTLE_RATE,
+    },
     "EXCEPTION_HANDLER": "apps.core.exceptions.standard_exception_handler",
-}
-
-SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
 }
 
 SPECTACULAR_SETTINGS = {
@@ -118,5 +164,37 @@ SPECTACULAR_SETTINGS = {
     "VERSION": "1.0.0",
 }
 
+PROJECT_TRANSLATION_URL = config(
+    "DJANGO_PROJECT_TRANSLATION_URL",
+    default="https://translate.googleapis.com/translate_a/single",
+).rstrip("?")
+PROJECT_TRANSLATION_TIMEOUT_SECONDS = config(
+    "DJANGO_PROJECT_TRANSLATION_TIMEOUT_SECONDS", default=8, cast=int
+)
+PROJECT_TRANSLATION_CACHE_SECONDS = config(
+    "DJANGO_PROJECT_TRANSLATION_CACHE_SECONDS", default=86400, cast=int
+)
+
+
+FRONTEND_URL = config("FRONTEND_URL", default="http://localhost:5173").rstrip("/")
+EMAIL_BACKEND = config(
+    "DJANGO_EMAIL_BACKEND",
+    default="django.core.mail.backends.console.EmailBackend",
+)
+EMAIL_HOST = config("DJANGO_EMAIL_HOST", default="localhost")
+EMAIL_PORT = config("DJANGO_EMAIL_PORT", default=587, cast=int)
+EMAIL_HOST_USER = config("DJANGO_EMAIL_HOST_USER", default="")
+EMAIL_HOST_PASSWORD = config("DJANGO_EMAIL_HOST_PASSWORD", default="")
+EMAIL_USE_TLS = config("DJANGO_EMAIL_USE_TLS", default=True, cast=bool)
+DEFAULT_FROM_EMAIL = config("DJANGO_DEFAULT_FROM_EMAIL", default="Sahmi <no-reply@sahmi.local>")
+CONTACT_EMAIL = config("DJANGO_CONTACT_EMAIL", default="ikrayyemala@gmail.com")
+DEMO_SINGLE_NOTIFICATION_EMAILS = {
+    email.strip().lower()
+    for email in config(
+        "DJANGO_DEMO_SINGLE_NOTIFICATION_EMAILS",
+        default="invest@gmail.com,fund@gmail.com",
+    ).split(",")
+    if email.strip()
+}
 CELERY_BROKER_URL = config("REDIS_URL", default="redis://localhost:6379/0")
 CELERY_RESULT_BACKEND = CELERY_BROKER_URL

@@ -2,8 +2,16 @@ from django.conf import settings
 from django.db import models
 from django.utils import timezone
 from django.utils.text import slugify
+from pathlib import Path
+from uuid import uuid4
 
 from apps.core.models import UUIDTimestampModel
+from .validators import validate_project_pdf
+
+
+def project_document_upload_path(instance, filename):
+    extension = Path(filename).suffix.lower()
+    return f"project-documents/{instance.id}/{uuid4().hex}{extension}"
 
 
 class ProjectCategory(UUIDTimestampModel):
@@ -49,6 +57,8 @@ class Project(UUIDTimestampModel):
     funded_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     minimum_investment = models.DecimalField(max_digits=10, decimal_places=2, default=100)
     expected_roi = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    cost_items = models.JSONField(default=list, blank=True)
+    faqs = models.JSONField(default=list, blank=True)
     funding_period_days = models.PositiveIntegerField(default=30)
     start_date = models.DateTimeField(default=timezone.now)
     end_date = models.DateTimeField(blank=True, null=True)
@@ -57,9 +67,9 @@ class Project(UUIDTimestampModel):
     verified_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, blank=True, null=True, related_name="verified_projects")
     verified_at = models.DateTimeField(blank=True, null=True)
     verification_notes = models.TextField(blank=True)
-    business_plan = models.FileField(upload_to="project-documents/", blank=True, null=True)
-    financial_projections = models.FileField(upload_to="project-documents/", blank=True, null=True)
-    ownership_proof = models.FileField(upload_to="project-documents/", blank=True, null=True)
+    business_plan = models.FileField(upload_to=project_document_upload_path, validators=[validate_project_pdf], blank=True, null=True)
+    financial_projections = models.FileField(upload_to=project_document_upload_path, validators=[validate_project_pdf], blank=True, null=True)
+    ownership_proof = models.FileField(upload_to=project_document_upload_path, validators=[validate_project_pdf], blank=True, null=True)
     cover_image = models.ImageField(upload_to="project-images/", blank=True, null=True)
     video_url = models.URLField(blank=True)
     ai_classified_category = models.CharField(max_length=100, blank=True)
@@ -103,5 +113,64 @@ class ProjectImage(UUIDTimestampModel):
 
 class ProjectDocument(UUIDTimestampModel):
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="supporting_documents")
-    file = models.FileField(upload_to="project-documents/")
+    file = models.FileField(upload_to=project_document_upload_path, validators=[validate_project_pdf])
     title = models.CharField(max_length=120)
+
+
+class ProjectEditRequest(UUIDTimestampModel):
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        APPROVED = "approved", "Approved"
+        REJECTED = "rejected", "Rejected"
+
+    project = models.ForeignKey(
+        Project,
+        on_delete=models.CASCADE,
+        related_name="edit_requests",
+    )
+    submitted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="project_edit_requests",
+    )
+    payload = models.JSONField(default=dict)
+    changes = models.JSONField(default=dict, blank=True)
+    cover_image = models.ImageField(upload_to="project-edit-images/", blank=True, null=True)
+    business_plan = models.FileField(
+        upload_to=project_document_upload_path,
+        validators=[validate_project_pdf],
+        blank=True,
+        null=True,
+    )
+    financial_projections = models.FileField(
+        upload_to=project_document_upload_path,
+        validators=[validate_project_pdf],
+        blank=True,
+        null=True,
+    )
+    ownership_proof = models.FileField(
+        upload_to=project_document_upload_path,
+        validators=[validate_project_pdf],
+        blank=True,
+        null=True,
+    )
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    review_notes = models.TextField(blank=True)
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="reviewed_project_edits",
+        blank=True,
+        null=True,
+    )
+    reviewed_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["project"],
+                condition=models.Q(status="pending"),
+                name="one_pending_edit_per_project",
+            )
+        ]

@@ -121,3 +121,22 @@
     text-wrap: balance;
   }
 }
+
+/* Locale direction support: logical alignment while preserving technical data. */
+html[dir="rtl"] .hero-heading {
+  line-height: 1.25;
+}
+
+html[dir="rtl"] body {
+  font-family: Tahoma, Arial, "Noto Sans Arabic", sans-serif;
+  text-align: right;
+}
+html[dir="rtl"] .border-r { border-right-width: 0; border-left-width: 1px; }
+html[dir="rtl"] .border-l { border-left-width: 0; border-right-width: 1px; }
+html[dir="rtl"] .rtl-flip { transform: scaleX(-1); }
+html[dir="rtl"] input:not([type="email"]):not([type="url"]),
+html[dir="rtl"] textarea,
+html[dir="rtl"] select { text-align: right; }
+input[type="email"], input[type="url"], input[type="number"],
+.ltr-data, [dir="ltr"] { direction: ltr; unicode-bidi: plaintext; }
+[dir="auto"] { unicode-bidi: plaintext; }

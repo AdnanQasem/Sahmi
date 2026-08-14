@@ -2,7 +2,7 @@ from django.db import transaction
 from django.db.models.signals import post_delete, post_save, pre_save
 from django.dispatch import receiver
 
-from .models import Investment
+from .models import Investment, Milestone
 from .services import publish_investment_confirmed_event, sync_project_totals
 
 
@@ -43,3 +43,22 @@ def sync_and_publish_investment_update(sender, instance, created, **kwargs):
 def sync_project_after_investment_delete(sender, instance, **kwargs):
     project_id = instance.project_id
     transaction.on_commit(lambda: sync_project_totals(project_id))
+
+
+def sync_project_milestone_count(project_id):
+    from apps.projects.models import Project
+
+    count = Milestone.objects.filter(project_id=project_id).count()
+    Project.objects.filter(pk=project_id).update(milestone_count=count)
+
+
+@receiver(post_save, sender=Milestone)
+def sync_project_after_milestone_save(sender, instance, **kwargs):
+    project_id = instance.project_id
+    transaction.on_commit(lambda: sync_project_milestone_count(project_id))
+
+
+@receiver(post_delete, sender=Milestone)
+def sync_project_after_milestone_delete(sender, instance, **kwargs):
+    project_id = instance.project_id
+    transaction.on_commit(lambda: sync_project_milestone_count(project_id))

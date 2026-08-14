@@ -1,3 +1,10 @@
+import json
+from datetime import date, datetime
+from decimal import Decimal
+from uuid import UUID
+
+from django.contrib.auth import get_user_model
+from django.db import transaction
 from django.db.models import F
 from django.utils import timezone
 from rest_framework import permissions, viewsets
@@ -5,27 +12,47 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from .filters import ProjectFilter
-from .models import Project, ProjectCategory
-from .permissions import IsEntrepreneur, ProjectPermission
-from .serializers import ProjectCategorySerializer, ProjectListSerializer, ProjectSerializer
+from .models import Project, ProjectCategory, ProjectEditRequest
+from .permissions import IsEntrepreneur, IsStaffOrReadOnly, ProjectPermission
+from .serializers import (
+    AdminProjectListSerializer,
+    ProjectCategorySerializer,
+    ProjectListSerializer,
+    ProjectRejectionSerializer,
+    ProjectSerializer,
+    ProjectStatusSerializer,
+    ProjectVerificationSerializer,
+    PublicProjectSerializer,
+)
+from apps.audit.services import log as audit_log
+from apps.core.throttling import AdminVerificationRateThrottle, ProjectTranslationRateThrottle
+from apps.notifications.models import Notification
+from apps.notifications.services import notify_on_commit
+from .translation import translate_project_content
+
+
+User = get_user_model()
 
 
 class ProjectCategoryViewSet(viewsets.ModelViewSet):
     queryset = ProjectCategory.objects.all()
     serializer_class = ProjectCategorySerializer
-    permission_classes = [permissions.IsAdminUser | permissions.IsAuthenticatedOrReadOnly]
+    permission_classes = [IsStaffOrReadOnly]
     search_fields = ["name"]
     ordering_fields = ["name", "created_at"]
 
 
 class ProjectViewSet(viewsets.ModelViewSet):
-    queryset = Project.objects.select_related("entrepreneur", "category").prefetch_related("images", "supporting_documents")
+    queryset = Project.objects.select_related("entrepreneur", "category").prefetch_related(
+        "images", "supporting_documents", "milestones", "edit_requests"
+    )
     serializer_class = ProjectSerializer
     permission_classes = [ProjectPermission]
     filterset_class = ProjectFilter
     search_fields = ["title", "short_description", "description", "location"]
     ordering_fields = ["created_at", "goal_amount", "funded_amount", "expected_roi", "investor_count"]
     lookup_field = "slug"
+    public_statuses = (Project.Status.ACTIVE, Project.Status.SUCCESSFUL)
 
     def get_permissions(self):
         if self.action == "create":
@@ -34,39 +61,297 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
     def get_serializer_class(self):
         if self.action == "list":
+            if self.request.user.is_authenticated and self.request.user.is_staff:
+                return AdminProjectListSerializer
             return ProjectListSerializer
+        if self.action in {"retrieve", "translation", "repayments"}:
+            instance = self.get_object() if "slug" in self.kwargs else None
+            if (
+                instance is not None
+                and self.request.user.is_authenticated
+                and (
+                    self.request.user.is_staff
+                    or instance.entrepreneur_id == self.request.user.id
+                )
+            ):
+                return ProjectSerializer
+            return PublicProjectSerializer
         return ProjectSerializer
 
     def get_queryset(self):
         queryset = super().get_queryset().filter(deleted_at__isnull=True)
-        if self.request.user.is_staff:
+        if self.request.user.is_authenticated and self.request.user.is_staff:
             return queryset
         if self.action == "list":
-            return queryset.filter(status=Project.Status.ACTIVE, is_verified=True)
-        return queryset
+            return queryset.filter(status__in=self.public_statuses, is_verified=True)
+        if self.action in {"retrieve", "translation", "repayments"}:
+            # Public visibility follows project verified/active rule; the
+            # owner of the project can always retrieve their own.
+            if self.request.user.is_authenticated:
+                owner_q = queryset.filter(entrepreneur=self.request.user)
+            else:
+                owner_q = queryset.none()
+            public_q = queryset.filter(status__in=self.public_statuses, is_verified=True)
+            return (owner_q | public_q).distinct()
+        if self.action in {"my", "payments", "events"}:
+            return queryset  # action views enforce their own gating below
+        # update / partial_update / destroy / verify / reject / set-status:
+        reachable = queryset.none()
+        if self.request.user.is_authenticated:
+            reachable = queryset.filter(entrepreneur=self.request.user)
+        return reachable
 
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
-        Project.objects.filter(pk=instance.pk).update(view_count=F("view_count") + 1)
-        instance.refresh_from_db(fields=["view_count"])
-        return Response(self.get_serializer(instance).data)
+        # Public detail cannot increment the view counter silently for drafts.
+        is_owner_or_staff = (
+            request.user.is_authenticated
+            and (request.user.is_staff or instance.entrepreneur_id == request.user.id)
+        )
+        if instance.status in self.public_statuses and instance.is_verified or is_owner_or_staff:
+            Project.objects.filter(pk=instance.pk).update(view_count=F("view_count") + 1)
+            instance.refresh_from_db(fields=["view_count"])
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
+
+    @staticmethod
+    def _json_value(value):
+        if isinstance(value, dict):
+            return {key: ProjectViewSet._json_value(item) for key, item in value.items()}
+        if isinstance(value, (list, tuple)):
+            return [ProjectViewSet._json_value(item) for item in value]
+        if isinstance(value, (date, datetime, Decimal, UUID)):
+            return str(value)
+        if hasattr(value, "pk"):
+            return str(value.pk)
+        return value
+
+    @transaction.atomic
+    def _stage_approved_project_edit(self, request, partial):
+        project = self.get_object()
+        serializer = self.get_serializer(project, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        validated = dict(serializer.validated_data)
+        staged_files = {
+            field: validated.pop(field)
+            for field in ("cover_image", "business_plan", "financial_projections", "ownership_proof")
+            if field in validated
+        }
+        pending = ProjectEditRequest.objects.filter(
+            project=project,
+            status=ProjectEditRequest.Status.PENDING,
+        ).first()
+        if pending is None:
+            pending = ProjectEditRequest(project=project, submitted_by=request.user)
+        pending.submitted_by = request.user
+        payload = self._json_value(validated)
+        current = self.get_serializer(project).data
+        changes = {}
+        for field, after in payload.items():
+            before = self._json_value(current.get(field))
+            if before != after:
+                changes[field] = {"before": before, "after": after}
+        for field in staged_files:
+            current_file = getattr(project, field)
+            changes[field] = {
+                "before": bool(current_file),
+                "after": True,
+            }
+        pending.payload = payload
+        pending.changes = changes
+        pending.review_notes = ""
+        for field, uploaded_file in staged_files.items():
+            setattr(pending, field, uploaded_file)
+        pending.save()
+
+        for staff_user in User.objects.filter(is_staff=True, is_active=True):
+            notify_on_commit(
+                recipient=staff_user,
+                notification_type=Notification.NotificationType.PROJECT_SUBMITTED,
+                title="Project edits awaiting review",
+                body=f"“{project.title}” has edits awaiting administrator approval.",
+                actor=request.user,
+                target_type="project_edit",
+                target_id=str(pending.id),
+            )
+        return Response(
+            {
+                **self.get_serializer(project).data,
+                "edit_pending": True,
+                "message": "Project edits were submitted for administrator approval.",
+            },
+            status=202,
+        )
+
+    def update(self, request, *args, **kwargs):
+        project = self.get_object()
+        if not request.user.is_staff and project.is_verified:
+            return self._stage_approved_project_edit(request, partial=False)
+        return super().update(request, *args, **kwargs)
+
+    def partial_update(self, request, *args, **kwargs):
+        project = self.get_object()
+        if not request.user.is_staff and project.is_verified:
+            return self._stage_approved_project_edit(request, partial=True)
+        return super().partial_update(request, *args, **kwargs)
+
+    @action(
+        detail=True,
+        methods=["get"],
+        permission_classes=[permissions.AllowAny],
+        throttle_classes=[ProjectTranslationRateThrottle],
+    )
+    def translation(self, request, slug=None):
+        project = self.get_object()
+        language = request.query_params.get("language", "").lower()
+        if language not in {"ar", "en"}:
+            return Response({"language": ["Choose either 'ar' or 'en'."]}, status=400)
+        try:
+            return Response(translate_project_content(project, language))
+        except (OSError, ValueError, TypeError, json.JSONDecodeError):
+            return Response(
+                {"detail": "Project translation is temporarily unavailable."},
+                status=503,
+            )
 
     def perform_create(self, serializer):
-        serializer.save(entrepreneur=self.request.user)
+        project = serializer.save(entrepreneur=self.request.user)
+        from apps.users.models import User
+
+        notify_on_commit(
+            recipient=project.entrepreneur,
+            notification_type=Notification.NotificationType.PROJECT_SUBMITTED,
+            title="Project submitted for review",
+            body=f"Your project “{project.title}” has been submitted for review.",
+            actor=self.request.user,
+            target_type="project",
+            target_id=str(project.id),
+        )
+        audit_log(
+            action="project.create",
+            actor=project.entrepreneur,
+            target_type="project",
+            target_id=str(project.id),
+            metadata={"slug": project.slug},
+            request=self.request,
+        )
+        for staff_user in User.objects.filter(is_staff=True, is_active=True):
+            notify_on_commit(
+                recipient=staff_user,
+                notification_type=Notification.NotificationType.PROJECT_SUBMITTED,
+                title="New project awaiting review",
+                body=f"A new project “{project.title}” is awaiting verification.",
+                actor=self.request.user,
+                target_type="project",
+                target_id=str(project.id),
+            )
 
     def perform_destroy(self, instance):
         instance.deleted_at = timezone.now()
         instance.save(update_fields=["deleted_at", "updated_at"])
+        audit_log(
+            action="project.delete",
+            actor=self.request.user,
+            target_type="project",
+            target_id=str(instance.id),
+            request=self.request,
+        )
 
-    @action(detail=True, methods=["post"], permission_classes=[permissions.IsAdminUser])
+    @action(
+        detail=True,
+        methods=["post"],
+        permission_classes=[permissions.IsAdminUser],
+        throttle_classes=[AdminVerificationRateThrottle],
+    )
     def verify(self, request, slug=None):
         project = self.get_object()
+        serializer = ProjectVerificationSerializer(data=request.data, context={"project": project})
+        serializer.is_valid(raise_exception=True)
         project.is_verified = True
         project.status = Project.Status.ACTIVE
         project.verified_by = request.user
         project.verified_at = timezone.now()
-        project.verification_notes = request.data.get("verification_notes", "")
+        project.verification_notes = serializer.validated_data["verification_notes"]
         project.save(update_fields=["is_verified", "status", "verified_by", "verified_at", "verification_notes", "updated_at"])
+        notify_on_commit(
+            recipient=project.entrepreneur,
+            notification_type=Notification.NotificationType.PROJECT_VERIFIED,
+            title="Project verified",
+            body=f"Your project “{project.title}” has been verified and is now active.",
+            actor=request.user,
+            target_type="project",
+            target_id=str(project.id),
+        )
+        audit_log(
+            action="project.verify",
+            actor=request.user,
+            target_type="project",
+            target_id=str(project.id),
+            metadata={"notes_preview": (project.verification_notes or "")[:80]},
+            request=request,
+        )
+        return Response(self.get_serializer(project).data)
+
+    @action(
+        detail=True,
+        methods=["post"],
+        permission_classes=[permissions.IsAdminUser],
+        throttle_classes=[AdminVerificationRateThrottle],
+    )
+    def reject(self, request, slug=None):
+        project = self.get_object()
+        serializer = ProjectRejectionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        project.is_verified = False
+        project.status = Project.Status.FAILED
+        project.verified_by = request.user
+        project.verified_at = timezone.now()
+        project.verification_notes = serializer.validated_data["verification_notes"]
+        project.save(update_fields=["is_verified", "status", "verified_by", "verified_at", "verification_notes", "updated_at"])
+        notify_on_commit(
+            recipient=project.entrepreneur,
+            notification_type=Notification.NotificationType.PROJECT_REJECTED,
+            title="Project rejected",
+            body=f"Your project “{project.title}” was rejected. Please review the verifier notes.",
+            actor=request.user,
+            target_type="project",
+            target_id=str(project.id),
+        )
+        audit_log(
+            action="project.reject",
+            actor=request.user,
+            target_type="project",
+            target_id=str(project.id),
+            metadata={"notes_preview": (project.verification_notes or "")[:80]},
+            request=request,
+        )
+        return Response(self.get_serializer(project).data)
+
+    @action(
+        detail=True,
+        methods=["post"],
+        permission_classes=[permissions.IsAdminUser],
+        throttle_classes=[AdminVerificationRateThrottle],
+        url_path="set-status",
+    )
+    def set_status(self, request, slug=None):
+        project = self.get_object()
+        serializer = ProjectStatusSerializer(
+            data=request.data,
+            context={"project": project},
+        )
+        serializer.is_valid(raise_exception=True)
+        old_status = project.status
+        project.status = serializer.validated_data["status"]
+        project.save(update_fields=["status", "updated_at"])
+        audit_log(
+            action="project.set_status",
+            actor=request.user,
+            target_type="project",
+            target_id=str(project.id),
+            metadata={"from": old_status, "to": project.status},
+            request=request,
+        )
         return Response(self.get_serializer(project).data)
 
     @action(detail=False, methods=["get"], permission_classes=[permissions.IsAuthenticated])
@@ -81,20 +366,62 @@ class ProjectViewSet(viewsets.ModelViewSet):
         serializer = ProjectListSerializer(queryset, many=True, context={"request": request})
         return Response(serializer.data)
 
-    @action(detail=True, methods=["get"], permission_classes=[permissions.AllowAny])
+    @action(detail=True, methods=["get"], permission_classes=[permissions.IsAuthenticated])
     def payments(self, request, slug=None):
+        """Authenticated-only: list confirmed investments for the given project.
+
+        ``AllowAny`` was a privacy leak; investor names are PII. Restricted to
+        authenticated users; the serializer reveals only confirmed amounts and
+        a public investor name (the user's stored ``full_name`` or username).
+        """
         project = self.get_object()
         confirmed = project.investments.filter(status="confirmed").select_related("investor").order_by("-investment_date")
-        data = []
-        for inv in confirmed:
-            data.append({
+        audit_log(
+            action="project.payments.view",
+            actor=request.user,
+            target_type="project",
+            target_id=str(project.id),
+            request=request,
+        )
+        data = [
+            {
                 "id": str(inv.id),
                 "investor_name": inv.investor.full_name or inv.investor.username,
                 "amount": float(inv.amount),
                 "date": inv.investment_date.isoformat(),
                 "payment_method": inv.payment_method,
-            })
+            }
+            for inv in confirmed
+        ]
         return Response(data)
+
+    @action(detail=True, methods=["get"], permission_classes=[permissions.AllowAny])
+    def repayments(self, request, slug=None):
+        """Publish a privacy-safe Return of Investment schedule for completed projects."""
+        project = self.get_object()
+        milestones = project.milestones.all()
+        implementation_complete = milestones.exists() and not milestones.exclude(
+            status="completed", actual_completion_date__isnull=False,
+        ).exists()
+        if project.funded_amount < project.goal_amount or not implementation_complete:
+            return Response([])
+        records = (
+            project.investments.filter(status="confirmed")
+            .prefetch_related("repayments")
+            .order_by("id")
+        )
+        return Response([
+            {
+                "id": str(repayment.id),
+                "amount": float(repayment.amount),
+                "scheduled_date": repayment.scheduled_date.isoformat(),
+                "actual_payment_date": repayment.actual_payment_date.isoformat() if repayment.actual_payment_date else None,
+                "status": repayment.status,
+                "payment_method": repayment.payment_method,
+            }
+            for investment in records
+            for repayment in investment.repayments.all()
+        ])
 
     @action(detail=True, methods=["get"], permission_classes=[permissions.AllowAny])
     def events(self, request, slug=None):

@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useState, useRef } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
@@ -51,26 +52,10 @@ const slideInRight = {
   transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] },
 };
 
-const features = [
-  { icon: Shield, text: "Bank-level security" },
-  { icon: Users, text: "10K+ active users" },
-  { icon: TrendingUp, text: "$2.4M+ raised" },
-];
-
-const testimonials = [
-  {
-    quote: "Sahmi helped me launch my startup when traditional funding seemed impossible.",
-    author: "Noor Al-Huda",
-    role: "Founder, Gaza Tech",
-  },
-  {
-    quote: "The transparency and community here is unlike any other platform I've used.",
-    author: "Sami K.",
-    role: "Investor",
-  },
-];
-
+const features = [Shield, Users, TrendingUp];
+const testimonials = [{ author: "Noor Al-Huda" }, { author: "Sami K." }];
 const LoginPage = () => {
+  const { t } = useTranslation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -121,7 +106,7 @@ const LoginPage = () => {
         <motion.div variants={fadeInUp} className="mb-10">
           <Link to="/" className="inline-flex items-center gap-2 group">
             <SahmiLogo variant="icon" size="md" />
-            <span className="text-xl font-bold text-primary">Back to Home</span>
+            <span className="text-xl font-bold text-primary">{t("nav.home")}</span>
           </Link>
         </motion.div>
 
@@ -132,13 +117,13 @@ const LoginPage = () => {
               whileHover={{ scale: 1.05 }}
             >
               <Sparkles className="h-4 w-4 text-primary" />
-              <span className="text-xs font-medium text-primary">Welcome Back</span>
+              <span className="text-xs font-medium text-primary">{t("auth.loginTitle")}</span>
             </motion.div>
             <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-3">
-              Sign in to your account
+              {t("auth.loginTitle")}
             </h1>
             <p className="text-muted-foreground">
-              Enter your credentials to access your dashboard
+              {t("auth.loginSubtitle")}
             </p>
           </div>
 
@@ -153,15 +138,15 @@ const LoginPage = () => {
                 transition={{ delay: 0.3 }}
               >
                 <Label htmlFor="email" className="text-foreground font-medium">
-                  Email Address
+                  {t("auth.email")}
                 </Label>
                 <div className="relative mt-2">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                  <Mail className="absolute start-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                   <Input
                     id="email"
                     type="email"
                     placeholder="you@example.com"
-                    className="pl-10 h-12 rounded-xl border-border/60 focus:border-primary focus:ring-primary"
+                    className="ps-10 h-12 rounded-xl border-border/60 focus:border-primary focus:ring-primary"
                     value={email}
                     onChange={(event) => setEmail(event.target.value)}
                     autoComplete="email"
@@ -185,15 +170,15 @@ const LoginPage = () => {
                 transition={{ delay: 0.4 }}
               >
                 <Label htmlFor="password" className="text-foreground font-medium">
-                  Password
+                  {t("auth.password")}
                 </Label>
                 <div className="relative mt-2">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                  <Lock className="absolute start-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                   <Input
                     id="password"
                     type={showPassword ? "text" : "password"}
-                    placeholder="Enter your password"
-                    className="pl-10 pr-10 h-12 rounded-xl border-border/60 focus:border-primary focus:ring-primary"
+                    placeholder={t("auth.password")}
+                    className="ps-10 pe-10 h-12 rounded-xl border-border/60 focus:border-primary focus:ring-primary"
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
                     autoComplete="current-password"
@@ -202,7 +187,7 @@ const LoginPage = () => {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    className="absolute end-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                   >
                     {showPassword ? (
                       <EyeOff className="h-5 w-5" />
@@ -238,14 +223,14 @@ const LoginPage = () => {
                     htmlFor="remember"
                     className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
                   >
-                    Remember me
+                    {t("auth.remember", { defaultValue: "Remember me" })}
                   </label>
                 </div>
                 <Link
                   to="/forgot-password"
                   className="text-sm text-primary hover:text-primary/80 font-medium transition-colors"
                 >
-                  Forgot password?
+                  {t("auth.forgot")}
                 </Link>
               </motion.div>
 
@@ -278,13 +263,9 @@ const LoginPage = () => {
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                     >
-                      <Loader2 className="h-5 w-5 animate-spin" />
-                      Signing in...
-                    </motion.div>
+                      <Loader2 className="h-5 w-5 animate-spin" />{t("auth.loggingIn")}</motion.div>
                   ) : (
-                    <span className="flex items-center gap-2">
-                      Sign In
-                      <ArrowRight className="h-5 w-5" />
+                    <span className="flex items-center gap-2">{t("auth.login")}<ArrowRight className="h-5 w-5 rtl-flip" />
                     </span>
                   )}
                 </Button>
@@ -296,14 +277,12 @@ const LoginPage = () => {
             variants={fadeInUp}
             className="mt-8 text-center text-sm text-muted-foreground"
           >
-            Don't have an account?{" "}
+            {t("auth.noAccount")}{" "}
             <Link
               to="/register"
               className="font-semibold text-primary hover:text-primary/80 transition-colors inline-flex items-center gap-1"
-            >
-              Create one
-              <motion.span whileHover={{ x: 2 }}>
-                <ArrowRight className="h-4 w-4" />
+            >{t("auth.createAccount")}<motion.span whileHover={{ x: 2 }}>
+                <ArrowRight className="h-4 w-4 rtl-flip" />
               </motion.span>
             </Link>
           </motion.p>
@@ -354,12 +333,10 @@ const LoginPage = () => {
             transition={{ delay: 0.5, duration: 0.6 }}
           >
             <h2 className="text-4xl xl:text-5xl font-bold mb-6 leading-tight">
-              Empowering Palestinian{" "}
-              <span className="text-teal-200">Entrepreneurs</span>
+              {t("auth.loginHero")}
             </h2>
             <p className="text-lg text-white/80 mb-10 max-w-md leading-relaxed">
-              Join our community of innovators and supporters. Together, we're building
-              a brighter future for Palestine.
+              {t("auth.loginHeroText")}
             </p>
           </motion.div>
 
@@ -370,18 +347,18 @@ const LoginPage = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.7, duration: 0.6 }}
           >
-            {features.map((feature, index) => (
+            {features.map((FeatureIcon, index) => (
               <motion.div
-                key={feature.text}
+                key={index}
                 className="flex items-center gap-3"
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.8 + index * 0.1 }}
               >
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 backdrop-blur-sm">
-                  <feature.icon className="h-5 w-5 text-teal-200" />
+                  <FeatureIcon className="h-5 w-5 text-teal-200" />
                 </div>
-                <span className="font-medium">{feature.text}</span>
+                <span className="font-medium">{t(`auth.loginFeatures.${index}`)}</span>
               </motion.div>
             ))}
           </motion.div>
@@ -403,14 +380,14 @@ const LoginPage = () => {
                 transition={{ duration: 0.3 }}
               >
                 <p className="text-white/90 mb-4 italic">
-                  "{testimonials[currentTestimonial].quote}"
+                  “{t(`auth.loginTestimonials.${currentTestimonial}.quote`)}”
                 </p>
                 <div>
                   <p className="font-semibold text-white">
                     {testimonials[currentTestimonial].author}
                   </p>
                   <p className="text-sm text-white/60">
-                    {testimonials[currentTestimonial].role}
+                    {t(`auth.loginTestimonials.${currentTestimonial}.role`)}
                   </p>
                 </div>
               </motion.div>
