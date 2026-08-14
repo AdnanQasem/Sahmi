@@ -1,13 +1,113 @@
 from urllib.parse import parse_qs, urlparse
+import base64
+import tempfile
 
 from django.contrib.auth import get_user_model
 from django.core import mail
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import override_settings
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 
 
 User = get_user_model()
+
+
+class UserSettingsPersistenceTests(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="settings@example.com",
+            email="settings@example.com",
+            full_name="Settings User",
+            password="StrongPassword123!",
+            user_type=User.UserType.ENTREPRENEUR,
+            is_verified=True,
+        )
+        self.client.force_authenticate(self.user)
+
+    def test_profile_and_entrepreneur_fields_persist(self):
+        response = self.client.patch(
+            reverse("me"),
+            {
+                "full_name": "Updated Entrepreneur",
+                "phone_number": "+970592286907",
+                "city": "Khan Yunis",
+                "country": "Palestine",
+                "website": "https://example.com",
+                "bio": "Local business owner",
+                "business_name": "Gaza Solar",
+                "business_registration_number": "REG-42",
+                "business_established_date": "2024-05-01",
+                "business_address": "Hounain Street",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        reloaded = self.client.get(reverse("me"))
+        self.assertEqual(reloaded.data["business_name"], "Gaza Solar")
+        self.assertEqual(reloaded.data["city"], "Khan Yunis")
+
+    def test_investor_risk_preference_persists(self):
+        self.user.user_type = User.UserType.INVESTOR
+        self.user.save(update_fields=["user_type"])
+        response = self.client.patch(reverse("me"), {"risk_preference": "high"}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.risk_preference, User.RiskPreference.HIGH)
+
+    def test_email_change_is_normalized_and_resets_verification(self):
+        response = self.client.patch(reverse("me"), {"email": " NewEmail@Example.COM "}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.email, "newemail@example.com")
+        self.assertFalse(self.user.is_verified)
+
+    def test_duplicate_email_and_invalid_timezone_are_rejected(self):
+        User.objects.create_user(username="other", email="other@example.com", full_name="Other", password="password")
+        duplicate = self.client.patch(reverse("me"), {"email": "OTHER@example.com"}, format="json")
+        invalid_timezone = self.client.patch(reverse("me"), {"timezone": "Hebron (UTC+2)"}, format="json")
+        self.assertEqual(duplicate.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(invalid_timezone.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_profile_picture_upload_and_removal_persist(self):
+        png = base64.b64decode(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+        )
+        with tempfile.TemporaryDirectory() as media_root, override_settings(MEDIA_ROOT=media_root):
+            upload = SimpleUploadedFile("avatar.png", png, content_type="image/png")
+            response = self.client.patch(reverse("me"), {"profile_picture": upload}, format="multipart")
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+            self.user.refresh_from_db()
+            self.assertTrue(bool(self.user.profile_picture))
+            removed = self.client.patch(reverse("me"), {"profile_picture": None}, format="json")
+            self.assertEqual(removed.status_code, status.HTTP_200_OK)
+            self.user.refresh_from_db()
+            self.assertFalse(bool(self.user.profile_picture))
+
+    def test_password_change_checks_current_password_and_persists(self):
+        wrong = self.client.post(
+            reverse("change-password"),
+            {
+                "current_password": "WrongPassword123!",
+                "new_password": "NewStrongPassword456!",
+                "confirm_password": "NewStrongPassword456!",
+            },
+            format="json",
+        )
+        self.assertEqual(wrong.status_code, status.HTTP_400_BAD_REQUEST)
+        changed = self.client.post(
+            reverse("change-password"),
+            {
+                "current_password": "StrongPassword123!",
+                "new_password": "NewStrongPassword456!",
+                "confirm_password": "NewStrongPassword456!",
+            },
+            format="json",
+        )
+        self.assertEqual(changed.status_code, status.HTTP_200_OK)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password("NewStrongPassword456!"))
 
 
 class AuthenticationPrivilegeTests(APITestCase):

@@ -7,7 +7,7 @@ from rest_framework import serializers
 
 from apps.users.serializers import UserSerializer
 
-from .models import Project, ProjectCategory, ProjectDocument, ProjectImage
+from .models import Project, ProjectCategory, ProjectDocument, ProjectEditRequest, ProjectImage
 
 
 class ProjectCategorySerializer(serializers.ModelSerializer):
@@ -46,6 +46,19 @@ class ProjectVerificationSerializer(serializers.Serializer):
         trim_whitespace=True,
         default="",
     )
+
+    def validate(self, attrs):
+        project = self.context["project"]
+        missing = [
+            field_name
+            for field_name in ("business_plan", "financial_projections", "ownership_proof")
+            if not getattr(project, field_name)
+        ]
+        if missing:
+            raise serializers.ValidationError(
+                {field_name: "This document is required before verification." for field_name in missing}
+            )
+        return attrs
 
 
 class ProjectRejectionSerializer(serializers.Serializer):
@@ -137,16 +150,20 @@ class ProjectSerializer(serializers.ModelSerializer):
     images = ProjectImageSerializer(many=True, read_only=True)
     supporting_documents = ProjectDocumentSerializer(many=True, read_only=True)
     cost_items = serializers.JSONField(required=False)
+    faqs = serializers.JSONField(required=False)
     milestones = ProjectMilestonesField(required=False)
     days_left = serializers.SerializerMethodField()
     funding_percent = serializers.SerializerMethodField()
+    status = serializers.SerializerMethodField()
+    implementation_complete = serializers.SerializerMethodField()
+    updates = serializers.SerializerMethodField()
 
     class Meta:
         model = Project
         fields = [
             "id", "entrepreneur", "title", "slug", "description", "short_description",
             "category", "category_detail", "location", "location_governorate",
-            "goal_amount", "funded_amount", "minimum_investment", "expected_roi", "cost_items",
+            "goal_amount", "funded_amount", "minimum_investment", "expected_roi", "cost_items", "faqs",
             "funding_period_days", "start_date", "end_date", "status", "is_verified",
             "verified_at", "verification_notes", "business_plan", "financial_projections",
             "ownership_proof", "cover_image", "images", "video_url",
@@ -154,20 +171,64 @@ class ProjectSerializer(serializers.ModelSerializer):
             "ai_generated_summary", "milestone_count", "repayment_status",
             "total_repaid", "next_repayment_date", "view_count", "investor_count",
             "rating", "reviews_count", "supporting_documents", "milestones", "days_left",
-            "funding_percent", "created_at", "updated_at",
+            "funding_percent", "implementation_complete", "updates", "created_at", "updated_at",
         ]
         read_only_fields = [
             "id", "entrepreneur", "slug", "funded_amount", "status", "is_verified",
             "verified_at", "verification_notes", "ai_classified_category",
             "ai_confidence_score", "ai_classification_at", "ai_generated_summary",
             "milestone_count", "total_repaid", "view_count", "investor_count",
-            "rating", "reviews_count", "created_at", "updated_at",
+            "rating", "reviews_count", "implementation_complete", "updates", "created_at", "updated_at",
         ]
+
+    def get_implementation_complete(self, obj):
+        milestones = list(obj.milestones.all())
+        return bool(milestones) and all(
+            milestone.status == "completed" and milestone.actual_completion_date
+            for milestone in milestones
+        )
+
+    def get_updates(self, obj):
+        approved = obj.edit_requests.filter(
+            status=ProjectEditRequest.Status.APPROVED,
+        ).order_by("-reviewed_at", "-created_at")
+        return [
+            {
+                "id": str(edit.id),
+                "published_at": edit.reviewed_at or edit.updated_at,
+                "changes": edit.changes,
+            }
+            for edit in approved
+            if edit.changes
+        ]
+
+    def validate_faqs(self, value):
+        if not isinstance(value, list):
+            raise serializers.ValidationError("FAQs must be a list.")
+        if len(value) > 20:
+            raise serializers.ValidationError("A project may contain at most 20 FAQs.")
+        normalized = []
+        for index, item in enumerate(value):
+            if not isinstance(item, dict):
+                raise serializers.ValidationError({index: "Each FAQ must be an object."})
+            question = str(item.get("question", "")).strip()
+            answer = str(item.get("answer", "")).strip()
+            if not question or not answer:
+                raise serializers.ValidationError({index: "Both question and answer are required."})
+            if len(question) > 240 or len(answer) > 3000:
+                raise serializers.ValidationError({index: "FAQ question or answer is too long."})
+            normalized.append({"question": question, "answer": answer})
+        return normalized
 
     def get_days_left(self, obj):
         if not obj.end_date:
             return None
         return max((obj.end_date.date() - timezone.localdate()).days, 0)
+
+    def get_status(self, obj):
+        if obj.goal_amount and obj.funded_amount >= obj.goal_amount:
+            return Project.Status.SUCCESSFUL
+        return obj.status
 
     def get_funding_percent(self, obj):
         if not obj.goal_amount:
@@ -390,12 +451,24 @@ class ProjectSerializer(serializers.ModelSerializer):
     @transaction.atomic
     def update(self, instance, validated_data):
         milestones = validated_data.pop("milestones", serializers.empty)
+        replaced_files = []
+        for field_name in ("business_plan", "financial_projections", "ownership_proof"):
+            if field_name not in validated_data:
+                continue
+            old_file = getattr(instance, field_name)
+            if old_file and old_file.name:
+                replaced_files.append((old_file.storage, old_file.name))
         if "funding_period_days" in validated_data and "end_date" not in validated_data:
             start_date = validated_data.get("start_date") or instance.start_date or timezone.now()
             validated_data["end_date"] = start_date + timedelta(days=validated_data["funding_period_days"])
         project = super().update(instance, validated_data)
         if milestones is not serializers.empty:
             self._sync_milestones(project, milestones)
+        for storage, name in replaced_files:
+            transaction.on_commit(
+                lambda storage=storage, name=name: storage.delete(name),
+                robust=True,
+            )
         return project
 
     @staticmethod
@@ -460,18 +533,21 @@ class PublicProjectSerializer(serializers.ModelSerializer):
     milestones = ProjectMilestonesField(read_only=True)
     days_left = serializers.SerializerMethodField()
     funding_percent = serializers.SerializerMethodField()
+    status = serializers.SerializerMethodField()
+    implementation_complete = serializers.SerializerMethodField()
+    updates = serializers.SerializerMethodField()
 
     class Meta:
         model = Project
         fields = [
             "id", "entrepreneur", "title", "slug", "description", "short_description",
             "category_detail", "location", "location_governorate",
-            "goal_amount", "funded_amount", "minimum_investment", "expected_roi", "cost_items",
+            "goal_amount", "funded_amount", "minimum_investment", "expected_roi", "cost_items", "faqs",
             "funding_period_days", "start_date", "end_date", "status", "is_verified",
             "verified_at", "cover_image", "images", "video_url",
             "milestone_count", "milestones", "repayment_status",
             "next_repayment_date", "investor_count",
-            "days_left", "funding_percent", "created_at", "updated_at",
+            "days_left", "funding_percent", "implementation_complete", "updates", "created_at", "updated_at",
         ]
         read_only_fields = fields
 
@@ -480,10 +556,21 @@ class PublicProjectSerializer(serializers.ModelSerializer):
             return None
         return max((obj.end_date.date() - timezone.localdate()).days, 0)
 
+    def get_status(self, obj):
+        if obj.goal_amount and obj.funded_amount >= obj.goal_amount:
+            return Project.Status.SUCCESSFUL
+        return obj.status
+
     def get_funding_percent(self, obj):
         if not obj.goal_amount:
             return 0
         return round((obj.funded_amount / obj.goal_amount) * 100, 2)
+
+    def get_implementation_complete(self, obj):
+        return ProjectSerializer.get_implementation_complete(self, obj)
+
+    def get_updates(self, obj):
+        return ProjectSerializer.get_updates(self, obj)
 
 
 class ProjectListSerializer(ProjectSerializer):
@@ -492,7 +579,7 @@ class ProjectListSerializer(ProjectSerializer):
             "id", "title", "slug", "short_description", "category", "category_detail",
             "location", "goal_amount", "funded_amount", "minimum_investment",
             "expected_roi", "status", "is_verified", "cover_image", "investor_count",
-            "days_left", "funding_percent", "created_at", "updated_at",
+            "repayment_status", "days_left", "funding_percent", "created_at", "updated_at",
         ]
 
 

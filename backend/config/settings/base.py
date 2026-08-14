@@ -121,6 +121,8 @@ MESSAGE_SEND_THROTTLE_RATE = config("DJANGO_MESSAGE_SEND_THROTTLE_RATE", default
 CONVERSATION_CREATE_THROTTLE_RATE = config("DJANGO_CONVERSATION_CREATE_THROTTLE_RATE", default="10/hour")
 NOTIFICATION_READ_THROTTLE_RATE = config("DJANGO_NOTIFICATION_READ_THROTTLE_RATE", default="120/min")
 ADMIN_VERIFICATION_THROTTLE_RATE = config("DJANGO_ADMIN_VERIFICATION_THROTTLE_RATE", default="30/hour")
+PROJECT_TRANSLATION_THROTTLE_RATE = config("DJANGO_PROJECT_TRANSLATION_THROTTLE_RATE", default="60/hour")
+CONTACT_MESSAGE_THROTTLE_RATE = config("DJANGO_CONTACT_MESSAGE_THROTTLE_RATE", default="5/hour")
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": ("rest_framework_simplejwt.authentication.JWTAuthentication",),
@@ -150,6 +152,8 @@ REST_FRAMEWORK = {
         "conversation_create": CONVERSATION_CREATE_THROTTLE_RATE,
         "notification_read": NOTIFICATION_READ_THROTTLE_RATE,
         "admin_verification": ADMIN_VERIFICATION_THROTTLE_RATE,
+        "project_translation": PROJECT_TRANSLATION_THROTTLE_RATE,
+        "contact_message": CONTACT_MESSAGE_THROTTLE_RATE,
     },
     "EXCEPTION_HANDLER": "apps.core.exceptions.standard_exception_handler",
 }
@@ -159,6 +163,17 @@ SPECTACULAR_SETTINGS = {
     "DESCRIPTION": "Django REST API for the Sahmi investment platform.",
     "VERSION": "1.0.0",
 }
+
+PROJECT_TRANSLATION_URL = config(
+    "DJANGO_PROJECT_TRANSLATION_URL",
+    default="https://translate.googleapis.com/translate_a/single",
+).rstrip("?")
+PROJECT_TRANSLATION_TIMEOUT_SECONDS = config(
+    "DJANGO_PROJECT_TRANSLATION_TIMEOUT_SECONDS", default=8, cast=int
+)
+PROJECT_TRANSLATION_CACHE_SECONDS = config(
+    "DJANGO_PROJECT_TRANSLATION_CACHE_SECONDS", default=86400, cast=int
+)
 
 
 FRONTEND_URL = config("FRONTEND_URL", default="http://localhost:5173").rstrip("/")
@@ -172,5 +187,14 @@ EMAIL_HOST_USER = config("DJANGO_EMAIL_HOST_USER", default="")
 EMAIL_HOST_PASSWORD = config("DJANGO_EMAIL_HOST_PASSWORD", default="")
 EMAIL_USE_TLS = config("DJANGO_EMAIL_USE_TLS", default=True, cast=bool)
 DEFAULT_FROM_EMAIL = config("DJANGO_DEFAULT_FROM_EMAIL", default="Sahmi <no-reply@sahmi.local>")
+CONTACT_EMAIL = config("DJANGO_CONTACT_EMAIL", default="ikrayyemala@gmail.com")
+DEMO_SINGLE_NOTIFICATION_EMAILS = {
+    email.strip().lower()
+    for email in config(
+        "DJANGO_DEMO_SINGLE_NOTIFICATION_EMAILS",
+        default="invest@gmail.com,fund@gmail.com",
+    ).split(",")
+    if email.strip()
+}
 CELERY_BROKER_URL = config("REDIS_URL", default="redis://localhost:6379/0")
 CELERY_RESULT_BACKEND = CELERY_BROKER_URL

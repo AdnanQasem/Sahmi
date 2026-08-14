@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
-import { formatCurrency, formatDate } from "@/i18n/format";
+import i18n from "@/i18n";
+import { formatCurrency, formatDate, formatNumber, formatPercent } from "@/i18n/format";
 import { useState, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams, Link, Navigate, useNavigate } from "react-router-dom";
@@ -14,6 +15,7 @@ import ProjectCard from "@/components/ProjectCard";
 import projectsService, { Project, ConfirmedPayment } from "@/services/projectsService";
 import ProjectCostTable from "@/components/projects/ProjectCostTable";
 import ProjectTimeline from "@/components/projects/ProjectTimeline";
+import { calculateFundingPercent, fundingProgressBarWidth, fundingProgressColor } from "@/lib/fundingProgress";
 import investmentsService from "@/services/investmentsService";
 import { API_BASE_URL, getFieldErrors, getErrorMessage } from "@/services/api";
 import { useAuth } from "@/hooks/useAuth";
@@ -29,18 +31,19 @@ const toProjectCard = (project: Project) => ({
   slug: project.slug,
   title: project.title,
   description: project.short_description || project.description,
-  category: project.category_detail?.name ?? "Project",
-  founder: project.entrepreneur?.business_name || project.entrepreneur?.full_name || "Sahmi founder",
+  category: project.category_detail?.name ?? i18n.t("projects.projectFallback"),
+  founder: project.entrepreneur?.business_name || project.entrepreneur?.full_name || i18n.t("projects.founderFallback"),
   image: project.cover_image || fallbackImage,
   goal: Number(project.goal_amount),
   raised: Number(project.funded_amount),
-  supporters: project.investor_count,
+  investors: project.investor_count,
   daysLeft: project.days_left ?? 0,
+  repaymentStatus: project.repayment_status,
   verified: project.is_verified,
 });
 
 const ProjectDetails = () => {
-  const { t } = useTranslation();
+  const { t, i18n: activeI18n } = useTranslation();
   const { id } = useParams();
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
@@ -53,6 +56,15 @@ const ProjectDetails = () => {
     queryKey: ["project", id],
     queryFn: () => projectsService.getProject(id as string),
     enabled: !!id,
+  });
+
+  const contentLanguage = activeI18n.resolvedLanguage?.startsWith("ar") ? "ar" : "en";
+  const translationQuery = useQuery({
+    queryKey: ["project-translation", id, contentLanguage, projectQuery.data?.updated_at],
+    queryFn: () => projectsService.getProjectTranslation(id as string, contentLanguage),
+    enabled: !!id && !!projectQuery.data,
+    staleTime: 24 * 60 * 60 * 1000,
+    retry: 1,
   });
 
   const relatedQuery = useQuery({
@@ -68,6 +80,11 @@ const ProjectDetails = () => {
     queryKey: ["project-payments", id],
     queryFn: () => projectsService.getProjectPayments(id as string),
     enabled: !!id,
+  });
+  const repaymentsQuery = useQuery({
+    queryKey: ["project-repayments", id],
+    queryFn: () => projectsService.getProjectRepayments(id as string),
+    enabled: !!id && !!projectQuery.data?.implementation_complete && Number(projectQuery.data?.funding_percent) >= 100,
   });
 
   const [newPaymentIds, setNewPaymentIds] = useState<Set<string>>(new Set());
@@ -118,7 +135,7 @@ const ProjectDetails = () => {
             if (!payment) return;
 
             // Update project totals in React Query cache
-            queryClient.setQueryData(["project", id], (oldProject: any) => {
+            queryClient.setQueryData<Project>(["project", id], (oldProject) => {
               if (!oldProject) return oldProject;
               return {
                 ...oldProject,
@@ -152,7 +169,10 @@ const ProjectDetails = () => {
             }, 5000);
 
             void refreshProjectData();
-            toast.success(`Investment of ${formatCurrency(Number(payment.amount))} by ${payment.investor_name} has been confirmed.`);
+            toast.success(t("projects.confirmedInvestmentNotice", {
+              amount: formatCurrency(Number(payment.amount)),
+              name: payment.investor_name,
+            }));
           }
         } catch (err) {
           console.error("Error parsing SSE event data", err);
@@ -179,7 +199,7 @@ const ProjectDetails = () => {
         clearInterval(pollInterval);
       }
     };
-  }, [id, projectQuery.data?.id, queryClient]);
+  }, [id, projectQuery.data?.id, queryClient, t]);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -201,7 +221,7 @@ const ProjectDetails = () => {
     },
     onError: (error) => {
       setFieldErrors(getFieldErrors(error));
-      toast.error(getErrorMessage(error, "Could not submit investment."));
+      toast.error(getErrorMessage(error, t("projects.investmentSubmitFailed")));
     },
   });
 
@@ -212,7 +232,7 @@ const ProjectDetails = () => {
       navigate("/projects");
     },
     onError: (error) => {
-      toast.error(getErrorMessage(error, "Could not delete project."));
+      toast.error(getErrorMessage(error, t("projects.deleteFailed")));
     },
   });
 
@@ -242,8 +262,36 @@ const ProjectDetails = () => {
   }
 
   const project = projectQuery.data;
-  const percent = Math.min(Math.round(Number(project.funding_percent)), 100);
-  const founder = project.entrepreneur?.business_name || project.entrepreneur?.full_name || "Sahmi founder";
+  const percent = calculateFundingPercent(
+    Number(project.funded_amount),
+    Number(project.goal_amount),
+  );
+  const progressWidth = fundingProgressBarWidth(percent);
+  const progressColor = fundingProgressColor(percent);
+  const remainingFunding = Math.max(
+    Number(project.goal_amount) - Number(project.funded_amount),
+    0,
+  );
+  const founder = project.entrepreneur?.business_name || project.entrepreneur?.full_name || t("projects.founderFallback");
+  const translatedContent = translationQuery.data;
+  const publicDescription = translatedContent?.description || project.description;
+  const publicCostItems = translatedContent?.cost_items || project.cost_items || [];
+  const translatedMilestones = new Map(
+    (translatedContent?.milestones || []).map((milestone) => [milestone.id, milestone]),
+  );
+  const publicMilestones = (project.milestones || []).map((milestone) => ({
+    ...milestone,
+    ...(milestone.id ? translatedMilestones.get(milestone.id) : undefined),
+  }));
+  const projectTabs = [
+    ["overview", "projects.tabs.overview"],
+    ["funding-plan", "projects.tabs.fundingPlan"],
+    ["timeline", "projects.tabs.timeline"],
+    ["recent-payments", project.implementation_complete && percent >= 100 ? "projects.tabs.recentRepayments" : "projects.tabs.recentPayments"],
+    ["updates", "projects.tabs.updates"],
+    ["team", "projects.tabs.team"],
+    ["faq", "projects.tabs.faq"],
+  ] as const;
   const related = (relatedQuery.data?.results ?? [])
     .filter((item) => item.id !== project.id)
     .slice(0, 3)
@@ -258,6 +306,14 @@ const ProjectDetails = () => {
       return;
     }
     setShowLoginPrompt(false);
+    if (Number(amount) > remainingFunding) {
+      setFieldErrors({
+        amount: t("projects.exceedingValue", {
+          amount: formatCurrency(remainingFunding),
+        }),
+      });
+      return;
+    }
     investMutation.mutate();
   };
 
@@ -279,7 +335,7 @@ const ProjectDetails = () => {
         <div className="grid gap-8 lg:grid-cols-3">
           <div className="lg:col-span-2">
             <div className="mb-4 flex flex-wrap items-center gap-2">
-              <Badge variant="muted">{project.category_detail?.name ?? "Project"}</Badge>
+              <Badge variant="muted">{project.category_detail?.name ?? t("projects.projectFallback")}</Badge>
               {project.is_verified && (
                 <Badge variant="success" className="flex items-center gap-1">
                   <CheckCircle className="h-3 w-3" />{t("projects.verified")}</Badge>
@@ -302,25 +358,25 @@ const ProjectDetails = () => {
                   size="sm"
                   disabled={deleteMutation.isPending}
                   onClick={() => {
-                    if (window.confirm("Delete this project? This action will hide it from the platform.")) {
+                    if (window.confirm(t("projects.deleteConfirmation"))) {
                       deleteMutation.mutate();
                     }
                   }}
                 >
-                  {deleteMutation.isPending ? "Deleting..." : "Delete Project"}
+                  {deleteMutation.isPending ? t("common.deleting") : t("projects.deleteProject")}
                 </Button>
               </div>
             )}
 
             <Tabs defaultValue="overview" className="w-full">
               <TabsList className="mb-6 w-full justify-start border-b border-border bg-transparent p-0">
-                {["Overview", "Story", "Funding Plan", "Timeline", "Recent Payments", "Updates", "Team", "FAQ"].map((tab) => (
+                {projectTabs.map(([value, labelKey]) => (
                   <TabsTrigger
-                    key={tab}
-                    value={tab.toLowerCase().replace(" ", "-")}
+                    key={value}
+                    value={value}
                     className="rounded-none border-b-2 border-transparent px-4 py-2.5 text-sm font-medium text-muted-foreground data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:shadow-none"
                   >
-                    {tab}
+                    {t(labelKey)}
                   </TabsTrigger>
                 ))}
               </TabsList>
@@ -328,59 +384,72 @@ const ProjectDetails = () => {
               <TabsContent value="overview" className="space-y-6">
                 <div>
                   <h3 className="mb-3 text-lg font-semibold text-foreground">{t("projects.overview")}</h3>
-                  <p className="whitespace-pre-line leading-relaxed text-muted-foreground">{project.description}</p>
+                  <p className="whitespace-pre-line leading-relaxed text-muted-foreground">{publicDescription}</p>
                 </div>
                 <div className="rounded-xl border border-border bg-card p-5">
                   <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold text-foreground">
                     <FileText className="h-4 w-4 text-primary" />{t("projects.transparencyReport")}</h4>
                   <ul className="space-y-2 text-sm text-muted-foreground">
                     <li className="flex items-start gap-2"><CheckCircle className="mt-0.5 h-4 w-4 text-success" /> {t("common.status")}: {t(`status.${project.status}`, { defaultValue: project.status })}</li>
-                    <li className="flex items-start gap-2"><CheckCircle className="mt-0.5 h-4 w-4 text-success" /> Verification: {project.is_verified ? "Verified by Sahmi team" : "Pending review"}</li>
-                    <li className="flex items-start gap-2"><CheckCircle className="mt-0.5 h-4 w-4 text-success" /> Minimum investment: {formatCurrency(Number(project.minimum_investment))}</li>
-                    <li className="flex items-start gap-2"><CheckCircle className="mt-0.5 h-4 w-4 text-success" /> Expected ROI: {Number(project.expected_roi).toFixed(2)}%</li>
+                    <li className="flex items-start gap-2"><CheckCircle className="mt-0.5 h-4 w-4 text-success" /> {t("projects.verificationLabel")}: {t(project.is_verified ? "projects.verifiedByTeam" : "projects.pendingReview")}</li>
+                    <li className="flex items-start gap-2"><CheckCircle className="mt-0.5 h-4 w-4 text-success" /> {t("projects.minimumInvestment")}: {formatCurrency(Number(project.minimum_investment))}</li>
+                    <li className="flex items-start gap-2"><CheckCircle className="mt-0.5 h-4 w-4 text-success" /> {t("projects.expectedRoi")}: {formatPercent(Number(project.expected_roi))}</li>
                   </ul>
                 </div>
               </TabsContent>
 
-              <TabsContent value="story">
-                <p className="whitespace-pre-line leading-relaxed text-muted-foreground">{project.description}</p>
-              </TabsContent>
-
               <TabsContent value="funding-plan">
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-foreground">{t("projects.fundingProgress")}</h3>
+                  <h3 className="text-lg font-semibold text-foreground">{t("projects.tabs.fundingPlan")}</h3>
                   <div>
                     <div className="mb-1 flex justify-between text-sm">
-                      <span className="text-foreground">{t("projects.fundingProgress")}</span>
-                      <span className="text-muted-foreground">{percent}%</span>
+                      <span className="text-foreground">{t("projects.tabs.fundingPlan")}</span>
+                      <span style={{ color: progressColor }}>{formatPercent(percent)}</span>
                     </div>
-                    <Progress value={percent} className="h-2" />
+                    <Progress value={progressWidth} className="h-2" indicatorStyle={{ backgroundColor: progressColor }} />
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    Goal: {formatCurrency(Number(project.goal_amount))} | Minimum investment: {formatCurrency(Number(project.minimum_investment))} | Campaign duration: {project.funding_period_days} days
+                    {t("projects.campaignSummary", {
+                      goal: formatCurrency(Number(project.goal_amount)),
+                      minimum: formatCurrency(Number(project.minimum_investment)),
+                      days: formatNumber(project.funding_period_days),
+                    })}
                   </p>
                   <div className="space-y-2 pt-2">
                     <h4 className="text-sm font-semibold text-foreground">{t("projects.costTable")}</h4>
-                    <ProjectCostTable items={project.cost_items ?? []} />
+                    <ProjectCostTable
+                      items={publicCostItems}
+                      fundedAmount={Number(project.funded_amount)}
+                    />
                   </div>
                 </div>
               </TabsContent>
 
               <TabsContent value="timeline" className="space-y-4">
                 <h3 className="text-lg font-semibold text-foreground">{t("projects.timeline")}</h3>
-                <ProjectTimeline milestones={project.milestones ?? []} />
+                <ProjectTimeline milestones={publicMilestones} />
               </TabsContent>
 
               <TabsContent value="recent-payments" className="space-y-4">
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-foreground">{t("projects.recentBackers")}</h3>
-                  {paymentsQuery.isLoading ? (
+                  <h3 className="text-lg font-semibold text-foreground">{t(project.implementation_complete && percent >= 100 ? "projects.repaymentSchedule" : "projects.recentBackers")}</h3>
+                  {project.implementation_complete && percent >= 100 ? (
+                    repaymentsQuery.isLoading ? <div className="text-sm text-muted-foreground">{t("common.loading")}</div>
+                    : !repaymentsQuery.data?.length ? <div className="rounded-lg border border-border bg-card p-4 text-sm text-muted-foreground">{t("projects.noRepayments")}</div>
+                    : <div className="grid gap-3">{repaymentsQuery.data.map((repayment) => (
+                      <div key={repayment.id} className="grid gap-3 rounded-xl border border-border bg-card p-4 sm:grid-cols-3 sm:items-center">
+                        <div><p className="text-xs text-muted-foreground">{t("projects.scheduledDate")}</p><p className="font-medium text-foreground">{formatDate(repayment.scheduled_date, { dateStyle: "medium" })}</p></div>
+                        <div><p className="text-xs text-muted-foreground">{t("common.amount")}</p><p className="font-bold text-primary">{formatCurrency(repayment.amount)}</p></div>
+                        <div className="sm:text-end"><Badge variant="outline">{t(`status.${repayment.status}`, { defaultValue: repayment.status })}</Badge>{repayment.actual_payment_date && <p className="mt-1 text-xs text-muted-foreground">{formatDate(repayment.actual_payment_date, { dateStyle: "medium" })}</p>}</div>
+                      </div>
+                    ))}</div>
+                  ) : paymentsQuery.isLoading ? (
                     <div className="text-sm text-muted-foreground">{t("projects.loadingPayments")}</div>
                   ) : !paymentsQuery.data || paymentsQuery.data.length === 0 ? (
                     <div className="rounded-lg border border-border bg-card p-4 text-sm text-muted-foreground">{t("projects.noPayments")}</div>
                   ) : (
                     <div className="grid gap-3">
-                      {paymentsQuery.data.map((payment: any) => {
+                      {paymentsQuery.data.map((payment: ConfirmedPayment) => {
                         const isHighlighted = newPaymentIds.has(payment.id);
                         return (
                           <div
@@ -417,7 +486,20 @@ const ProjectDetails = () => {
               </TabsContent>
 
               <TabsContent value="updates">
-                <div className="rounded-lg border border-border bg-card p-4 text-sm text-muted-foreground">{t("projects.noUpdates")}</div>
+                {!project.updates?.length ? (
+                  <div className="rounded-lg border border-border bg-card p-4 text-sm text-muted-foreground">{t("projects.noUpdates")}</div>
+                ) : <div className="space-y-4">{project.updates.map((update) => (
+                  <article key={update.id} className="rounded-xl border border-border bg-card p-5">
+                    <p className="text-xs font-medium text-muted-foreground">{formatDate(update.published_at, { dateStyle: "medium", timeStyle: "short" })}</p>
+                    <h3 className="mt-1 font-semibold text-foreground">{t("projects.publishedChanges")}</h3>
+                    <div className="mt-4 space-y-3">{Object.entries(update.changes).map(([field, change]) => (
+                      <div key={field} className="rounded-lg bg-muted/40 p-3 text-sm">
+                        <p className="font-semibold text-foreground">{t(`projectFields.${field}`, { defaultValue: field.replace(/_/g, " ") })}</p>
+                        <div className="mt-2 grid gap-2 sm:grid-cols-2"><div><span className="text-xs text-muted-foreground">{t("projects.before")}</span><pre className="whitespace-pre-wrap break-words font-sans text-foreground/65">{typeof change.before === "object" ? JSON.stringify(change.before, null, 2) : String(change.before ?? "—")}</pre></div><div><span className="text-xs text-muted-foreground">{t("projects.after")}</span><pre className="whitespace-pre-wrap break-words font-sans text-foreground">{typeof change.after === "object" ? JSON.stringify(change.after, null, 2) : String(change.after ?? "—")}</pre></div></div>
+                      </div>
+                    ))}</div>
+                  </article>
+                ))}</div>}
               </TabsContent>
 
               <TabsContent value="team">
@@ -436,7 +518,8 @@ const ProjectDetails = () => {
               </TabsContent>
 
               <TabsContent value="faq">
-                <div className="rounded-lg border border-border bg-card p-4 text-sm text-muted-foreground">{t("projects.noFaq")}</div>
+                {!project.faqs?.length ? <div className="rounded-lg border border-border bg-card p-4 text-sm text-muted-foreground">{t("projects.noFaq")}</div>
+                : <div className="space-y-3">{project.faqs.map((faq, index) => <details key={index} className="rounded-xl border border-border bg-card p-4"><summary className="cursor-pointer font-semibold text-foreground">{faq.question}</summary><p className="mt-3 whitespace-pre-line text-sm leading-6 text-muted-foreground">{faq.answer}</p></details>)}</div>}
               </TabsContent>
             </Tabs>
           </div>
@@ -444,40 +527,52 @@ const ProjectDetails = () => {
           <div className="lg:col-span-1">
             <div className="sticky top-20 space-y-4">
               <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-                {project.status === "active" ? (
+                {project.status === "active" || project.status === "successful" ? (
                   <>
                     <div className="mb-1 text-3xl font-bold text-primary">{formatCurrency(Number(project.funded_amount))}</div>
-                    <div className="mb-4 text-sm text-muted-foreground">raised of {formatCurrency(Number(project.goal_amount))} goal</div>
-                    <Progress value={percent} className="mb-4 h-3" />
+                    <div className="mb-4 text-sm text-muted-foreground">
+                      {t("projects.goalOnly", { goal: formatCurrency(Number(project.goal_amount)) })}
+                    </div>
+                    <Progress value={progressWidth} className="mb-4 h-3" indicatorStyle={{ backgroundColor: progressColor }} />
                     <div className="mb-6 grid grid-cols-3 gap-3 text-center text-sm">
                       <div>
-                        <div className="font-bold text-foreground">{percent}%</div>
+                        <div className="font-bold" style={{ color: progressColor }}>{formatPercent(percent)}</div>
                         <div className="text-xs text-muted-foreground">{t("projects.funded")}</div>
                       </div>
                       <div>
-                        <div className="font-bold text-foreground">{project.investor_count}</div>
+                        <div className="font-bold text-foreground">{formatNumber(project.investor_count)}</div>
                         <div className="text-xs text-muted-foreground">{t("projects.investors")}</div>
                       </div>
                       <div>
-                        <div className="font-bold text-foreground">{project.days_left ?? 0}</div>
+                        <div className="font-bold text-foreground">{formatNumber(project.days_left ?? 0)}</div>
                         <div className="text-xs text-muted-foreground">{t("projects.daysLeft")}</div>
                       </div>
                     </div>
-                    <form className="space-y-3" onSubmit={handleInvest}>
-                      <Input
-                        type="number"
-                        min={Number(project.minimum_investment)}
-                        step="1"
-                        value={amount}
-                        onChange={(event) => setAmount(event.target.value)}
-                        placeholder={`Minimum ${formatCurrency(Number(project.minimum_investment))}`}
-                        required
-                      />
-                      {fieldErrors.amount && <p className="text-xs text-destructive">{fieldErrors.amount}</p>}
-                      <Button size="lg" className="w-full" type="submit" disabled={investMutation.isPending}>
-                        <Heart className="mr-2 h-4 w-4" /> {investMutation.isPending ? "Submitting..." : "Contribute Now"}
-                      </Button>
-                    </form>
+                    {project.status === "active" ? (
+                      <form className="space-y-3" onSubmit={handleInvest}>
+                        <Input
+                          type="number"
+                          min={Number(project.minimum_investment)}
+                          step="1"
+                          value={amount}
+                          onChange={(event) => setAmount(event.target.value)}
+                          placeholder={t("projects.minimumPlaceholder", { amount: formatCurrency(Number(project.minimum_investment)) })}
+                          required
+                        />
+                        {fieldErrors.amount && <p className="text-xs text-destructive">{fieldErrors.amount}</p>}
+                        <Button size="lg" className="w-full" type="submit" disabled={investMutation.isPending}>
+                          <Heart className="me-2 h-4 w-4" /> {investMutation.isPending ? t("common.submitting") : t("projects.contributeNow")}
+                        </Button>
+                      </form>
+                    ) : (
+                      <div className="rounded-lg bg-success/10 p-4 text-center text-sm font-semibold text-success">
+                        {t(
+                          project.repayment_status === "completed"
+                            ? "projects.fundingAndRepaymentsCompleted"
+                            : "projects.fundingCompleted",
+                        )}
+                      </div>
+                    )}
                     {showLoginPrompt && (
                       <Alert className="mt-4 border-primary/20 bg-gradient-to-br from-primary/20 via-primary/10 to-transparent text-foreground shadow-sm [&>svg]:text-primary">
                         <AlertTriangle className="h-4 w-4" />

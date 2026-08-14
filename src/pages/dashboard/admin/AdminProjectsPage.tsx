@@ -60,6 +60,7 @@ const AdminProjectsPage = () => {
   const [verificationFilter, setVerificationFilter] = useState<VerificationFilter>("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [reviewProject, setReviewProject] = useState<Project | null>(null);
+  const [reviewIsEdit, setReviewIsEdit] = useState(false);
   const [reviewNotes, setReviewNotes] = useState("");
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
 
@@ -78,12 +79,31 @@ const AdminProjectsPage = () => {
 
   const projects = useMemo(() => projectsQuery.data?.results || [], [projectsQuery.data?.results]);
   const categories = useMemo(() => categoriesQuery.data || [], [categoriesQuery.data]);
-  const pendingProjects = useMemo(
-    () =>
-      projects.filter(
-        (project) => !project.deleted_at && !project.is_verified && project.status === "draft",
-      ),
-    [projects],
+  const pendingReviews = useMemo(
+    () => projects.flatMap((project) => {
+      if (project.deleted_at) return [];
+      const reviews: Array<{ project: Project; isEdit: boolean }> = [];
+      if (!project.is_verified && project.status === "draft") {
+        reviews.push({ project, isEdit: false });
+      }
+      if (project.pending_edit_request) {
+        const proposedCategory = project.pending_edit_request.payload.category;
+        reviews.push({
+          project: {
+            ...project,
+            ...project.pending_edit_request.payload,
+            cover_image: project.pending_edit_request.files.cover_image || project.cover_image,
+            category_detail: proposedCategory
+              ? categories.find((category) => category.id === proposedCategory) || project.category_detail
+              : project.category_detail,
+            pending_edit_request: project.pending_edit_request,
+          },
+          isEdit: true,
+        });
+      }
+      return reviews;
+    }),
+    [categories, projects],
   );
 
   const filteredProjects = useMemo(() => {
@@ -115,10 +135,12 @@ const AdminProjectsPage = () => {
   };
 
   const approveMutation = useMutation({
-    mutationFn: ({ project, notes }: { project: Project; notes: string }) =>
-      adminProjectsService.verifyProject(project.id, notes),
+    mutationFn: ({ project, notes, isEdit }: { project: Project; notes: string; isEdit: boolean }) =>
+      isEdit
+        ? adminProjectsService.approveProjectEdit(project.id, notes)
+        : adminProjectsService.verifyProject(project.id, notes),
     onSuccess: (_, variables) => {
-      toast.success(t("admin.projectLive", { title: variables.project.title }));
+      toast.success(t(variables.isEdit ? "admin.projectEditsPublished" : "admin.projectLive", { title: variables.project.title }));
       setReviewProject(null);
       setReviewNotes("");
       refreshAdminData();
@@ -127,10 +149,12 @@ const AdminProjectsPage = () => {
   });
 
   const rejectMutation = useMutation({
-    mutationFn: ({ project, notes }: { project: Project; notes: string }) =>
-      adminProjectsService.rejectProject(project.id, notes),
+    mutationFn: ({ project, notes, isEdit }: { project: Project; notes: string; isEdit: boolean }) =>
+      isEdit
+        ? adminProjectsService.rejectProjectEdit(project.id, notes)
+        : adminProjectsService.rejectProject(project.id, notes),
     onSuccess: (_, variables) => {
-      toast.success(t("admin.projectReturned", { title: variables.project.title }));
+      toast.success(t(variables.isEdit ? "admin.projectEditsRejected" : "admin.projectReturned", { title: variables.project.title }));
       setReviewProject(null);
       setReviewNotes("");
       refreshAdminData();
@@ -173,8 +197,9 @@ const AdminProjectsPage = () => {
     setCategoryFilter("all");
   };
 
-  const openReview = (project: Project) => {
+  const openReview = (project: Project, isEdit = false) => {
     setReviewNotes("");
+    setReviewIsEdit(isEdit);
     setReviewProject(project);
   };
 
@@ -183,7 +208,7 @@ const AdminProjectsPage = () => {
       <div className="space-y-8">
         <AdminPageHeader
           icon={FolderOpen}
-          eyebrow="Project administration"
+          eyebrow={t("admin.projectAdministration")}
           title={t("admin.dashboardProjectsTitle")}
           description={t("admin.dashboardProjectsText")}
           actions={
@@ -228,9 +253,9 @@ const AdminProjectsPage = () => {
                 <div>
                   <div className="flex items-center gap-2">
                     <h2 className="text-xl font-bold text-foreground">{t("admin.reviewQueue")}</h2>
-                    {pendingProjects.length > 0 && (
+                    {pendingReviews.length > 0 && (
                       <span className="rounded-full bg-warning/15 px-2.5 py-0.5 text-xs font-bold text-warning">
-                        {pendingProjects.length}
+                        {pendingReviews.length}
                       </span>
                     )}
                   </div>
@@ -243,11 +268,11 @@ const AdminProjectsPage = () => {
                   <Skeleton className="h-44 rounded-2xl" />
                   <Skeleton className="h-44 rounded-2xl" />
                 </div>
-              ) : pendingProjects.length ? (
+              ) : pendingReviews.length ? (
                 <div className="grid gap-4 lg:grid-cols-2">
-                  {pendingProjects.map((project, index) => (
+                  {pendingReviews.map(({ project, isEdit }, index) => (
                     <motion.article
-                      key={project.id}
+                      key={`${project.id}-${isEdit ? "edit" : "submission"}`}
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: index * 0.05, duration: 0.3 }}
@@ -281,14 +306,14 @@ const AdminProjectsPage = () => {
                               <p className="truncate text-xs font-medium text-foreground">
                                 {project.entrepreneur?.full_name ||
                                   project.entrepreneur?.email ||
-                                  "Unknown owner"}
+                                  t("admin.unknownOwner")}
                               </p>
                               <p className="mt-0.5 text-[11px] text-muted-foreground">
                                 {project.category_detail?.name || "Uncategorized"} ·{" "}
                                 {formatCurrency(Number(project.goal_amount))}
                               </p>
                             </div>
-                            <Button size="sm" onClick={() => openReview(project)}>{t("admin.review")}</Button>
+                            <Button size="sm" onClick={() => openReview(project, isEdit)}>{t("admin.review")}</Button>
                           </div>
                         </div>
                       </div>
@@ -372,10 +397,10 @@ const AdminProjectsPage = () => {
                 </div>
 
                 <div className="flex flex-col gap-2 border-b border-border bg-muted/20 px-5 py-3 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-6">
-                  <span>
-                    Showing <strong className="text-foreground">{filteredProjects.length}</strong> of{" "}
-                    <strong className="text-foreground">{projects.length}</strong> projects
-                  </span>
+                  <span>{t("admin.showingProjects", {
+                    shown: filteredProjects.length,
+                    total: projects.length,
+                  })}</span>
                   {hasFilters && (
                     <button
                       type="button"
@@ -412,12 +437,12 @@ const AdminProjectsPage = () => {
                         <Search className="h-5 w-5" />
                       </div>
                       <h3 className="mt-4 font-semibold text-foreground">
-                        {projects.length ? "No projects match these filters" : "No projects yet"}
+                        {projects.length ? t("admin.noProjectsMatch") : t("admin.noProjectsYet")}
                       </h3>
                       <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
                         {projects.length
-                          ? "Try a different search or reset the filters to see the full catalogue."
-                          : "New project submissions will appear here as soon as they are created."}
+                          ? t("admin.tryDifferentProjectSearch")
+                          : t("admin.newSubmissionsAppear")}
                       </p>
                       {hasFilters && (
                         <Button variant="outline" size="sm" className="mt-4" onClick={clearFilters}>{t("projects.clearFilters")}</Button>
@@ -430,6 +455,7 @@ const AdminProjectsPage = () => {
 
             <AdminProjectReviewDialog
               project={reviewProject}
+              isEditReview={reviewIsEdit}
               notes={reviewNotes}
               onNotesChange={setReviewNotes}
               onOpenChange={(open) => {
@@ -440,12 +466,12 @@ const AdminProjectsPage = () => {
               }}
               onApprove={() => {
                 if (reviewProject) {
-                  approveMutation.mutate({ project: reviewProject, notes: reviewNotes.trim() });
+                  approveMutation.mutate({ project: reviewProject, notes: reviewNotes.trim(), isEdit: reviewIsEdit });
                 }
               }}
               onReject={() => {
                 if (reviewProject && reviewNotes.trim()) {
-                  rejectMutation.mutate({ project: reviewProject, notes: reviewNotes.trim() });
+                  rejectMutation.mutate({ project: reviewProject, notes: reviewNotes.trim(), isEdit: reviewIsEdit });
                 }
               }}
               isPending={approveMutation.isPending || rejectMutation.isPending}
@@ -464,9 +490,7 @@ const AdminProjectsPage = () => {
                   </div>
                   <AlertDialogTitle>{t("admin.deleteProjectQuestion")}</AlertDialogTitle>
                   <AlertDialogDescription>
-                    <strong className="font-semibold text-foreground">{projectToDelete?.title}</strong> will be
-                    permanently removed from Sahmi together with its linked investments, milestones, files,
-                    and repayment records. This cannot be undone.
+                    {t("admin.deleteProjectCascade", { title: projectToDelete?.title })}
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -476,7 +500,7 @@ const AdminProjectsPage = () => {
                     disabled={deleteProjectMutation.isPending}
                     onClick={() => projectToDelete && deleteProjectMutation.mutate(projectToDelete)}
                   >
-                    {deleteProjectMutation.isPending ? "Deleting..." : "Delete project"}
+                    {deleteProjectMutation.isPending ? t("common.deleting") : t("projects.deleteProject")}
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>

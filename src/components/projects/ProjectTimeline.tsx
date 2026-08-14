@@ -12,6 +12,9 @@ const ProjectTimeline = ({ milestones }: { milestones: ProjectMilestone[] }) => 
 
   return (
     <div className="space-y-4">
+      <p className="rounded-xl border border-primary/15 bg-primary/5 p-4 text-sm leading-relaxed text-muted-foreground">
+        {t("projects.timelineStartsAfterFunding")}
+      </p>
       {[...milestones]
         .sort((left, right) => left.order - right.order)
         .map((milestone, index) => {

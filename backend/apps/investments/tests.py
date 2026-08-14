@@ -7,7 +7,7 @@ from django.test import TestCase
 from apps.notifications.models import Notification
 from apps.projects.models import Project, ProjectCategory
 
-from .models import Investment
+from .models import Investment, Milestone
 
 
 class InvestmentConfirmationSignalTests(TestCase):
@@ -127,3 +127,168 @@ class InvestmentSecurityAndTotalsTests(TestCase):
         self.assertEqual(self.investment.status, Investment.Status.CONFIRMED)
         self.assertEqual(self.investment.project_id, self.first.id)
         self.assertEqual(self.client.post(f"/api/v1/investments/{self.investment.id}/confirm/").status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_contribution_cannot_exceed_remaining_funding(self):
+        from rest_framework import status
+
+        self.client.force_authenticate(self.investor)
+        response = self.client.post(
+            "/api/v1/investments/",
+            {
+                "project": str(self.first.id),
+                "amount": "901.00",
+                "quantity": 1,
+                "payment_method": Investment.PaymentMethod.BANK_TRANSFER,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("Exceeding value", str(response.data))
+
+    def test_pending_contributions_reserve_remaining_funding(self):
+        from rest_framework import status
+
+        Investment.objects.filter(pk=self.investment.pk).update(amount=Decimal("700"))
+        Investment.objects.create(
+            investor=self.investor,
+            project=self.first,
+            amount=Decimal("250"),
+            status=Investment.Status.PENDING,
+        )
+        self.client.force_authenticate(self.investor)
+
+        response = self.client.post(
+            "/api/v1/investments/",
+            {
+                "project": str(self.first.id),
+                "amount": "51.00",
+                "quantity": 1,
+                "payment_method": Investment.PaymentMethod.BANK_TRANSFER,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("Exceeding value", str(response.data))
+
+    def test_exact_goal_marks_project_completed_and_keeps_it_public(self):
+        from rest_framework import status
+
+        Investment.objects.filter(pk=self.investment.pk).update(amount=Decimal("900"))
+        final = Investment.objects.create(
+            investor=self.investor,
+            project=self.first,
+            amount=Decimal("100"),
+            status=Investment.Status.PENDING,
+        )
+        self.client.force_authenticate(self.staff)
+
+        with patch("apps.investments.signals.publish_investment_confirmed_event"):
+            with self.captureOnCommitCallbacks(execute=True):
+                response = self.client.post(
+                    f"/api/v1/investments/{final.id}/confirm/",
+                    format="json",
+                )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.first.refresh_from_db()
+        self.assertEqual(self.first.funded_amount, Decimal("1000"))
+        self.assertEqual(self.first.status, Project.Status.SUCCESSFUL)
+
+        self.client.force_authenticate(user=None)
+        detail = self.client.get(f"/api/v1/projects/{self.first.slug}/")
+        listing = self.client.get("/api/v1/projects/")
+        self.assertEqual(detail.status_code, status.HTTP_200_OK)
+        self.assertIn(str(self.first.id), {str(item["id"]) for item in listing.data["results"]})
+
+    def test_implementation_cannot_progress_before_full_funding(self):
+        from rest_framework import status
+
+        self.client.force_authenticate(self.staff)
+        response = self.client.post(
+            "/api/v1/admin/milestones/",
+            {
+                "project": str(self.first.id),
+                "title": "Fit out the shop",
+                "description": "Complete the physical shop fit-out.",
+                "target_date": "2027-05-01",
+                "status": Milestone.Status.IN_PROGRESS,
+                "deliverables": "Completed shop",
+                "percentage_of_project": "100.00",
+                "funding_released": "0.00",
+                "order": 1,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("100% funding", str(response.data))
+
+        funding_release = self.client.post(
+            "/api/v1/admin/milestones/",
+            {
+                "project": str(self.first.id),
+                "title": "Fit out the shop",
+                "description": "Complete the physical shop fit-out.",
+                "target_date": "2027-05-01",
+                "status": Milestone.Status.PENDING,
+                "deliverables": "Completed shop",
+                "percentage_of_project": "100.00",
+                "funding_released": "100.00",
+                "order": 1,
+            },
+            format="json",
+        )
+        self.assertEqual(funding_release.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("cannot be released", str(funding_release.data))
+
+    def test_roi_payments_require_completed_implementation(self):
+        from rest_framework import status
+
+        Project.objects.filter(pk=self.first.pk).update(
+            funded_amount=self.first.goal_amount,
+            status=Project.Status.SUCCESSFUL,
+        )
+        self.first.refresh_from_db()
+        milestone = Milestone.objects.create(
+            project=self.first,
+            title="Open the shop",
+            description="Finish implementation and open for business.",
+            target_date="2027-05-01",
+            percentage_of_project=Decimal("100.00"),
+            order=1,
+        )
+        payload = {
+            "investment": str(self.investment.id),
+            "amount": "10.00",
+            "scheduled_date": "2027-06-01",
+            "status": "pending",
+            "payment_method": Investment.PaymentMethod.BANK_TRANSFER,
+        }
+        self.client.force_authenticate(self.staff)
+
+        blocked = self.client.post("/api/v1/admin/repayments/", payload, format="json")
+        self.assertEqual(blocked.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("implementation is complete", str(blocked.data))
+
+        milestone.status = Milestone.Status.COMPLETED
+        milestone.actual_completion_date = "2027-05-15"
+        milestone.save(update_fields=["status", "actual_completion_date"])
+
+        too_early = self.client.post(
+            "/api/v1/admin/repayments/",
+            {**payload, "scheduled_date": "2027-05-14"},
+            format="json",
+        )
+        self.assertEqual(too_early.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("became operational", str(too_early.data))
+
+        accepted = self.client.post("/api/v1/admin/repayments/", payload, format="json")
+        self.assertEqual(accepted.status_code, status.HTTP_201_CREATED)
+
+        self.client.force_authenticate(user=None)
+        public_schedule = self.client.get(f"/api/v1/projects/{self.first.slug}/repayments/")
+        self.assertEqual(public_schedule.status_code, status.HTTP_200_OK)
+        self.assertEqual(public_schedule.data[0]["amount"], 10.0)
+        self.assertNotIn("investor", public_schedule.data[0])

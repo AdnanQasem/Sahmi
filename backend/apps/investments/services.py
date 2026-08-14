@@ -13,7 +13,10 @@ def get_project_funding_snapshot(project):
     confirmed = Investment.objects.filter(project=project, status=Investment.Status.CONFIRMED)
     funded_amount = confirmed.aggregate(total=Sum("amount"))["total"] or Decimal("0")
     investor_count = confirmed.values("investor_id").distinct().count()
-    funding_percent = round((funded_amount / project.goal_amount) * Decimal("100"), 2) if project.goal_amount else Decimal("0")
+    funding_percent = min(
+        round((funded_amount / project.goal_amount) * Decimal("100"), 2),
+        Decimal("100"),
+    ) if project.goal_amount else Decimal("0")
 
     return {
         "funded_amount": funded_amount,
@@ -24,14 +27,22 @@ def get_project_funding_snapshot(project):
 
 def sync_project_totals(project_or_id):
     project_id = getattr(project_or_id, "pk", project_or_id)
-    project = Project.objects.filter(pk=project_id).only("id", "goal_amount").first()
+    project = Project.objects.filter(pk=project_id).only(
+        "id", "goal_amount", "status", "is_verified"
+    ).first()
     if not project:
         return None
 
     snapshot = get_project_funding_snapshot(project)
+    next_status = project.status
+    if snapshot["funded_amount"] >= project.goal_amount:
+        next_status = Project.Status.SUCCESSFUL
+    elif project.status == Project.Status.SUCCESSFUL and project.is_verified:
+        next_status = Project.Status.ACTIVE
     Project.objects.filter(pk=project.pk).update(
         funded_amount=snapshot["funded_amount"],
         investor_count=snapshot["investor_count"],
+        status=next_status,
     )
     return snapshot
 

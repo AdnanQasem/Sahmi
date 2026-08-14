@@ -37,6 +37,13 @@ const counterFields: Array<{ key: keyof AdminProjectPayload; labelKey: string }>
 
 const AdminProjectFinanceFields = ({ form, update, errors }: AdminProjectSectionProps) => {
   const { t } = useTranslation();
+  const isFullyFunded = Number(form.goal_amount) > 0
+    && Number(form.funded_amount) >= Number(form.goal_amount);
+  const implementationComplete = form.milestones.length > 0
+    && form.milestones.every(
+      (milestone) => milestone.status === "completed" && !!milestone.actual_completion_date,
+    );
+  const returnOfInvestmentEnabled = isFullyFunded && implementationComplete;
   return (
   <div className="space-y-6">
     <div>
@@ -48,8 +55,7 @@ const AdminProjectFinanceFields = ({ form, update, errors }: AdminProjectSection
     <div className="flex gap-3 rounded-xl border border-warning/20 bg-warning/5 p-4 text-sm">
       <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-warning" />
       <p className="text-muted-foreground">
-        These values affect what investors see. Changing funded and repaid totals does not create
-        matching transaction records.
+        {t("adminForm.financeWarning")}
       </p>
     </div>
     <ProjectCostTableEditor
@@ -134,6 +140,7 @@ const AdminProjectFinanceFields = ({ form, update, errors }: AdminProjectSection
         <Label htmlFor="admin-project-repayment-status">{t("adminForm.repaymentStatus")}</Label>
         <Select
           value={form.repayment_status || "on_track"}
+          disabled={!returnOfInvestmentEnabled}
           onValueChange={(value) =>
             update("repayment_status", value as AdminProject["repayment_status"])
           }
@@ -153,7 +160,11 @@ const AdminProjectFinanceFields = ({ form, update, errors }: AdminProjectSection
           type="date"
           value={form.next_repayment_date || ""}
           onChange={(event) => update("next_repayment_date", event.target.value || null)}
+          disabled={!returnOfInvestmentEnabled}
         />
+        {!returnOfInvestmentEnabled ? (
+          <p className="text-xs text-muted-foreground">{t("adminForm.roiAvailableAfterOperations")}</p>
+        ) : null}
       </div>
       {counterFields.map((field) => (
         <div className="space-y-2" key={field.key}>

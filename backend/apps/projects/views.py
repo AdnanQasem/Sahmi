@@ -1,3 +1,10 @@
+import json
+from datetime import date, datetime
+from decimal import Decimal
+from uuid import UUID
+
+from django.contrib.auth import get_user_model
+from django.db import transaction
 from django.db.models import F
 from django.utils import timezone
 from rest_framework import permissions, viewsets
@@ -5,7 +12,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from .filters import ProjectFilter
-from .models import Project, ProjectCategory
+from .models import Project, ProjectCategory, ProjectEditRequest
 from .permissions import IsEntrepreneur, IsStaffOrReadOnly, ProjectPermission
 from .serializers import (
     AdminProjectListSerializer,
@@ -18,9 +25,13 @@ from .serializers import (
     PublicProjectSerializer,
 )
 from apps.audit.services import log as audit_log
-from apps.core.throttling import AdminVerificationRateThrottle
+from apps.core.throttling import AdminVerificationRateThrottle, ProjectTranslationRateThrottle
 from apps.notifications.models import Notification
 from apps.notifications.services import notify_on_commit
+from .translation import translate_project_content
+
+
+User = get_user_model()
 
 
 class ProjectCategoryViewSet(viewsets.ModelViewSet):
@@ -33,7 +44,7 @@ class ProjectCategoryViewSet(viewsets.ModelViewSet):
 
 class ProjectViewSet(viewsets.ModelViewSet):
     queryset = Project.objects.select_related("entrepreneur", "category").prefetch_related(
-        "images", "supporting_documents", "milestones"
+        "images", "supporting_documents", "milestones", "edit_requests"
     )
     serializer_class = ProjectSerializer
     permission_classes = [ProjectPermission]
@@ -41,6 +52,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
     search_fields = ["title", "short_description", "description", "location"]
     ordering_fields = ["created_at", "goal_amount", "funded_amount", "expected_roi", "investor_count"]
     lookup_field = "slug"
+    public_statuses = (Project.Status.ACTIVE, Project.Status.SUCCESSFUL)
 
     def get_permissions(self):
         if self.action == "create":
@@ -52,7 +64,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             if self.request.user.is_authenticated and self.request.user.is_staff:
                 return AdminProjectListSerializer
             return ProjectListSerializer
-        if self.action == "retrieve":
+        if self.action in {"retrieve", "translation", "repayments"}:
             instance = self.get_object() if "slug" in self.kwargs else None
             if (
                 instance is not None
@@ -71,17 +83,15 @@ class ProjectViewSet(viewsets.ModelViewSet):
         if self.request.user.is_authenticated and self.request.user.is_staff:
             return queryset
         if self.action == "list":
-            return queryset.filter(status=Project.Status.ACTIVE, is_verified=True)
-        if self.action == "retrieve":
+            return queryset.filter(status__in=self.public_statuses, is_verified=True)
+        if self.action in {"retrieve", "translation", "repayments"}:
             # Public visibility follows project verified/active rule; the
             # owner of the project can always retrieve their own.
             if self.request.user.is_authenticated:
                 owner_q = queryset.filter(entrepreneur=self.request.user)
             else:
                 owner_q = queryset.none()
-            public_q = queryset.filter(
-                status=Project.Status.ACTIVE, is_verified=True
-            )
+            public_q = queryset.filter(status__in=self.public_statuses, is_verified=True)
             return (owner_q | public_q).distinct()
         if self.action in {"my", "payments", "events"}:
             return queryset  # action views enforce their own gating below
@@ -98,11 +108,111 @@ class ProjectViewSet(viewsets.ModelViewSet):
             request.user.is_authenticated
             and (request.user.is_staff or instance.entrepreneur_id == request.user.id)
         )
-        if instance.status == Project.Status.ACTIVE and instance.is_verified or is_owner_or_staff:
+        if instance.status in self.public_statuses and instance.is_verified or is_owner_or_staff:
             Project.objects.filter(pk=instance.pk).update(view_count=F("view_count") + 1)
             instance.refresh_from_db(fields=["view_count"])
         serializer = self.get_serializer(instance)
         return Response(serializer.data)
+
+    @staticmethod
+    def _json_value(value):
+        if isinstance(value, dict):
+            return {key: ProjectViewSet._json_value(item) for key, item in value.items()}
+        if isinstance(value, (list, tuple)):
+            return [ProjectViewSet._json_value(item) for item in value]
+        if isinstance(value, (date, datetime, Decimal, UUID)):
+            return str(value)
+        if hasattr(value, "pk"):
+            return str(value.pk)
+        return value
+
+    @transaction.atomic
+    def _stage_approved_project_edit(self, request, partial):
+        project = self.get_object()
+        serializer = self.get_serializer(project, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        validated = dict(serializer.validated_data)
+        staged_files = {
+            field: validated.pop(field)
+            for field in ("cover_image", "business_plan", "financial_projections", "ownership_proof")
+            if field in validated
+        }
+        pending = ProjectEditRequest.objects.filter(
+            project=project,
+            status=ProjectEditRequest.Status.PENDING,
+        ).first()
+        if pending is None:
+            pending = ProjectEditRequest(project=project, submitted_by=request.user)
+        pending.submitted_by = request.user
+        payload = self._json_value(validated)
+        current = self.get_serializer(project).data
+        changes = {}
+        for field, after in payload.items():
+            before = self._json_value(current.get(field))
+            if before != after:
+                changes[field] = {"before": before, "after": after}
+        for field in staged_files:
+            current_file = getattr(project, field)
+            changes[field] = {
+                "before": bool(current_file),
+                "after": True,
+            }
+        pending.payload = payload
+        pending.changes = changes
+        pending.review_notes = ""
+        for field, uploaded_file in staged_files.items():
+            setattr(pending, field, uploaded_file)
+        pending.save()
+
+        for staff_user in User.objects.filter(is_staff=True, is_active=True):
+            notify_on_commit(
+                recipient=staff_user,
+                notification_type=Notification.NotificationType.PROJECT_SUBMITTED,
+                title="Project edits awaiting review",
+                body=f"“{project.title}” has edits awaiting administrator approval.",
+                actor=request.user,
+                target_type="project_edit",
+                target_id=str(pending.id),
+            )
+        return Response(
+            {
+                **self.get_serializer(project).data,
+                "edit_pending": True,
+                "message": "Project edits were submitted for administrator approval.",
+            },
+            status=202,
+        )
+
+    def update(self, request, *args, **kwargs):
+        project = self.get_object()
+        if not request.user.is_staff and project.is_verified:
+            return self._stage_approved_project_edit(request, partial=False)
+        return super().update(request, *args, **kwargs)
+
+    def partial_update(self, request, *args, **kwargs):
+        project = self.get_object()
+        if not request.user.is_staff and project.is_verified:
+            return self._stage_approved_project_edit(request, partial=True)
+        return super().partial_update(request, *args, **kwargs)
+
+    @action(
+        detail=True,
+        methods=["get"],
+        permission_classes=[permissions.AllowAny],
+        throttle_classes=[ProjectTranslationRateThrottle],
+    )
+    def translation(self, request, slug=None):
+        project = self.get_object()
+        language = request.query_params.get("language", "").lower()
+        if language not in {"ar", "en"}:
+            return Response({"language": ["Choose either 'ar' or 'en'."]}, status=400)
+        try:
+            return Response(translate_project_content(project, language))
+        except (OSError, ValueError, TypeError, json.JSONDecodeError):
+            return Response(
+                {"detail": "Project translation is temporarily unavailable."},
+                status=503,
+            )
 
     def perform_create(self, serializer):
         project = serializer.save(entrepreneur=self.request.user)
@@ -155,7 +265,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
     )
     def verify(self, request, slug=None):
         project = self.get_object()
-        serializer = ProjectVerificationSerializer(data=request.data)
+        serializer = ProjectVerificationSerializer(data=request.data, context={"project": project})
         serializer.is_valid(raise_exception=True)
         project.is_verified = True
         project.status = Project.Status.ACTIVE
@@ -284,6 +394,34 @@ class ProjectViewSet(viewsets.ModelViewSet):
             for inv in confirmed
         ]
         return Response(data)
+
+    @action(detail=True, methods=["get"], permission_classes=[permissions.AllowAny])
+    def repayments(self, request, slug=None):
+        """Publish a privacy-safe Return of Investment schedule for completed projects."""
+        project = self.get_object()
+        milestones = project.milestones.all()
+        implementation_complete = milestones.exists() and not milestones.exclude(
+            status="completed", actual_completion_date__isnull=False,
+        ).exists()
+        if project.funded_amount < project.goal_amount or not implementation_complete:
+            return Response([])
+        records = (
+            project.investments.filter(status="confirmed")
+            .prefetch_related("repayments")
+            .order_by("id")
+        )
+        return Response([
+            {
+                "id": str(repayment.id),
+                "amount": float(repayment.amount),
+                "scheduled_date": repayment.scheduled_date.isoformat(),
+                "actual_payment_date": repayment.actual_payment_date.isoformat() if repayment.actual_payment_date else None,
+                "status": repayment.status,
+                "payment_method": repayment.payment_method,
+            }
+            for investment in records
+            for repayment in investment.repayments.all()
+        ])
 
     @action(detail=True, methods=["get"], permission_classes=[permissions.AllowAny])
     def events(self, request, slug=None):

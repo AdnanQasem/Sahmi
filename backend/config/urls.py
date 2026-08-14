@@ -3,6 +3,7 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
+from apps.core.contact import ContactMessageView
 
 urlpatterns = [
     path('api/v1/admin/', include('apps.core.admin_urls')),
@@ -15,6 +16,7 @@ urlpatterns = [
     path("api/v1/", include("apps.messaging.urls")),
     path("api/v1/", include("apps.audit.urls")),
     path("api/v1/notifications/", include("apps.notifications.urls")),
+    path("api/v1/contact/", ContactMessageView.as_view(), name="contact-message"),
 ]
 
 if settings.DEBUG:

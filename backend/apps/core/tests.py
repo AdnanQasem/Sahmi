@@ -5,6 +5,7 @@ from tempfile import TemporaryDirectory
 
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.core import mail
 from django.test import override_settings
 from django.urls import reverse
 from rest_framework import status
@@ -15,6 +16,43 @@ from apps.projects.models import Project, ProjectCategory
 
 
 User = get_user_model()
+
+
+@override_settings(
+    EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+    DEFAULT_FROM_EMAIL="Sahmi <no-reply@example.com>",
+    CONTACT_EMAIL="ikrayyemala@gmail.com",
+)
+class ContactMessageTests(APITestCase):
+    def test_contact_form_sends_validated_email_to_configured_recipient(self):
+        response = self.client.post(
+            reverse("contact-message"),
+            {
+                "name": "Test Sender",
+                "email": "sender@example.com",
+                "subject": "Partnership question",
+                "message": "I would like to learn more about Sahmi.",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertEqual(len(mail.outbox), 1)
+        sent = mail.outbox[0]
+        self.assertEqual(sent.to, ["ikrayyemala@gmail.com"])
+        self.assertEqual(sent.reply_to, ["sender@example.com"])
+        self.assertIn("Partnership question", sent.subject)
+        self.assertIn("Test Sender", sent.body)
+
+    def test_contact_form_rejects_invalid_input(self):
+        response = self.client.post(
+            reverse("contact-message"),
+            {"name": "", "email": "invalid", "subject": "Hello\nBcc: bad@example.com", "message": ""},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(len(mail.outbox), 0)
 
 
 class AdminAPIBase(APITestCase):
@@ -291,7 +329,7 @@ class AdminProjectAPITests(AdminAPIBase):
 
     def test_project_upload_clear_flags_and_child_asset_crud(self):
         project_url = reverse("admin-project-detail", args=[self.project.pk])
-        plan = SimpleUploadedFile("plan.pdf", b"project plan", content_type="application/pdf")
+        plan = SimpleUploadedFile("plan.pdf", b"%PDF-1.7\nproject plan", content_type="application/pdf")
         response = self.client.patch(project_url, {"business_plan": plan}, format="multipart")
         self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
         self.project.refresh_from_db()
@@ -327,7 +365,7 @@ class AdminProjectAPITests(AdminAPIBase):
             reverse("admin-project-document-list"),
             {
                 "project": str(self.project.pk),
-                "file": SimpleUploadedFile("evidence.txt", b"evidence", content_type="text/plain"),
+                "file": SimpleUploadedFile("evidence.pdf", b"%PDF-1.7\nevidence", content_type="application/pdf"),
                 "title": "Evidence",
             },
             format="multipart",
@@ -352,6 +390,10 @@ class AdminProjectAPITests(AdminAPIBase):
         )
 
     def test_category_crud_and_project_moderation_actions(self):
+        self.project.business_plan.name = "project-documents/plan.pdf"
+        self.project.financial_projections.name = "project-documents/forecast.pdf"
+        self.project.ownership_proof.name = "project-documents/ownership.pdf"
+        self.project.save(update_fields=["business_plan", "financial_projections", "ownership_proof", "updated_at"])
         category_response = self.client.post(
             reverse("admin-category-list"),
             {"name": "Technology", "slug": "technology", "description": "Tech"},

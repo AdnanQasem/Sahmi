@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { formatCurrency, formatPercent } from "@/i18n/format";
+import { calculateFundingPercent, fundingProgressBarWidth, fundingProgressColor } from "@/lib/fundingProgress";
 
 interface FundingProgressBarProps {
   raised: number;
@@ -18,7 +19,9 @@ const FundingProgressBar = ({
 }: FundingProgressBarProps) => {
   const { t, i18n } = useTranslation();
   const [isVisible, setIsVisible] = useState(false);
-  const percent = goal > 0 ? Math.min(Math.round((raised / goal) * 100), 100) : 0;
+  const percent = calculateFundingPercent(raised, goal);
+  const barWidth = fundingProgressBarWidth(percent);
+  const progressColor = fundingProgressColor(percent);
   const barHeight = size === "sm" ? "h-2" : "h-3";
 
   useEffect(() => {
@@ -42,7 +45,8 @@ const FundingProgressBar = ({
             </span>
           </motion.span>
           <motion.span 
-            className="font-bold text-primary"
+            className="font-bold"
+            style={{ color: progressColor }}
             initial={{ opacity: 0, scale: 0.5 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.4, delay: 0.3, type: "spring" }}
@@ -57,19 +61,14 @@ const FundingProgressBar = ({
         <motion.div
           className={`${barHeight} rounded-full relative overflow-hidden`}
           initial={{ width: "0%" }}
-          animate={{ width: isVisible ? `$<bdi dir="ltr">{formatPercent(percent, i18n.language)}</bdi>` : "0%" }}
+          animate={{ width: isVisible ? `${barWidth}%` : "0%" }}
           transition={{ duration: 0.8, ease: "easeOut", delay: 0.2 }}
-          style={{
-            background: percent >= 100 
-              ? "linear-gradient(90deg, hsl(var(--success)), hsl(var(--success) / 0.8))"
-              : percent >= 75 
-                ? "linear-gradient(90deg, hsl(var(--primary)), hsl(var(--primary) / 0.8))"
-                : "linear-gradient(90deg, hsl(var(--primary)), hsl(var(--secondary)))"
-          }}
+          style={{ backgroundColor: progressColor }}
           role="progressbar"
-          aria-valuenow={percent}
+          aria-valuenow={barWidth}
           aria-valuemin={0}
           aria-valuemax={100}
+          aria-valuetext={formatPercent(percent, i18n.language)}
         >
           <motion.div
             className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent"

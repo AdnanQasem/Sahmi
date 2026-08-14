@@ -99,6 +99,9 @@ const EntrepreneurDashboard = () => {
   const projects = projectsQuery.data?.results ?? [];
   const investments = investmentsQuery.data?.results ?? [];
   const activeProjects = projects.filter((project) => project.status === "active").length;
+  const completedProjects = projects.filter(
+    (project) => project.status === "successful" || projectRaised(project) >= projectGoal(project),
+  ).length;
   const pendingProjects = projects.filter((project) => project.status === "draft" || !project.is_verified).length;
   const totalRaised = projects.reduce((sum, project) => sum + projectRaised(project), 0);
   const totalInvestors = projects.reduce((sum, project) => sum + (project.investor_count ?? 0), 0);
@@ -108,36 +111,36 @@ const EntrepreneurDashboard = () => {
 
   const kpiCards = [
     {
-      label: "Total Projects",
+      label: t("dashboard.totalProjects"),
       value: projects.length.toString(),
-      subtext: `${activeProjects} active`,
+      subtext: t("dashboard.completedProjectCount", { count: completedProjects }),
       icon: FolderOpen,
       trend: "neutral" as const,
       iconColorClass: "text-secondary",
       iconBgClass: "bg-secondary/10",
     },
     {
-      label: "Active Projects",
+      label: t("dashboard.activeProjects"),
       value: activeProjects.toString(),
-      subtext: "Currently live",
+      subtext: t("dashboard.liveProjectCount", { count: activeProjects }),
       icon: Zap,
       trend: "neutral" as const,
       iconColorClass: "text-success",
       iconBgClass: "bg-success/10",
     },
     {
-      label: "Total Funding Raised",
+      label: t("dashboard.totalFundingRaised"),
       value: currency(totalRaised),
-      subtext: "Across all projects",
+      subtext: t("dashboard.acrossAllProjects"),
       icon: DollarSign,
       trend: "neutral" as const,
       iconColorClass: "text-primary",
       iconBgClass: "bg-primary/10",
     },
     {
-      label: "Pending Review",
+      label: t("dashboard.pendingReview"),
       value: pendingProjects.toString(),
-      subtext: "Draft or unverified",
+      subtext: t("dashboard.draftOrUnverified"),
       icon: Clock,
       trend: "neutral" as const,
       iconColorClass: "text-warning",
@@ -243,7 +246,7 @@ const EntrepreneurDashboard = () => {
                   className="group relative overflow-hidden bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-secondary shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 transition-all duration-300"
                 >
                   <Link to={`/projects/${firstProject.slug}`}>
-                    <Eye className="mr-2 h-4 w-4" />{t("dashboard.viewLatest")}<ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform duration-300" />
+                    <Eye className="me-2 h-4 w-4" />{t("dashboard.viewLatest")}<ArrowRight className="ms-2 h-4 w-4 group-hover:translate-x-1 transition-transform duration-300 rtl-flip" />
                   </Link>
                 </Button>
               )}
@@ -275,7 +278,7 @@ const EntrepreneurDashboard = () => {
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary/50 via-secondary/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
             <SectionHeader 
               title={t("dashboard.fundingOverTime")} 
-              subtitle="Monthly investment records" 
+              subtitle={t("dashboard.monthlyInvestmentRecords")}
             />
             <ResponsiveContainer width="100%" height={240}>
               <AreaChart data={monthly}>
@@ -310,7 +313,7 @@ const EntrepreneurDashboard = () => {
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-secondary/50 via-primary/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
             <SectionHeader 
               title={t("dashboard.investorsPerMonth")} 
-              subtitle="Unique investor activity" 
+              subtitle={t("dashboard.uniqueInvestorActivity")}
             />
             <ResponsiveContainer width="100%" height={240}>
               <BarChart data={monthly} barSize={32}>
@@ -342,8 +345,8 @@ const EntrepreneurDashboard = () => {
           <div className="px-6 py-5 border-b border-border bg-gradient-to-r from-card via-muted/20 to-card">
             <SectionHeader 
               title={t("dashboard.project")} 
-              subtitle="Manage and track your projects" 
-              ctaLabel="Add New Project" 
+              subtitle={t("dashboard.manageTrackProjects")}
+              ctaLabel={t("dashboard.addNewProject")}
               ctaIcon={PlusSquare} 
               onCta={() => navigate("/start-project")} 
             />
@@ -361,8 +364,8 @@ const EntrepreneurDashboard = () => {
                 <EmptyState 
                   icon={FolderOpen} 
                   title={t("dashboard.noProjects")} 
-                  description="Create your first project and start raising funds from the Sahmi community." 
-                  ctaLabel="Add New Project" 
+                  description={t("dashboard.createFirstProjectText")}
+                  ctaLabel={t("dashboard.addNewProject")}
                   ctaHref="/start-project" 
                 />
               </motion.div>
@@ -374,7 +377,6 @@ const EntrepreneurDashboard = () => {
                 animate={{ opacity: 1 }}
               >
                 {projects.map((project: Project, index: number) => {
-                  const percent = Math.min(Math.round((projectRaised(project) / projectGoal(project)) * 100), 100) || 0;
                   return (
                     <motion.div 
                       key={project.id} 
@@ -393,7 +395,7 @@ const EntrepreneurDashboard = () => {
                         <div className="mb-2 flex flex-wrap items-center gap-2">
                           <p className="font-semibold text-foreground group-hover:text-primary transition-colors duration-300">{project.title}</p>
                           <StatusBadge status={project.status} />
-                          <Badge variant="outline" className="text-xs border-primary/20">{project.category_detail?.name ?? "Project"}</Badge>
+                          <Badge variant="outline" className="text-xs border-primary/20">{project.category_detail?.name ?? t("projects.projectFallback")}</Badge>
                         </div>
                         <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
                           <span className="flex items-center gap-1.5 hover:text-primary transition-colors duration-200">
@@ -458,7 +460,7 @@ const EntrepreneurDashboard = () => {
           >
             <SectionHeader 
               title={t("dashboard.investorActivity")} 
-              subtitle="Recent contributions" 
+              subtitle={t("dashboard.recentContributions")}
             />
             <AnimatePresence mode="wait">
               {investments.length === 0 ? (
@@ -470,7 +472,7 @@ const EntrepreneurDashboard = () => {
                   <EmptyState 
                     icon={Users} 
                     title={t("dashboard.noActivityYet")} 
-                    description="Investment records will appear here once your project receives funding." 
+                    description={t("dashboard.investmentRecordsAppear")}
                   />
                 </motion.div>
               ) : (
@@ -535,9 +537,9 @@ const EntrepreneurDashboard = () => {
               </div>
               <div className="space-y-3">
                 {[
-                  { id: 1, sender: "Sarah Ahmed", message: "I'm very interested in your...", time: "5m ago", unread: true, initials: "SA" },
-                  { id: 2, sender: "Layla Khaled", message: "The project proposal looks...", time: "1d ago", unread: false, initials: "LK", status: "premium" },
-                  { id: 3, sender: "Mohammad H.", message: "What's the funding goal...", time: "2d ago", unread: false, initials: "MH" }
+                  { id: 1, sender: "Sarah Ahmed", message: t("dashboard.sampleMessageInterest"), time: t("dashboard.minutesAgo", { count: 5 }), unread: true, initials: "SA" },
+                  { id: 2, sender: "Layla Khaled", message: t("dashboard.sampleMessageProposal"), time: t("dashboard.daysAgo", { count: 1 }), unread: false, initials: "LK", status: "premium" },
+                  { id: 3, sender: "Mohammad H.", message: t("dashboard.sampleMessageGoal"), time: t("dashboard.daysAgo", { count: 2 }), unread: false, initials: "MH" }
                 ].map((msg) => (
                   <Link to="/dashboard/entrepreneur/messages" key={msg.id} className="block group">
                     <div className={`p-3 rounded-xl border transition-all duration-200 flex items-start gap-3 ${msg.unread ? 'bg-primary/5 border-primary/20 hover:bg-primary/10' : 'bg-transparent border-border hover:border-primary/30 hover:bg-muted/50'}`}>

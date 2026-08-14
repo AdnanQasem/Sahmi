@@ -172,14 +172,14 @@ const AdminProjectEditPage = () => {
       <div className="space-y-8">
         <AdminPageHeader
           icon={FolderCog}
-          eyebrow={isCreating ? "Admin · new project" : "Admin · advanced project editor"}
+          eyebrow={t(isCreating ? "admin.newProjectEyebrow" : "admin.advancedEditorEyebrow")}
           title={isCreating ? t("admin.createProject") : t("admin.editProject", { title: project?.title || t("dashboard.project") })}
           description={t("admin.projectEditorText")}
           actions={
             <>
               <Button variant="outline" asChild>
                 <Link to="/dashboard/admin/projects">
-                  <ArrowLeft className="h-4 w-4" />{t("admin.projects")}</Link>
+                  <ArrowLeft className="h-4 w-4 rtl-flip" />{t("admin.projects")}</Link>
               </Button>
               {project ? (
                 <Button variant="outline" asChild>
@@ -244,10 +244,10 @@ const AdminProjectEditPage = () => {
               <Button type="submit" disabled={saveMutation.isPending}>
                 <Save className="h-4 w-4" />
                 {saveMutation.isPending
-                  ? "Saving..."
+                  ? t("common.saving")
                   : isCreating
-                    ? "Create project"
-                    : "Save all changes"}
+                    ? t("admin.createProject")
+                    : t("admin.saveAllChanges")}
               </Button>
             </div>
           </div>

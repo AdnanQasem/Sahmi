@@ -37,6 +37,9 @@ import EntrepreneurAnalyticsPage from "./pages/dashboard/EntrepreneurAnalyticsPa
 import SettingsPage from "./pages/dashboard/SettingsPage";
 import MessagesPage from "./pages/dashboard/MessagesPage";
 import InvestorsPage from "./pages/dashboard/InvestorsPage";
+import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
+import TermsPage from "./pages/TermsPage";
+import NotificationsPage from "./pages/dashboard/NotificationsPage";
 
 const queryClient = new QueryClient();
 
@@ -64,12 +67,14 @@ const App = () => (
               <Route path="/dashboard/admin/milestones" element={<AdminMilestonesPage />} />
               <Route path="/dashboard/admin/repayments" element={<AdminRepaymentsPage />} />
               <Route path="/dashboard/admin/settings" element={<SettingsPage />} />
+              <Route path="/dashboard/admin/notifications" element={<NotificationsPage />} />
             </Route>
             <Route element={<ProtectedRoute allowedUserTypes={["investor", "admin"]} redirectTo="/dashboard" />}>
               <Route path="/dashboard/investor" element={<InvestorDashboard />} />
               <Route path="/dashboard/investor/transactions" element={<InvestorTransactionsPage />} />
               <Route path="/dashboard/investor/settings" element={<SettingsPage />} />
               <Route path="/dashboard/investor/messages" element={<MessagesPage />} />
+              <Route path="/dashboard/investor/notifications" element={<NotificationsPage />} />
             </Route>
             <Route element={<ProtectedRoute allowedUserTypes={["entrepreneur", "admin"]} redirectTo="/dashboard" />}>
               <Route path="/dashboard/entrepreneur" element={<EntrepreneurDashboard />} />
@@ -77,6 +82,7 @@ const App = () => (
               <Route path="/dashboard/entrepreneur/settings" element={<SettingsPage />} />
               <Route path="/dashboard/entrepreneur/messages" element={<MessagesPage />} />
               <Route path="/dashboard/entrepreneur/investors" element={<InvestorsPage />} />
+              <Route path="/dashboard/entrepreneur/notifications" element={<NotificationsPage />} />
             </Route>
 
             {/* Main website routes — with shared Navbar and Footer */}
@@ -98,6 +104,8 @@ const App = () => (
                       </Route>
                       <Route path="/about" element={<AboutPage />} />
                       <Route path="/contact" element={<ContactPage />} />
+                      <Route path="/privacy" element={<PrivacyPolicyPage />} />
+                      <Route path="/terms" element={<TermsPage />} />
                       <Route path="/how-it-works" element={<HowItWorksPage />} />
                       <Route path="/login" element={<LoginPage />} />
                       <Route path="/forgot-password" element={<ForgotPasswordPage />} />

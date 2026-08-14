@@ -253,7 +253,7 @@ const AdminRepaymentsPage = () => {
                             <p className="text-foreground">{date(repayment.scheduled_date)}</p>
                             {repayment.actual_payment_date ? (
                               <p className="text-xs text-muted-foreground">
-                                Paid {date(repayment.actual_payment_date)}
+                                {t("admin.paidDate", { date: date(repayment.actual_payment_date) })}
                               </p>
                             ) : null}
                           </TableCell>

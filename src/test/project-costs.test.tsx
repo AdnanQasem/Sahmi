@@ -5,6 +5,7 @@ import ProjectCostTable from "@/components/projects/ProjectCostTable";
 import ProjectCostTableEditor from "@/components/projects/ProjectCostTableEditor";
 import {
   calculateCostTableTotal,
+  calculateCostItemFunding,
   emptyProjectCostItem,
   validateProjectCostTable,
 } from "@/lib/projectCosts";
@@ -19,6 +20,17 @@ describe("project cost table rules", () => {
   it("calculates the complete project cost and accepts a matching goal", () => {
     expect(calculateCostTableTotal(validItems)).toBe(10000);
     expect(validateProjectCostTable(validItems, "10000")).toBeNull();
+  });
+
+  it("allocates project funding across cost items in order", () => {
+    const items: ProjectCostItem[] = [
+      { name: "1", description: "Solar panels", quantity: "20", unit_cost: "120" },
+      { name: "2", description: "Mounting structures", quantity: "1", unit_cost: "500" },
+      { name: "3", description: "Installation", quantity: "1", unit_cost: "1000" },
+    ];
+
+    expect(calculateCostItemFunding(items, 2750)).toEqual([2400, 350, 0]);
+    expect(calculateCostItemFunding(items, 5000)).toEqual([2400, 500, 1000]);
   });
 
   it("rejects empty, zero-value, mismatched, and oversized tables", () => {

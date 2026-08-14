@@ -42,11 +42,14 @@ class AdminInvestmentViewSet(viewsets.ModelViewSet):
             return
 
         status_label = investment.get_status_display().lower()
+        confirmed = investment.status == Investment.Status.CONFIRMED
+        title = "Investment confirmed" if confirmed else f"Investment {status_label}"
+        confirmed_body = f"An investment of {investment.amount} on your project {investment.project.title} has been confirmed."
         notify_on_commit(
             recipient=investment.investor,
             notification_type=Notification.NotificationType.INVESTMENT_STATUS_CHANGED,
-            title=f"Investment {status_label}",
-            body=(
+            title=title,
+            body=confirmed_body if confirmed else (
                 f"Your investment of {investment.amount} in "
                 f"“{investment.project.title}” is now {status_label}."
             ),
@@ -60,8 +63,8 @@ class AdminInvestmentViewSet(viewsets.ModelViewSet):
             notify_on_commit(
                 recipient=owner,
                 notification_type=Notification.NotificationType.INVESTMENT_STATUS_CHANGED,
-                title=f"Investment {status_label}",
-                body=(
+                title=title,
+                body=confirmed_body if confirmed else (
                     f"An investment of {investment.amount} in "
                     f"“{investment.project.title}” is now {status_label}."
                 ),

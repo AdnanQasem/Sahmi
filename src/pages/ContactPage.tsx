@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import contactService from "@/services/contactService";
+import { getErrorMessage } from "@/services/api";
 import {
   Mail,
   Phone,
@@ -72,9 +74,9 @@ const teamMembers = [
 ];
 
 const contactInfo = [
-  { icon: Mail, value: "support@sahmi.ps", bgClass: "bg-primary/5", borderClass: "border-primary/20", iconBgClass: "bg-primary/10", textClass: "text-primary", href: "mailto:support@sahmi.ps" },
-  { icon: Phone, value: "+970 2 298 0000", bgClass: "bg-secondary/5", borderClass: "border-secondary/20", iconBgClass: "bg-secondary/10", textClass: "text-secondary", href: "tel:+97022980000" },
-  { icon: MapPin, value: null, bgClass: "bg-accent/5", borderClass: "border-accent/20", iconBgClass: "bg-accent/10", textClass: "text-accent", href: "#" },
+  { icon: Mail, value: "ikryyemala@gmail.com", bgClass: "bg-primary/5", borderClass: "border-primary/20", iconBgClass: "bg-primary/10", textClass: "text-primary", href: "mailto:ikryyemala@gmail.com" },
+  { icon: Phone, value: "+970592286907", bgClass: "bg-secondary/5", borderClass: "border-secondary/20", iconBgClass: "bg-secondary/10", textClass: "text-secondary", href: "tel:+970592286907" },
+  { icon: MapPin, value: null, bgClass: "bg-accent/5", borderClass: "border-accent/20", iconBgClass: "bg-accent/10", textClass: "text-accent", href: "https://www.google.com/maps/search/?api=1&query=Hounain+Street%2C+Khan+Yunis%2C+Gaza%2C+Palestine" },
 ];
 
 const socialLinks = [
@@ -95,6 +97,7 @@ const ContactPage = () => {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [submitError, setSubmitError] = useState("");
 
   const heroRef = useRef(null);
   const { scrollYProgress } = useScroll({
@@ -107,12 +110,17 @@ const ContactPage = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    setIsSubmitting(false);
-    setIsSubmitted(true);
-    setTimeout(() => setIsSubmitted(false), 3000);
-    setFormState({ name: "", email: "", subject: "", message: "" });
+    setSubmitError("");
+    try {
+      await contactService.sendMessage(formState);
+      setIsSubmitted(true);
+      setTimeout(() => setIsSubmitted(false), 3000);
+      setFormState({ name: "", email: "", subject: "", message: "" });
+    } catch (error) {
+      setSubmitError(getErrorMessage(error, t("contact.sendError")));
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -197,6 +205,8 @@ const ContactPage = () => {
               <motion.a
                 key={index}
                 href={info.href}
+                target={info.href.startsWith("http") ? "_blank" : undefined}
+                rel={info.href.startsWith("http") ? "noreferrer" : undefined}
                 variants={fadeInUp}
                 whileHover={{ y: -8, transition: { duration: 0.3 } }}
                 className={`group relative overflow-hidden rounded-2xl border ${info.borderClass} ${info.bgClass} p-8 shadow-sm transition-all hover:shadow-xl`}
@@ -366,6 +376,11 @@ const ContactPage = () => {
                         </>
                       )}
                     </Button>
+                    {submitError ? (
+                      <p className="mt-3 text-sm font-medium text-destructive" role="alert">
+                        {submitError}
+                      </p>
+                    ) : null}
                   </motion.div>
                 </form>
               </div>
@@ -415,8 +430,7 @@ const ContactPage = () => {
                       {t("contact.globalTitle")}
                     </h3>
                     <p className="text-muted-foreground leading-relaxed">
-                      Our team speaks Arabic and English, and we support users from all
-                      over the world. No matter where you are, we&apos;re here for you.
+                      {t("contact.globalText")}
                     </p>
                   </div>
                 </div>

@@ -1,1323 +1,239 @@
-import { useEffect, useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import notificationService, { NotificationPreferences } from "@/services/notificationService";
-import { getErrorMessage } from "@/services/api";
-import { motion, AnimatePresence, type Variants } from "framer-motion";
-import DashboardLayout from "./DashboardLayout";
-import { useAuth } from "@/hooks/useAuth";
+import { useEffect, useRef, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Bell, BriefcaseBusiness, Camera, Check, Clock, Globe, Loader2, Lock, Mail, Save, Shield, Trash2, User } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import authService from "@/services/authService";
-import { changeLanguage, SupportedLanguage } from "@/i18n";
-import { formatCurrency, formatNumber } from "@/i18n/format";
+import { toast } from "sonner";
+import DashboardLayout from "./DashboardLayout";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { toast } from "sonner";
-import {
-  User,
-  Mail,
-  Lock,
-  Bell,
-  Shield,
-  CreditCard,
-  Palette,
-  Globe,
-  Smartphone,
-  KeyRound,
-  Eye,
-  EyeOff,
-  ChevronRight,
-  Check,
-  AlertCircle,
-  Camera,
-  Save,
-  Loader2,
-  Languages,
-  Clock,
-  ShieldCheck,
-  ArrowUpRight,
-  ArrowDownRight,
-  Download,
-  Activity,
-  History,
-  Coins,
-} from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { changeLanguage, type SupportedLanguage } from "@/i18n";
+import { getErrorMessage } from "@/services/api";
+import authService, { type User as AuthUser } from "@/services/authService";
+import notificationService, { type NotificationPreferences } from "@/services/notificationService";
 
-type SettingsSection = "profile" | "account" | "security" | "notifications" | "billing";
+type Section = "profile" | "account" | "security" | "notifications";
 
-const containerVariants: Variants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: { staggerChildren: 0.1, delayChildren: 0.1 }
-  }
-};
-
-const itemVariants: Variants = {
-  hidden: { opacity: 0, y: 15, scale: 0.98 },
-  visible: { 
-    opacity: 1, 
-    y: 0, 
-    scale: 1,
-    transition: { duration: 0.35, ease: [0.22, 1, 0.36, 1] }
-  }
-};
-
-const tabVariants = {
-  hidden: { opacity: 0, x: 15 },
-  visible: { 
-    opacity: 1, 
-    x: 0,
-    transition: { 
-      duration: 0.3,
-      when: "beforeChildren",
-      staggerChildren: 0.08
-    }
-  },
-  exit: { 
-    opacity: 0, 
-    x: -15,
-    transition: { duration: 0.2 }
-  }
+const defaultPreferences: NotificationPreferences = {
+  in_app_enabled: true,
+  email_enabled: false,
+  message_notifications: true,
+  project_notifications: true,
+  investment_notifications: true,
+  milestone_notifications: true,
+  repayment_notifications: true,
 };
 
 const SettingsPage = () => {
   const { t } = useTranslation();
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
+  const queryClient = useQueryClient();
+  const fileInput = useRef<HTMLInputElement>(null);
   const isAdmin = Boolean(user?.is_staff || user?.user_type === "admin");
+  const isEntrepreneur = user?.user_type === "entrepreneur";
   const roleBase = isAdmin ? "/dashboard/admin" : user?.user_type === "investor" ? "/dashboard/investor" : "/dashboard/entrepreneur";
-  const [activeSection, setActiveSection] = useState<SettingsSection>("profile");
-  const [isSaving, setIsSaving] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [showNewPassword, setShowNewPassword] = useState(false);
-  
-  const [formData, setFormData] = useState({
-    fullName: user?.full_name || "",
-    email: user?.email || "",
-    phone: user?.phone_number || "",
-    bio: user?.bio || "",
-    location: [user?.city, user?.country].filter(Boolean).join(", "),
-    website: user?.website || "",
-    currentPassword: "",
-    newPassword: "",
-    confirmPassword: "",
-    emailNotifications: true,
-    pushNotifications: true,
-    marketingEmails: false,
-    twoFactorEnabled: false,
-    language: user?.preferred_language ?? "en",
-    timezone: user?.timezone || "Asia/Riyadh (UTC+3)",
-    recoveryEmail: "backup.investor@example.com",
-    autoReinvest: false,
-    defaultInvestment: "5000",
+  const [section, setSection] = useState<Section>("profile");
+  const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [form, setForm] = useState({
+    full_name: "", email: "", phone_number: "", city: "", country: "", website: "", bio: "",
+    timezone: "Asia/Hebron", preferred_language: "en" as SupportedLanguage,
+    business_name: "", business_registration_number: "", business_established_date: "", business_address: "",
+    risk_preference: "medium" as "low" | "medium" | "high",
+    current_password: "", new_password: "", confirm_password: "",
   });
+  const [preferences, setPreferences] = useState(defaultPreferences);
 
-  const [walletBalance, setWalletBalance] = useState(25000);
-  const [downloadingInvoice, setDownloadingInvoice] = useState<Record<number, boolean>>({});
-  const [connected, setConnected] = useState<Record<string, boolean>>({});
-  const [revokedSessions, setRevokedSessions] = useState<Record<number, boolean>>({});
+  const populate = (account: AuthUser | null) => {
+    if (!account) return;
+    setForm((current) => ({
+      ...current,
+      full_name: account.full_name ?? "",
+      email: account.email ?? "",
+      phone_number: account.phone_number ?? "",
+      city: account.city ?? "",
+      country: account.country ?? "",
+      website: account.website ?? "",
+      bio: account.bio ?? "",
+      timezone: account.timezone?.includes("(") ? "Asia/Hebron" : account.timezone || "Asia/Hebron",
+      preferred_language: account.preferred_language ?? "en",
+      business_name: account.business_name ?? "",
+      business_registration_number: account.business_registration_number ?? "",
+      business_established_date: account.business_established_date ?? "",
+      business_address: account.business_address ?? "",
+      risk_preference: account.risk_preference ?? "medium",
+    }));
+  };
+  useEffect(() => populate(user), [user]);
 
-  const [notifications, setNotifications] = useState<NotificationPreferences>({
-    in_app_enabled: true, email_enabled: false, message_notifications: true,
-    project_notifications: true, investment_notifications: true,
-    milestone_notifications: true, repayment_notifications: true,
-  });
-  const preferencesQuery = useQuery({ queryKey: ["notification-preferences"], queryFn: notificationService.getPreferences });
-  useEffect(() => { if (preferencesQuery.data) setNotifications(preferencesQuery.data); }, [preferencesQuery.data]);
+  const preferenceQuery = useQuery({ queryKey: ["notification-preferences"], queryFn: notificationService.getPreferences });
+  useEffect(() => { if (preferenceQuery.data) setPreferences(preferenceQuery.data); }, [preferenceQuery.data]);
   const savePreferences = useMutation({ mutationFn: notificationService.savePreferences });
 
-  useEffect(() => {
-    if (user?.preferred_language) {
-      setFormData((current) => ({ ...current, language: user.preferred_language }));
-    }
-  }, [user?.preferred_language]);
+  const syncUser = async (updated?: AuthUser) => {
+    if (refreshUser) await refreshUser();
+    else if (updated) populate(updated);
+  };
 
-  const handleLanguageChange = async (language: SupportedLanguage) => {
-    const previous = formData.language as SupportedLanguage;
-    setFormData((current) => ({ ...current, language }));
+  const changePreferredLanguage = async (language: SupportedLanguage) => {
+    const previous = form.preferred_language;
+    setForm((value) => ({ ...value, preferred_language: language }));
     await changeLanguage(language);
     try {
-      await authService.updateCurrentUser({ preferred_language: language });
+      const updated = await authService.updateCurrentUser({ preferred_language: language });
+      await syncUser(updated);
       toast.success(t("settings.saved"));
     } catch (error) {
-      setFormData((current) => ({ ...current, language: previous }));
+      setForm((value) => ({ ...value, preferred_language: previous }));
       await changeLanguage(previous);
-      toast.error(getErrorMessage(error, t("errors.unknown")));
+      toast.error(getErrorMessage(error, t("settings.preferencesError")));
     }
   };
-  const getPasswordStrength = (password: string) => {
-    if (!password) return { score: 0, label: t("settings.notEntered"), color: "bg-muted text-muted-foreground", width: "w-0" };
-    let score = 0;
-    if (password.length >= 8) score += 1;
-    if (/[A-Z]/.test(password)) score += 1;
-    if (/[a-z]/.test(password)) score += 1;
-    if (/[0-9]/.test(password)) score += 1;
-    if (/[^A-Za-z0-9]/.test(password)) score += 1;
 
-    if (score <= 2) return { score, label: t("settings.weak"), color: "bg-destructive text-destructive-foreground", width: "w-1/3" };
-    if (score <= 4) return { score, label: t("settings.medium"), color: "bg-warning text-warning-foreground", width: "w-2/3" };
-    return { score, label: t("settings.strong"), color: "bg-success text-success-foreground", width: "w-full" };
-  };
-
-  const sections = [
-    { id: "profile" as const, label: t("settings.profile"), icon: User, description: t("settings.personalInfo") },
-    { id: "account" as const, label: t("settings.account"), icon: Mail, description: t("settings.emailPhone") },
-    { id: "security" as const, label: t("settings.security"), icon: Shield, description: t("settings.password2fa") },
-    { id: "notifications" as const, label: t("settings.notifications"), icon: Bell, description: t("settings.alertPreferences") },
-    ...(!isAdmin ? [{ id: "billing" as const, label: t("settings.billing"), icon: CreditCard, description: t("settings.paymentMethods") }] : []),
-  ];
-
-  const handleSave = async () => {
-    setIsSaving(true);
+  const save = async () => {
+    setSaving(true);
     try {
-      if (activeSection === "notifications") {
-        const saved = await savePreferences.mutateAsync(notifications);
-        setNotifications(saved);
-      } else if (activeSection === "profile" || activeSection === "account") {
-        const locationParts = formData.location.split(",").map((part) => part.trim()).filter(Boolean);
-        await authService.updateCurrentUser({
-          full_name: formData.fullName.trim(),
-          phone_number: formData.phone.trim(),
-          bio: formData.bio.trim(),
-          city: locationParts[0] ?? "",
-          country: locationParts.slice(1).join(", "),
-          website: formData.website.trim(),
-          timezone: formData.timezone,
+      if (section === "profile") {
+        const payload: Partial<AuthUser> = {
+          full_name: form.full_name.trim(), phone_number: form.phone_number.trim(), city: form.city.trim(),
+          country: form.country.trim(), website: form.website.trim(), bio: form.bio.trim(),
+        };
+        if (isEntrepreneur) Object.assign(payload, {
+          business_name: form.business_name.trim(),
+          business_registration_number: form.business_registration_number.trim(),
+          business_established_date: form.business_established_date || null,
+          business_address: form.business_address.trim(),
         });
-      } else if (activeSection === "security") {
-        const accessToken = localStorage.getItem("accessToken");
-        if (!accessToken) {
-          const email = formData.email.trim();
-          if (!email) throw new Error(t("settings.preferencesError"));
-          await authService.requestPasswordReset(email);
-          toast.success(t("auth.resetEmailSent"));
-          return;
-        }
-        if (!formData.currentPassword || !formData.newPassword || !formData.confirmPassword) {
-          throw new Error(t("settings.preferencesError"));
-        }
-        await authService.changePassword({
-          current_password: formData.currentPassword,
-          new_password: formData.newPassword,
-          confirm_password: formData.confirmPassword,
-        });
-        setFormData((current) => ({ ...current, currentPassword: "", newPassword: "", confirmPassword: "" }));
+        if (user?.user_type === "investor") payload.risk_preference = form.risk_preference;
+        const updated = await authService.updateCurrentUser(payload);
+        await syncUser(updated);
+      } else if (section === "account") {
+        const updated = await authService.updateCurrentUser({ email: form.email.trim(), timezone: form.timezone });
+        await syncUser(updated);
+      } else if (section === "security") {
+        if (!form.current_password || !form.new_password || !form.confirm_password) throw new Error(t("settings.completePasswordFields"));
+        if (form.new_password !== form.confirm_password) throw new Error(t("settings.passwordMismatch"));
+        await authService.changePassword(form);
+        setForm((value) => ({ ...value, current_password: "", new_password: "", confirm_password: "" }));
       } else {
-        toast.info(t("settings.backendScope"));
-        return;
+        const saved = await savePreferences.mutateAsync(preferences);
+        setPreferences(saved);
+        await queryClient.invalidateQueries({ queryKey: ["notification-preferences"] });
       }
       toast.success(t("settings.saved"));
     } catch (error) {
-      toast.error(getErrorMessage(error, t("settings.preferencesError")));
+      toast.error(getErrorMessage(error, error instanceof Error ? error.message : t("settings.preferencesError")));
     } finally {
-      setIsSaving(false);
+      setSaving(false);
     }
   };
 
-  const handleConnect = (provider: string) => {
-    const isCurrentlyConnected = !!connected[provider];
-    if (isCurrentlyConnected) {
-      setConnected(prev => ({ ...prev, [provider]: false }));
-      toast.success(t("settings.disconnected", { provider }), {
-        description: t("settings.disconnectedText", { provider })
-      });
-    } else {
-      const toastId = toast.loading(t("settings.connecting", { provider }), {
-        description: t("settings.authorizePopup")
-      });
-      setTimeout(() => {
-        setConnected(prev => ({ ...prev, [provider]: true }));
-        toast.success(t("settings.connected", { provider }), {
-          id: toastId,
-          description: t("settings.connectedText", { provider })
-        });
-      }, 1200);
+  const reset = () => {
+    populate(user);
+    setPreferences(preferenceQuery.data ?? defaultPreferences);
+  };
+
+  const uploadPicture = async (file?: File) => {
+    if (!file) return;
+    setUploading(true);
+    try {
+      const updated = await authService.uploadProfilePicture(file);
+      await syncUser(updated);
+      toast.success(t("settings.pictureUpdated"));
+    } catch (error) {
+      toast.error(getErrorMessage(error, t("settings.pictureError")));
+    } finally {
+      setUploading(false);
+      if (fileInput.current) fileInput.current.value = "";
     }
   };
 
-  const handleDeposit = () => {
-    setWalletBalance(prev => prev + 5000);
-    toast.success(t("settings.depositSuccess"), {
-      description: t("settings.depositText", { amount: formatCurrency(5000) })
-    });
+  const removePicture = async () => {
+    setUploading(true);
+    try {
+      const updated = await authService.updateCurrentUser({ profile_picture: null });
+      await syncUser(updated);
+      toast.success(t("settings.pictureRemoved"));
+    } catch (error) {
+      toast.error(getErrorMessage(error, t("settings.pictureError")));
+    } finally { setUploading(false); }
   };
 
-  const handleWithdraw = () => {
-    if (walletBalance < 5000) {
-      toast.error(t("settings.insufficient"), {
-        description: t("settings.insufficientText", { amount: formatCurrency(5000) })
-      });
-      return;
-    }
-    setWalletBalance(prev => prev - 5000);
-    toast.success(t("settings.withdrawal"), {
-      description: t("settings.withdrawalText", { amount: formatCurrency(5000) })
-    });
-  };
+  const tabs = [
+    { id: "profile" as const, icon: User, title: t("settings.profile"), detail: t("settings.personalInfo") },
+    { id: "account" as const, icon: Mail, title: t("settings.account"), detail: t("settings.emailPhone") },
+    { id: "security" as const, icon: Shield, title: t("settings.security"), detail: t("settings.passwordSecurity") },
+    { id: "notifications" as const, icon: Bell, title: t("settings.notifications"), detail: t("settings.alertPreferences") },
+  ];
+  const fieldClass = "space-y-2";
+  const labelClass = "text-sm font-medium";
 
-  const handleDownloadInvoice = async (index: number, description: string) => {
-    setDownloadingInvoice(prev => ({ ...prev, [index]: true }));
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    setDownloadingInvoice(prev => ({ ...prev, [index]: false }));
-    toast.success(t("settings.invoiceDownloaded"), {
-      description: t("settings.invoiceText", { description })
-    });
-  };
+  return <DashboardLayout roleBase={roleBase}>
+    <div className="space-y-8">
+      <div><h1 className="text-3xl font-bold">{t("settings.title")}</h1><p className="text-muted-foreground">{t("settings.subtitle")}</p></div>
+      <div className="grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)]">
+        <nav className="grid grid-cols-2 gap-2 lg:block lg:space-y-2" aria-label={t("settings.title")}>
+          {tabs.map((tab) => <button key={tab.id} type="button" onClick={() => setSection(tab.id)} className={`flex w-full items-center gap-3 rounded-xl border p-3 text-start transition-colors ${section === tab.id ? "border-primary bg-primary/10 text-primary" : "border-transparent hover:bg-muted"}`}>
+            <tab.icon className="h-5 w-5 shrink-0"/><span><span className="block font-medium">{tab.title}</span><span className="hidden text-xs text-muted-foreground sm:block">{tab.detail}</span></span>
+          </button>)}
+        </nav>
 
-  const renderSectionContent = () => {
-    switch (activeSection) {
-      case "profile":
-        return (
-          <motion.div
-            key="profile"
-            variants={tabVariants}
-            initial="hidden"
-            animate="visible"
-            exit="exit"
-            className="space-y-6"
-          >
-            <div className="relative flex flex-col sm:flex-row items-start sm:items-center gap-6 pb-6 border-b border-border">
-              <motion.div 
-                className="relative group"
-                whileHover={{ scale: 1.02 }}
-                transition={{ duration: 0.2 }}
-              >
-                <div className="h-24 w-24 rounded-2xl bg-gradient-to-br from-primary via-primary/80 to-secondary flex items-center justify-center text-3xl font-bold text-primary-foreground shadow-lg shadow-primary/20">
-                  {user?.full_name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || "U"}
-                </div>
-                <motion.div 
-                  className="absolute inset-0 rounded-2xl bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                  whileHover={{ opacity: 1 }}
-                >
-                  <Camera className="h-6 w-6 text-white" />
-                </motion.div>
-              </motion.div>
-              <div className="flex-1 space-y-1">
-                <h3 className="text-xl font-semibold text-foreground">{user?.full_name}</h3>
-                <p className="text-muted-foreground">{user?.email}</p>
-                <div className="flex items-center gap-2 mt-2">
-                  <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20">
-                    {t(isAdmin ? "admin.header" : user?.user_type === "entrepreneur" ? "settings.projectOwner" : "settings.investor")}
-                  </Badge>
-                  <Badge variant="outline" className="bg-success/10 text-success border-success/20">
-                    {t("settings.verified")}
-                  </Badge>
-                </div>
+        <section className="rounded-2xl border bg-card p-5 shadow-sm sm:p-7">
+          {section === "profile" && <div className="space-y-6">
+            <div className="flex flex-wrap items-center gap-5 border-b pb-6">
+              <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-2xl bg-primary text-3xl font-bold text-primary-foreground">
+                {user?.profile_picture ? <img src={user.profile_picture} alt="" className="h-full w-full object-cover"/> : (user?.full_name?.[0] || "U").toUpperCase()}
+              </div>
+              <div className="space-y-2"><div className="flex flex-wrap gap-2"><Badge>{t(isAdmin ? "roles.admin" : `roles.${user?.user_type}`)}</Badge>{user?.is_verified && <Badge variant="outline"><Check className="me-1 h-3 w-3"/>{t("settings.verified")}</Badge>}</div>
+                <div className="flex flex-wrap gap-2"><Button type="button" variant="outline" disabled={uploading} onClick={() => fileInput.current?.click()}>{uploading ? <Loader2 className="me-2 h-4 w-4 animate-spin"/> : <Camera className="me-2 h-4 w-4"/>}{t("settings.changePicture")}</Button>{user?.profile_picture && <Button type="button" variant="ghost" disabled={uploading} onClick={removePicture}><Trash2 className="me-2 h-4 w-4"/>{t("settings.removePicture")}</Button>}</div>
+                <input ref={fileInput} className="hidden" type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => void uploadPicture(event.target.files?.[0])}/><p className="text-xs text-muted-foreground">{t("settings.pictureHelp")}</p>
               </div>
             </div>
-
-            <div className="grid gap-6 sm:grid-cols-2">
-              <motion.div variants={itemVariants} className="space-y-2">
-                <label className="text-sm font-medium text-foreground">{t("settings.fullName")}</label>
-                <div className="relative group">
-                  <User className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
-                  <Input
-                    value={formData.fullName}
-                    onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                    className="ps-10 h-11 bg-background border-border focus:border-primary focus:ring-primary/20 transition-all"
-                    placeholder={t("settings.namePlaceholder")}
-                  />
-                </div>
-              </motion.div>
-
-              <motion.div variants={itemVariants} className="space-y-2">
-                <label className="text-sm font-medium text-foreground">{t("settings.emailAddress")}</label>
-                <div className="relative group">
-                  <Mail className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
-                  <Input
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="ps-10 h-11 bg-background border-border focus:border-primary focus:ring-primary/20 transition-all"
-                    placeholder="your@email.com"
-                  />
-                </div>
-              </motion.div>
-
-              <motion.div variants={itemVariants} className="space-y-2">
-                <label className="text-sm font-medium text-foreground">{t("settings.phoneNumber")}</label>
-                <div className="relative group">
-                  <Smartphone className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
-                  <Input
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    className="ps-10 h-11 bg-background border-border focus:border-primary focus:ring-primary/20 transition-all"
-                    placeholder="+1 (555) 000-0000"
-                  />
-                </div>
-              </motion.div>
-
-              <motion.div variants={itemVariants} className="space-y-2">
-                <label className="text-sm font-medium text-foreground">{t("settings.location")}</label>
-                <div className="relative group">
-                  <Globe className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
-                  <Input
-                    value={formData.location}
-                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                    className="ps-10 h-11 bg-background border-border focus:border-primary focus:ring-primary/20 transition-all"
-                    placeholder={t("settings.locationPlaceholder")}
-                  />
-                </div>
-              </motion.div>
-
-              <motion.div variants={itemVariants} className="space-y-2 sm:col-span-2">
-                <label className="text-sm font-medium text-foreground">{t("settings.website")}</label>
-                <div className="relative group">
-                  <Globe className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
-                  <Input
-                    value={formData.website}
-                    onChange={(e) => setFormData({ ...formData, website: e.target.value })}
-                    className="ps-10 h-11 bg-background border-border focus:border-primary focus:ring-primary/20 transition-all"
-                    placeholder="https://yourwebsite.com"
-                  />
-                </div>
-              </motion.div>
-
-              <motion.div variants={itemVariants} className="space-y-2 sm:col-span-2">
-                <label className="text-sm font-medium text-foreground">{t("settings.bio")}</label>
-                <textarea
-                  value={formData.bio}
-                  onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
-                  rows={3}
-                  className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all resize-none"
-                  placeholder={t("settings.bioPlaceholder")}
-                />
-              </motion.div>
+            <div className="grid gap-5 sm:grid-cols-2">
+              <div className={fieldClass}><label className={labelClass}>{t("settings.fullName")}</label><Input value={form.full_name} onChange={(e) => setForm({...form, full_name:e.target.value})}/></div>
+              <div className={fieldClass}><label className={labelClass}>{t("settings.phoneNumber")}</label><Input type="tel" value={form.phone_number} onChange={(e) => setForm({...form, phone_number:e.target.value})}/></div>
+              <div className={fieldClass}><label className={labelClass}>{t("settings.city")}</label><Input value={form.city} onChange={(e) => setForm({...form, city:e.target.value})}/></div>
+              <div className={fieldClass}><label className={labelClass}>{t("settings.country")}</label><Input value={form.country} onChange={(e) => setForm({...form, country:e.target.value})}/></div>
+              <div className={`${fieldClass} sm:col-span-2`}><label className={labelClass}>{t("settings.website")}</label><Input type="url" value={form.website} onChange={(e) => setForm({...form, website:e.target.value})} placeholder="https://example.com"/></div>
+              <div className={`${fieldClass} sm:col-span-2`}><label className={labelClass}>{t("settings.bio")}</label><textarea className="min-h-28 w-full rounded-md border bg-background px-3 py-2 text-sm" value={form.bio} onChange={(e) => setForm({...form, bio:e.target.value})}/></div>
+              {isEntrepreneur && <><div className={fieldClass}><label className={labelClass}>{t("settings.businessName")}</label><Input value={form.business_name} onChange={(e) => setForm({...form, business_name:e.target.value})}/></div><div className={fieldClass}><label className={labelClass}>{t("settings.registrationNumber")}</label><Input value={form.business_registration_number} onChange={(e) => setForm({...form, business_registration_number:e.target.value})}/></div><div className={fieldClass}><label className={labelClass}>{t("settings.establishedDate")}</label><Input type="date" value={form.business_established_date} onChange={(e) => setForm({...form, business_established_date:e.target.value})}/></div><div className={fieldClass}><label className={labelClass}>{t("settings.businessAddress")}</label><Input value={form.business_address} onChange={(e) => setForm({...form, business_address:e.target.value})}/></div></>}
+              {user?.user_type === "investor" && <div className={fieldClass}><label className={labelClass}>{t("settings.riskPreference")}</label><select className="h-10 w-full rounded-md border bg-background px-3" value={form.risk_preference} onChange={(e) => setForm({...form, risk_preference:e.target.value as typeof form.risk_preference})}><option value="low">{t("settings.riskLow")}</option><option value="medium">{t("settings.riskMedium")}</option><option value="high">{t("settings.riskHigh")}</option></select></div>}
             </div>
-          </motion.div>
-        );
+          </div>}
 
-      case "account":
-        return (
-          <motion.div
-            key="account"
-            variants={tabVariants}
-            initial="hidden"
-            animate="visible"
-            exit="exit"
-            className="space-y-6"
-          >
-            <div className="p-5 rounded-2xl border border-warning/30 bg-warning/5">
-              <div className="flex items-start gap-3">
-                <div className="p-2 rounded-lg bg-warning/10">
-                  <AlertCircle className="h-5 w-5 text-warning" />
-                </div>
-                <div>
-                  <h4 className="font-medium text-foreground">{t("settings.emailChange")}</h4>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {t("settings.emailChangeText")}
-                  </p>
-                </div>
-              </div>
+          {section === "account" && <div className="space-y-6">
+            <div className="rounded-xl border border-warning/30 bg-warning/5 p-4"><p className="font-medium">{t("settings.emailChange")}</p><p className="text-sm text-muted-foreground">{t("settings.emailChangeActualText")}</p></div>
+            <div className="grid gap-5 sm:grid-cols-2">
+              <div className={fieldClass}><label className={labelClass}>{t("settings.primaryEmail")}</label><Input type="email" value={form.email} onChange={(e) => setForm({...form, email:e.target.value})}/></div>
+              <div className={fieldClass}><label htmlFor="preferred-language" className={labelClass}>{t("settings.language")}</label><select id="preferred-language" className="h-10 w-full rounded-md border bg-background px-3" value={form.preferred_language} onChange={(e) => void changePreferredLanguage(e.target.value as SupportedLanguage)}><option value="en">{t("language.english")}</option><option value="ar">{t("language.arabic")}</option></select></div>
+              <div className={`${fieldClass} sm:col-span-2`}><label className={labelClass}>{t("settings.timezone")}</label><select className="h-10 w-full rounded-md border bg-background px-3" value={form.timezone} onChange={(e) => setForm({...form, timezone:e.target.value})}><option value="Asia/Hebron">{t("settings.hebron")}</option><option value="Asia/Riyadh">{t("settings.riyadh")}</option><option value="Asia/Dubai">{t("settings.dubai")}</option><option value="Europe/London">{t("settings.london")}</option><option value="America/New_York">{t("settings.newYork")}</option><option value="UTC">UTC</option></select></div>
             </div>
+          </div>}
 
-            <div className="grid gap-6 sm:grid-cols-2">
-              <motion.div variants={itemVariants} className="space-y-2">
-                <label className="text-sm font-medium text-foreground">{t("settings.primaryEmail")}</label>
-                <div className="relative group">
-                  <Mail className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
-                  <Input
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="ps-10 pe-20 h-11 bg-background border-border focus:border-primary focus:ring-primary/20 transition-all"
-                  />
-                  <Badge variant="secondary" className="absolute end-3 top-1/2 -translate-y-1/2 bg-success/10 text-success border-success/20 text-xs">
-                    {t("settings.verified")}
-                  </Badge>
-                </div>
-              </motion.div>
-
-              <motion.div variants={itemVariants} className="space-y-2">
-                <label className="text-sm font-medium text-foreground">{t("settings.phoneNumber")}</label>
-                <div className="relative group">
-                  <Smartphone className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
-                  <Input
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    className="ps-10 h-11 bg-background border-border focus:border-primary focus:ring-primary/20 transition-all"
-                    placeholder="+1 (555) 000-0000"
-                  />
-                </div>
-              </motion.div>
-
-              {/* Language and Region selectors */}
-              <motion.div variants={itemVariants} className="space-y-2">
-                <label htmlFor="preferred-language" className="text-sm font-medium text-foreground">{t("settings.language")}</label>
-                <div className="relative group">
-                  <Languages className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
-                  <select
-                    id="preferred-language"
-                    value={formData.language}
-                    onChange={(e) => void handleLanguageChange(e.target.value as SupportedLanguage)}
-                    className="w-full ps-10 pe-10 h-11 rounded-lg border border-border bg-background text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all appearance-none cursor-pointer"
-                  >
-                    <option value="en">{t("language.english")}</option>
-                    <option value="ar">{t("language.arabic")}</option>
-                  </select>
-                  <ChevronRight className="absolute end-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground rotate-90 pointer-events-none" />
-                </div>
-              </motion.div>
-
-              <motion.div variants={itemVariants} className="space-y-2">
-                <label className="text-sm font-medium text-foreground">{t("settings.timezone")}</label>
-                <div className="relative group">
-                  <Clock className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
-                  <select
-                    value={formData.timezone}
-                    onChange={(e) => setFormData({ ...formData, timezone: e.target.value })}
-                    className="w-full ps-10 pe-10 h-11 rounded-lg border border-border bg-background text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all appearance-none cursor-pointer"
-                  >
-                    <option value="Asia/Riyadh (UTC+3)">{t("settings.riyadh")}</option>
-                    <option value="Asia/Dubai (UTC+4)">{t("settings.dubai")}</option>
-                    <option value="Europe/London (GMT)">{t("settings.london")}</option>
-                    <option value="America/New_York (EST)">{t("settings.newYork")}</option>
-                  </select>
-                  <ChevronRight className="absolute end-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground rotate-90 pointer-events-none" />
-                </div>
-              </motion.div>
+          {section === "security" && <div className="space-y-6">
+            <div><h2 className="flex items-center gap-2 text-xl font-semibold"><Lock className="h-5 w-5 text-primary"/>{t("settings.changePassword")}</h2><p className="mt-1 text-sm text-muted-foreground">{t("settings.passwordSecurityText")}</p></div>
+            <div className="grid max-w-xl gap-5">
+              <div className={fieldClass}><label className={labelClass}>{t("settings.currentPassword")}</label><Input autoComplete="current-password" type="password" value={form.current_password} onChange={(e) => setForm({...form,current_password:e.target.value})}/></div>
+              <div className={fieldClass}><label className={labelClass}>{t("settings.newPassword")}</label><Input autoComplete="new-password" type="password" value={form.new_password} onChange={(e) => setForm({...form,new_password:e.target.value})}/><p className="text-xs text-muted-foreground">{t("settings.passwordRequirements")}</p></div>
+              <div className={fieldClass}><label className={labelClass}>{t("settings.confirmPassword")}</label><Input autoComplete="new-password" type="password" value={form.confirm_password} onChange={(e) => setForm({...form,confirm_password:e.target.value})}/></div>
             </div>
+          </div>}
 
-            {/* Verification Tiers Status */}
-            <motion.div variants={itemVariants} className="p-5 rounded-2xl border border-primary/20 bg-primary/5 space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center border border-primary/20">
-                    <ShieldCheck className="h-5 w-5 text-primary" />
-                  </div>
-                  <div>
-                    <h4 className="font-semibold text-foreground flex items-center gap-2">
-                      {t("settings.verificationLevel")}
-                      <Badge className="bg-success/15 text-success border-success/20 text-[10px] font-semibold py-0">{t("settings.approved")}</Badge>
-                    </h4>
-                    <p className="text-xs text-muted-foreground">{t("settings.tierHelp")}</p>
-                  </div>
-                </div>
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => toast.info(t("settings.requestSubmitted"), {
-                    description: t("settings.requestSubmittedText")
-                  })}
-                  className="bg-card hover:bg-primary/5 hover:text-primary hover:border-primary/30"
-                >
-                  {t("settings.requestTier3")}
-                </Button>
-              </div>
+          {section === "notifications" && <div className="space-y-4">
+            {preferenceQuery.isLoading && <div className="flex items-center gap-2 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin"/>{t("settings.preferencesLoading")}</div>}
+            {preferenceQuery.isError && <div className="rounded-xl border border-destructive/30 p-4"><p>{t("settings.preferencesError")}</p><Button className="mt-3" variant="outline" onClick={() => preferenceQuery.refetch()}>{t("common.retry")}</Button></div>}
+            {preferenceQuery.data && <>{([
+              ["project_notifications", "projectUpdates", "projectUpdatesText"], ["message_notifications", "messages", "messagesText"], ["milestone_notifications", "milestones", "milestonesText"], ["investment_notifications", "investmentUpdates", "investmentUpdatesText"], ["repayment_notifications", "repaymentNotifications", "repaymentNotificationsText"], ["email_enabled", "emailNotifications", "emailNotificationsText"], ["in_app_enabled", "inApp", "inAppText"],
+            ] as const).map(([key,title,description]) => <div key={key} className="flex items-center justify-between gap-4 rounded-xl border p-4"><div><p className="font-medium">{t(`settings.${title}`)}</p><p className="text-sm text-muted-foreground">{t(`settings.${description}`)}</p></div><button type="button" role="switch" aria-checked={preferences[key]} aria-label={t(`settings.${title}`)} onClick={() => setPreferences({...preferences,[key]:!preferences[key]})} className={`relative h-7 w-14 shrink-0 rounded-full ${preferences[key] ? "bg-primary" : "bg-muted"}`}><span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-all ${preferences[key] ? "start-8" : "start-1"}`}/></button></div>)}<div className="flex gap-3 rounded-xl bg-muted/50 p-4 text-sm"><Shield className="h-5 w-5 shrink-0 text-primary"/><p>{t("settings.securityNotificationsAlways")}</p></div></>}
+          </div>}
 
-              <div className="grid gap-3 grid-cols-1 sm:grid-cols-3 pt-2 border-t border-border/60">
-                {[
-                  { label: t("settings.identityVerified"), status: true },
-                  { label: t("settings.accreditationChecked"), status: true },
-                  { label: t("settings.fundsVerified"), status: true },
-                ].map((tier, idx) => (
-                  <div key={idx} className="flex items-center gap-2 text-xs">
-                    <div className="h-4 w-4 rounded-full bg-success/10 flex items-center justify-center text-success shrink-0">
-                      <Check className="h-3 w-3" />
-                    </div>
-                    <span className="font-medium text-foreground/80">{tier.label}</span>
-                  </div>
-                ))}
-              </div>
-            </motion.div>
-
-            {/* Connected Accounts */}
-            <motion.div variants={itemVariants} className="pt-4 space-y-3">
-              <h4 className="font-medium text-foreground">{t("settings.connectedAccounts")}</h4>
-              <div className="space-y-3">
-                {["Google", "LinkedIn", "Twitter"].map((provider) => {
-                  const isLinked = !!connected[provider];
-                  return (
-                    <motion.div
-                      key={provider}
-                      variants={itemVariants}
-                      className="flex items-center justify-between p-4 rounded-xl border border-border bg-muted/30 hover:bg-muted/50 transition-colors animate-fade-in"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-lg bg-background flex items-center justify-center border border-border">
-                          <KeyRound className="h-5 w-5 text-muted-foreground" />
-                        </div>
-                        <div>
-                          <p className="font-medium text-foreground flex items-center gap-2">
-                            {provider}
-                            {isLinked && (
-                              <Badge className="bg-success/10 text-success border-success/20 text-[10px] py-0">{t("settings.linked")}</Badge>
-                            )}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {t(isLinked ? "settings.signInEnabled" : "settings.notConnected")}
-                          </p>
-                        </div>
-                      </div>
-                      <Button 
-                        variant={isLinked ? "ghost" : "outline"} 
-                        size="sm" 
-                        onClick={() => handleConnect(provider)}
-                        className={isLinked ? "text-destructive hover:bg-destructive/10 hover:text-destructive" : "hover:bg-primary/5 hover:border-primary/30"}
-                      >
-                        {t(isLinked ? "settings.disconnect" : "settings.connect")}
-                      </Button>
-                    </motion.div>
-                  );
-                })}
-              </div>
-            </motion.div>
-
-            {/* Deactivation zone */}
-            <motion.div variants={itemVariants} className="pt-4 border-t border-border/80">
-              <div className="p-5 rounded-2xl border border-muted-foreground/20 bg-muted/10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div className="space-y-1">
-                  <h4 className="font-medium text-foreground">{t("settings.temporaryDeactivation")}</h4>
-                  <p className="text-xs text-muted-foreground">{t("settings.temporaryDeactivationText")}</p>
-                </div>
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  onClick={() => toast.warning(t("settings.confirmDeactivation"), {
-                    description: t("settings.confirmDeactivationText"),
-                    action: {
-                      label: t("settings.contactSupport"),
-                      onClick: () => window.open("mailto:support@sahmi.io")
-                    }
-                  })}
-                  className="text-muted-foreground hover:text-foreground border-muted-foreground/30 hover:bg-muted"
-                >
-                  {t("settings.deactivateAccount")}
-                </Button>
-              </div>
-            </motion.div>
-          </motion.div>
-        );
-
-      case "security":
-        const strength = getPasswordStrength(formData.newPassword);
-        return (
-          <motion.div
-            key="security"
-            variants={tabVariants}
-            initial="hidden"
-            animate="visible"
-            exit="exit"
-            className="space-y-6"
-          >
-            <motion.div variants={itemVariants} className="space-y-4">
-              <h4 className="font-medium text-foreground flex items-center gap-2">
-                <Lock className="h-4 w-4 text-primary" />
-                {t("settings.changePassword")}
-              </h4>
-              <div className="grid gap-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground">{t("settings.currentPassword")}</label>
-                  <div className="relative group">
-                    <Lock className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
-                    <Input
-                      type={showPassword ? "text" : "password"}
-                      value={formData.currentPassword}
-                      onChange={(e) => setFormData({ ...formData, currentPassword: e.target.value })}
-                      className="ps-10 pe-10 h-11 bg-background border-border focus:border-primary focus:ring-primary/20 transition-all"
-                      placeholder="••••••••"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute end-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground">{t("settings.newPassword")}</label>
-                  <div className="relative group">
-                    <Lock className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
-                    <Input
-                      type={showNewPassword ? "text" : "password"}
-                      value={formData.newPassword}
-                      onChange={(e) => setFormData({ ...formData, newPassword: e.target.value })}
-                      className="ps-10 pe-10 h-11 bg-background border-border focus:border-primary focus:ring-primary/20 transition-all"
-                      placeholder="••••••••"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowNewPassword(!showNewPassword)}
-                      className="absolute end-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
-                  </div>
-
-                  {/* Password Strength Meter */}
-                  {formData.newPassword && (
-                    <motion.div 
-                      initial={{ opacity: 0, y: -5 }} 
-                      animate={{ opacity: 1, y: 0 }} 
-                      className="space-y-2 mt-2 p-3 rounded-xl border border-border bg-muted/20 animate-fade-in"
-                    >
-                      <div className="flex justify-between items-center text-xs">
-                        <span className="text-muted-foreground flex items-center gap-1">
-                          <Activity className="h-3.5 w-3.5 text-primary" /> {t("settings.passwordStrength")}
-                        </span>
-                        <span className={`font-semibold capitalize ${
-                          strength.score <= 2 ? "text-destructive" : strength.score <= 4 ? "text-warning" : "text-success"
-                        }`}>
-                          {strength.label}
-                        </span>
-                      </div>
-                      <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-                        <div className={`h-full ${strength.color} ${strength.width} transition-all duration-300`} />
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1.5 text-[11px] text-muted-foreground">
-                        <div className="flex items-center gap-1.5">
-                          <div className={`h-3.5 w-3.5 rounded-full flex items-center justify-center shrink-0 ${
-                            formData.newPassword.length >= 8 ? "bg-success/10 text-success" : "bg-muted text-muted-foreground/60"
-                          }`}>
-                            <Check className="h-2 w-2" />
-                          </div>
-                          <span>{t("settings.password8")}</span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <div className={`h-3.5 w-3.5 rounded-full flex items-center justify-center shrink-0 ${
-                            /[A-Z]/.test(formData.newPassword) && /[a-z]/.test(formData.newPassword) ? "bg-success/10 text-success" : "bg-muted text-muted-foreground/60"
-                          }`}>
-                            <Check className="h-2 w-2" />
-                          </div>
-                          <span>{t("settings.passwordCase")}</span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <div className={`h-3.5 w-3.5 rounded-full flex items-center justify-center shrink-0 ${
-                            /[0-9]/.test(formData.newPassword) ? "bg-success/10 text-success" : "bg-muted text-muted-foreground/60"
-                          }`}>
-                            <Check className="h-2 w-2" />
-                          </div>
-                          <span>{t("settings.passwordNumber")}</span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <div className={`h-3.5 w-3.5 rounded-full flex items-center justify-center shrink-0 ${
-                            /[^A-Za-z0-9]/.test(formData.newPassword) ? "bg-success/10 text-success" : "bg-muted text-muted-foreground/60"
-                          }`}>
-                            <Check className="h-2 w-2" />
-                          </div>
-                          <span>{t("settings.passwordSpecial")}</span>
-                        </div>
-                      </div>
-                    </motion.div>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground">{t("settings.confirmPassword")}</label>
-                  <div className="relative group">
-                    <Lock className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
-                    <Input
-                      type="password"
-                      value={formData.confirmPassword}
-                      onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                      className="ps-10 h-11 bg-background border-border focus:border-primary focus:ring-primary/20 transition-all"
-                      placeholder="••••••••"
-                    />
-                  </div>
-                </div>
-
-                {/* Backup Recovery Email Address */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground">{t("settings.recoveryEmail")}</label>
-                  <div className="relative group">
-                    <Mail className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
-                    <Input
-                      type="email"
-                      value={formData.recoveryEmail}
-                      onChange={(e) => setFormData({ ...formData, recoveryEmail: e.target.value })}
-                      className="ps-10 h-11 bg-background border-border focus:border-primary focus:ring-primary/20 transition-all"
-                      placeholder="recovery@email.com"
-                    />
-                  </div>
-                  <p className="text-[11px] text-muted-foreground ps-1">
-                    {t("settings.recoveryHelp")}
-                  </p>
-                </div>
-              </div>
-            </motion.div>
-
-            <motion.div variants={itemVariants} className="pt-4 border-t border-border space-y-4">
-              <h4 className="font-medium text-foreground flex items-center gap-2">
-                <Shield className="h-4 w-4 text-primary" />
-                {t("settings.twoFactor")}
-              </h4>
-              <div className="flex items-center justify-between p-4 rounded-xl border border-border bg-muted/30">
-                <div className="flex items-center gap-4">
-                  <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center">
-                    <Smartphone className="h-6 w-6 text-primary" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-foreground">{t("settings.authenticator")}</p>
-                    <p className="text-sm text-muted-foreground">{t("settings.authenticatorText")}</p>
-                  </div>
-                </div>
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => {
-                    const nextVal = !formData.twoFactorEnabled;
-                    setFormData({ ...formData, twoFactorEnabled: nextVal });
-                    if (nextVal) {
-                      toast.success(t("settings.twoFactorOn"), {
-                        description: t("settings.twoFactorOnText")
-                      });
-                    } else {
-                      toast.warning(t("settings.twoFactorOff"), {
-                        description: t("settings.twoFactorOffText")
-                      });
-                    }
-                  }}
-                  className={`relative h-7 w-14 rounded-full transition-colors duration-300 ${
-                    formData.twoFactorEnabled ? "bg-success" : "bg-muted"
-                  }`}
-                >
-                  <motion.div
-                    animate={{ x: formData.twoFactorEnabled ? 28 : 2 }}
-                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                    className="absolute top-1 h-5 w-5 rounded-full bg-white shadow-md"
-                  />
-                </motion.button>
-              </div>
-
-              {formData.twoFactorEnabled && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="p-4 rounded-xl border border-success/30 bg-success/5"
-                >
-                  <div className="flex items-center gap-2 text-success">
-                    <Check className="h-4 w-4" />
-                    <span className="text-sm font-medium">{t("settings.twoFactorEnabled")}</span>
-                  </div>
-                </motion.div>
-              )}
-            </motion.div>
-
-            {/* Active Sessions */}
-            <motion.div variants={itemVariants} className="pt-4 border-t border-border space-y-4">
-              <h4 className="font-medium text-foreground flex items-center gap-2">
-                <Smartphone className="h-4 w-4 text-primary" />
-                {t("settings.activeSessions")}
-              </h4>
-              <div className="space-y-3">
-                {[
-                  { device: "MacBook Pro", location: "Riyadh, SA", current: true },
-                  { device: "iPhone 15 Pro", location: "Riyadh, SA", current: false },
-                  { device: "Windows Desktop", location: "Dubai, UAE", current: false },
-                ].map((session, index) => {
-                  const isRevoked = !!revokedSessions[index];
-                  if (isRevoked) return null;
-                  
-                  return (
-                    <motion.div
-                      key={index}
-                      variants={itemVariants}
-                      className="flex items-center justify-between p-4 rounded-xl border border-border bg-muted/30 hover:bg-muted/50 transition-colors animate-fade-in"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-lg bg-background flex items-center justify-center border border-border">
-                          <Smartphone className="h-5 w-5 text-muted-foreground" />
-                        </div>
-                        <div>
-                          <p className="font-medium text-foreground flex items-center gap-2">
-                            {session.device}
-                            {session.current && (
-                              <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20 text-xs">
-                                {t("settings.current")}
-                              </Badge>
-                            )}
-                          </p>
-                          <p className="text-xs text-muted-foreground">{session.location}</p>
-                        </div>
-                      </div>
-                      {!session.current && (
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          onClick={() => {
-                            setRevokedSessions(prev => ({ ...prev, [index]: true }));
-                            toast.success(t("settings.sessionRevoked", { device: session.device }));
-                          }}
-                          className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                        >
-                          {t("settings.revoke")}
-                        </Button>
-                      )}
-                    </motion.div>
-                  );
-                })}
-              </div>
-            </motion.div>
-
-            {/* Recent Login History Log */}
-            <motion.div variants={itemVariants} className="pt-4 border-t border-border space-y-4">
-              <h4 className="font-medium text-foreground flex items-center gap-2">
-                <History className="h-4 w-4 text-primary" />
-                {t("settings.loginHistory")}
-              </h4>
-              <div className="overflow-hidden rounded-xl border border-border/80">
-                <div className="bg-muted/30 divide-y divide-border/60">
-                  {[
-                    { timestamp: "Today, 19:42", ip: "197.34.120.8", method: "Password + 2FA", status: "Success" },
-                    { timestamp: "May 25, 14:10", ip: "94.23.45.109", method: "Password Connection", status: "Success" },
-                    { timestamp: "May 12, 09:15", ip: "197.34.120.8", method: "Google Linked Login", status: "Success" },
-                  ].map((log, idx) => (
-                    <div key={idx} className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-3 text-xs gap-2">
-                      <div className="space-y-0.5">
-                        <p className="font-semibold text-foreground">{log.timestamp}</p>
-                        <p className="text-muted-foreground">{t("settings.ipMethod", { ip: log.ip, method: log.method })}</p>
-                      </div>
-                      <Badge className="bg-success/10 text-success border-success/20 text-[10px] py-0 px-2">
-                        {log.status}
-                      </Badge>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        );
-
-      case "notifications":
-        return (
-          <motion.div
-            key="notifications"
-            variants={tabVariants}
-            initial="hidden"
-            animate="visible"
-            exit="exit"
-            className="space-y-6"
-          >
-            {[
-              {
-                title: t("settings.projectUpdates"),
-                description: t("settings.projectUpdatesText"),
-                key: "project_notifications" as const,
-                icon: Bell,
-              },
-              {
-                title: t("settings.messages"),
-                description: t("settings.messagesText"),
-                key: "message_notifications" as const,
-                icon: Mail,
-              },
-              {
-                title: t("settings.milestones"),
-                description: t("settings.milestonesText"),
-                key: "milestone_notifications" as const,
-                icon: Check,
-              },
-              {
-                title: t("settings.emailNotifications"),
-                description: t("settings.emailNotificationsText"),
-                key: "email_enabled" as const,
-                icon: Mail,
-              },
-              {
-                title: t("settings.pushNotifications"),
-                description: t("settings.pushText"),
-                key: "in_app_enabled" as const,
-                icon: Bell,
-              },
-              {
-                title: t("settings.investmentUpdates"),
-                description: t("settings.investmentUpdatesText"),
-                key: "investment_notifications" as const,
-                icon: Mail,
-              },
-            ].map((item, index) => (
-              <motion.div
-                key={item.key}
-                variants={itemVariants}
-                className="flex items-center justify-between p-4 rounded-xl border border-border bg-muted/30 hover:bg-muted/50 transition-colors"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-primary/10 to-secondary/10 flex items-center justify-center border border-primary/10">
-                    <item.icon className="h-5 w-5 text-primary" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-foreground">{item.title}</p>
-                    <p className="text-sm text-muted-foreground">{item.description}</p>
-                  </div>
-                </div>
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => setNotifications({ ...notifications, [item.key]: !notifications[item.key] })}
-                  className={`relative h-7 w-14 rounded-full transition-colors duration-300 ${
-                    notifications[item.key] ? "bg-primary" : "bg-muted"
-                  }`}
-                >
-                  <motion.div
-                    animate={{ x: notifications[item.key] ? 28 : 2 }}
-                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                    className="absolute top-1 h-5 w-5 rounded-full bg-white shadow-md"
-                  />
-                </motion.button>
-              </motion.div>
-            ))}
-          </motion.div>
-        );
-
-      case "billing":
-        return (
-          <motion.div
-            key="billing"
-            variants={tabVariants}
-            initial="hidden"
-            animate="visible"
-            exit="exit"
-            className="space-y-6"
-          >
-            {/* Interactive wallet balance card */}
-            <motion.div variants={itemVariants} className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary via-primary/80 to-secondary text-primary-foreground p-6 shadow-lg shadow-primary/20">
-              <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-white/20 via-transparent to-transparent pointer-events-none" />
-              <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-                <div className="space-y-1">
-                  <span className="text-xs text-primary-foreground/75 uppercase tracking-wider font-semibold flex items-center gap-1.5">
-                    <Coins className="h-4 w-4" /> {t("settings.wallet")}
-                  </span>
-                  <div className="flex items-baseline gap-2 mt-1">
-                    <h3 className="text-3xl font-extrabold tracking-tight">
-                      {formatCurrency(walletBalance)}
-                    </h3>
-                    <span className="text-xs text-primary-foreground/80 font-medium">USD</span>
-                  </div>
-                  <p className="text-xs text-primary-foreground/70">
-                    {t("settings.walletHelp")}
-                  </p>
-                </div>
-                <div className="flex gap-2 shrink-0">
-                  <Button 
-                    type="button" 
-                    onClick={handleDeposit}
-                    className="bg-white text-primary hover:bg-white/95 font-semibold shadow-md flex items-center gap-1.5 h-10 px-4 rounded-xl transition-all"
-                  >
-                    <ArrowDownRight className="h-4 w-4" /> {t("settings.deposit")}
-                  </Button>
-                  <Button 
-                    type="button" 
-                    onClick={handleWithdraw}
-                    variant="outline"
-                    className="bg-transparent border-white/30 text-white hover:bg-white/10 hover:text-white font-semibold flex items-center gap-1.5 h-10 px-4 rounded-xl transition-all"
-                  >
-                    <ArrowUpRight className="h-4 w-4" /> {t("settings.withdraw")}
-                  </Button>
-                </div>
-              </div>
-            </motion.div>
-
-            {/* Auto-invest controls */}
-            <motion.div variants={itemVariants} className="p-5 rounded-2xl border border-border bg-card space-y-4 animate-fade-in">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="font-semibold text-foreground flex items-center gap-2">
-                    <Activity className="h-4 w-4 text-primary" /> {t("settings.autoInvest")}
-                  </h4>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {t("settings.autoInvestText")}
-                  </p>
-                </div>
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => {
-                    const nextVal = !formData.autoReinvest;
-                    setFormData(prev => ({ ...prev, autoReinvest: nextVal }));
-                    if (nextVal) {
-                      toast.success(t("settings.autoEnabled"), {
-                        description: t("settings.autoEnabledText", { amount: formatCurrency(formData.defaultInvestment) })
-                      });
-                    } else {
-                      toast.info(t("settings.autoDisabled"));
-                    }
-                  }}
-                  className={`relative h-7 w-14 rounded-full transition-colors duration-300 shrink-0 ${
-                    formData.autoReinvest ? "bg-primary" : "bg-muted"
-                  }`}
-                >
-                  <motion.div
-                    animate={{ x: formData.autoReinvest ? 28 : 2 }}
-                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                    className="absolute top-1 h-5 w-5 rounded-full bg-white shadow-md"
-                  />
-                </motion.button>
-              </div>
-
-              {formData.autoReinvest && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="pt-3 border-t border-border/60 space-y-3"
-                >
-                  <label className="text-xs font-semibold text-foreground uppercase tracking-wider block">
-                    {t("settings.defaultTicket")}
-                  </label>
-                  <div className="flex gap-2">
-                    {["1000", "5000", "10000"].map((size) => {
-                      const isActive = formData.defaultInvestment === size;
-                      return (
-                        <button
-                          key={size}
-                          type="button"
-                          onClick={() => {
-                            setFormData(prev => ({ ...prev, defaultInvestment: size }));
-                            toast.success(t("settings.investmentSize", { amount: formatCurrency(size) }));
-                          }}
-                          className={`flex-1 py-2 px-3 text-xs font-semibold rounded-xl border transition-all ${
-                            isActive
-                              ? "bg-primary/10 text-primary border-primary"
-                              : "bg-background hover:bg-muted border-border text-muted-foreground"
-                          }`}
-                        >
-                          {formatNumber(Number(size))}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </motion.div>
-              )}
-            </motion.div>
-
-            <motion.div variants={itemVariants} className="space-y-4">
-              <h4 className="font-medium text-foreground flex items-center gap-2">
-                <CreditCard className="h-4 w-4 text-primary" />
-                {t("settings.paymentMethodsTitle")}
-              </h4>
-              <div className="space-y-3">
-                {[
-                  { type: "Visa", last4: "4242", exp: "12/25", primary: true },
-                  { type: "Mastercard", last4: "8888", exp: "06/26", primary: false },
-                ].map((card, index) => (
-                  <motion.div
-                    key={index}
-                    variants={itemVariants}
-                    className="flex items-center justify-between p-4 rounded-xl border border-border bg-muted/30 hover:bg-muted/50 transition-colors"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
-                        <CreditCard className="h-6 w-6 text-white" />
-                      </div>
-                      <div>
-                        <p className="font-medium text-foreground flex items-center gap-2">
-                          {card.type} •••• {card.last4}
-                          {card.primary && (
-                            <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20 text-xs">
-                              {t("settings.primary")}
-                            </Badge>
-                          )}
-                        </p>
-                        <p className="text-sm text-muted-foreground">{t("settings.expires", { date: card.exp })}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {!card.primary && (
-                        <Button variant="outline" size="sm" className="hover:bg-primary/5 hover:border-primary/30">
-                          {t("settings.setPrimary")}
-                        </Button>
-                      )}
-                      <Button variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10 hover:text-destructive">
-                        {t("settings.remove")}
-                      </Button>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-              <Button variant="outline" className="w-full hover:bg-primary/5 hover:border-primary/30 transition-all">
-                <CreditCard className="me-2 h-4 w-4" />
-                {t("settings.addPayment")}
-              </Button>
-            </motion.div>
-
-            <motion.div variants={itemVariants} className="pt-6 border-t border-border space-y-4">
-              <h4 className="font-medium text-foreground">{t("settings.billingHistory")}</h4>
-              <div className="overflow-hidden rounded-xl border border-border">
-                <table className="w-full">
-                  <thead className="bg-muted/50">
-                    <tr>
-                      <th className="px-4 py-3 text-start text-xs font-medium text-muted-foreground uppercase tracking-wide">{t("common.date")}</th>
-                      <th className="px-4 py-3 text-start text-xs font-medium text-muted-foreground uppercase tracking-wide">{t("common.description")}</th>
-                      <th className="px-4 py-3 text-start text-xs font-medium text-muted-foreground uppercase tracking-wide">{t("common.amount")}</th>
-                      <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wide">{t("common.status")}</th>
-                      <th className="px-4 py-3 text-end text-xs font-medium text-muted-foreground uppercase tracking-wide">{t("settings.invoice")}</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {[
-                      { date: "Jan 15, 2024", desc: "Investment - Solar Project", amount: "$5,000.00", status: "Completed" },
-                      { date: "Dec 20, 2023", desc: "Platform Fee", amount: "$50.00", status: "Completed" },
-                      { date: "Nov 10, 2023", desc: "Investment - Clean Water Initiative", amount: "$2,500.00", status: "Completed" },
-                    ].map((item, index) => (
-                      <motion.tr
-                        key={index}
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ delay: index * 0.05 }}
-                        className="hover:bg-muted/30 transition-colors"
-                      >
-                        <td className="px-4 py-3 text-sm text-muted-foreground">{item.date}</td>
-                        <td className="px-4 py-3 text-sm text-foreground">{item.desc}</td>
-                        <td className="px-4 py-3 text-sm font-medium text-foreground">{item.amount}</td>
-                        <td className="px-4 py-3 text-center">
-                          <Badge variant="secondary" className="bg-success/10 text-success border-success/20">
-                            {item.status}
-                          </Badge>
-                        </td>
-                        <td className="px-4 py-3 text-end">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            disabled={!!downloadingInvoice[index]}
-                            onClick={() => handleDownloadInvoice(index, item.desc)}
-                            className="h-8 w-8 p-0 text-muted-foreground hover:text-primary rounded-lg transition-colors"
-                          >
-                            {downloadingInvoice[index] ? (
-                              <Loader2 className="h-4.5 w-4.5 animate-spin text-primary" />
-                            ) : (
-                              <Download className="h-4.5 w-4.5" />
-                            )}
-                          </Button>
-                        </td>
-                      </motion.tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </motion.div>
-          </motion.div>
-        );
-    }
-  };
-
-  return (
-    <DashboardLayout roleBase={roleBase}>
-      <motion.div 
-        className="space-y-8"
-        variants={containerVariants}
-        initial="hidden"
-        animate="visible"
-      >
-        <motion.div variants={itemVariants} className="flex flex-col gap-2">
-          <h1 className="text-3xl font-bold text-foreground tracking-tight">{t("settings.title")}</h1>
-          <p className="text-muted-foreground">{t("settings.subtitle")}</p>
-        </motion.div>
-
-        <motion.div variants={itemVariants} className="grid gap-8 lg:grid-cols-[280px_1fr]">
-          {/* Sidebar Navigation */}
-          <motion.nav 
-            className="space-y-1"
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.2 }}
-          >
-            {sections.map((section) => (
-              <motion.button
-                key={section.id}
-                onClick={() => setActiveSection(section.id)}
-                whileHover={{ x: 4 }}
-                whileTap={{ scale: 0.98 }}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-start transition-all duration-300 ${
-                  activeSection === section.id
-                    ? "bg-primary/10 text-primary border border-primary/20"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground border border-transparent"
-                }`}
-              >
-                <section.icon className={`h-5 w-5 ${activeSection === section.id ? "text-primary" : ""}`} />
-                <div className="flex-1">
-                  <p className="font-medium">{section.label}</p>
-                  <p className={`text-xs ${activeSection === section.id ? "text-primary/70" : "text-muted-foreground"}`}>
-                    {section.description}
-                  </p>
-                </div>
-                <ChevronRight className={`h-4 w-4 transition-transform duration-300 ${activeSection === section.id ? "rotate-90" : ""}`} />
-              </motion.button>
-            ))}
-          </motion.nav>
-
-          {/* Content Area */}
-          <motion.div 
-            className="relative overflow-hidden rounded-2xl border border-border bg-card p-6 sm:p-8 shadow-sm"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-          >
-            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary/50 via-secondary/50 to-transparent" />
-            
-            <AnimatePresence mode="wait">
-              {renderSectionContent()}
-            </AnimatePresence>
-
-            {/* Save Button */}
-            <motion.div 
-              className="mt-8 pt-6 border-t border-border flex justify-end gap-3"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.5 }}
-            >
-              <Button variant="outline" className="hover:bg-muted transition-colors">
-                {t("common.cancel")}
-              </Button>
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={handleSave}
-                disabled={isSaving}
-                className="relative overflow-hidden bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-secondary text-primary-foreground px-6 py-2 rounded-lg font-medium shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <motion.span
-                  className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
-                  initial={{ x: "-100%" }}
-                  whileHover={{ x: "100%" }}
-                  transition={{ duration: 0.5 }}
-                />
-                <span className="relative flex items-center gap-2">
-                  {isSaving ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      {t("common.saving")}
-                    </>
-                  ) : (
-                    <>
-                      <Save className="h-4 w-4" />
-                      {t("common.save")}
-                    </>
-                  )}
-                </span>
-              </motion.button>
-            </motion.div>
-          </motion.div>
-        </motion.div>
-
-        {/* Danger Zone */}
-        <motion.div 
-          variants={itemVariants}
-          className="relative overflow-hidden rounded-2xl border border-destructive/30 bg-destructive/5 p-6"
-        >
-          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-destructive/50 to-transparent" />
-          <div className="flex items-start justify-between">
-            <div>
-              <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
-                <AlertCircle className="h-5 w-5 text-destructive" />
-                {t("settings.dangerZone")}
-              </h3>
-              <p className="text-sm text-muted-foreground mt-1">
-                {t("settings.dangerText")}
-              </p>
-            </div>
-            <Button variant="destructive" className="hover:bg-destructive/90">
-              {t("settings.deleteAccount")}
-            </Button>
-          </div>
-        </motion.div>
-      </motion.div>
-    </DashboardLayout>
-  );
+          <div className="mt-8 flex justify-end gap-3 border-t pt-6"><Button type="button" variant="outline" onClick={reset}>{t("common.cancel")}</Button><Button type="button" disabled={saving || uploading || (section === "notifications" && !preferenceQuery.data)} onClick={() => void save()}>{saving ? <Loader2 className="me-2 h-4 w-4 animate-spin"/> : <Save className="me-2 h-4 w-4"/>}{saving ? t("common.saving") : t("common.save")}</Button></div>
+        </section>
+      </div>
+      <div className="rounded-xl border bg-muted/30 p-4 text-sm text-muted-foreground"><div className="flex gap-3"><BriefcaseBusiness className="h-5 w-5 shrink-0 text-primary"/><p>{t("settings.realDataNotice")}</p></div></div>
+    </div>
+  </DashboardLayout>;
 };
 
 export default SettingsPage;

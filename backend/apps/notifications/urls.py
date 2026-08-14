@@ -6,6 +6,7 @@ from apps.notifications.views import (
     NotificationMarkReadView,
     NotificationPreferenceView,
     NotificationUnreadCountView,
+    NotificationStreamView,
 )
 
 urlpatterns = [
@@ -18,4 +19,5 @@ urlpatterns = [
          name="notification-mark-all-read"),
     path("preferences/", NotificationPreferenceView.as_view(),
          name="notification-preference"),
+    path("stream/", NotificationStreamView.as_view(), name="notification-stream"),
 ]

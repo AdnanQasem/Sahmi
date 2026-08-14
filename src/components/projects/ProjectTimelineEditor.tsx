@@ -7,7 +7,6 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   emptyProjectMilestone,
   milestonePercentageTotal,
-  redistributeMilestonePercentages,
   reindexProjectMilestones,
 } from "@/lib/projectMilestones";
 import type { ProjectMilestone } from "@/services/projectsService";
@@ -49,7 +48,7 @@ const ProjectTimelineEditor = ({ milestones, onChange, error }: ProjectTimelineE
           disabled={milestones.length >= 20}
           onClick={() =>
             onChange(
-              redistributeMilestonePercentages([
+              reindexProjectMilestones([
                 ...milestones,
                 emptyProjectMilestone(milestones.length),
               ]),
@@ -78,7 +77,7 @@ const ProjectTimelineEditor = ({ milestones, onChange, error }: ProjectTimelineE
               disabled={milestones.length === 1}
               onClick={() =>
                 onChange(
-                  redistributeMilestonePercentages(
+                  reindexProjectMilestones(
                     milestones.filter((_, itemIndex) => itemIndex !== index),
                   ),
                 )

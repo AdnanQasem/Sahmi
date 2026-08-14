@@ -56,3 +56,11 @@ class NotificationReadRateThrottle(ScopedRateThrottle):
 
 class AdminVerificationRateThrottle(ScopedRateThrottle):
     scope = "admin_verification"
+
+
+class ProjectTranslationRateThrottle(ScopedRateThrottle):
+    scope = "project_translation"
+
+
+class ContactMessageRateThrottle(ScopedRateThrottle):
+    scope = "contact_message"

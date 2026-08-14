@@ -479,9 +479,9 @@ const RegisterPage = () => {
                         htmlFor="terms"
                         className="text-sm text-muted-foreground cursor-pointer"
                       >
-                        I agree to the{" "}
+                        {t("auth.agreePrefix")}{" "}
                         <Link to="/terms" className="text-primary hover:underline">{t("auth.terms")}</Link>{" "}
-                        and{" "}
+                        {t("common.and")}{" "}
                         <Link to="/privacy" className="text-primary hover:underline">{t("auth.privacy")}</Link>
                       </label>
                     </motion.div>
@@ -517,7 +517,7 @@ const RegisterPage = () => {
                           >
                             <Loader2 className="h-5 w-5 animate-spin" />{t("auth.registering")}</motion.div>
                         ) : (
-                          <span className="flex items-center gap-2">{t("auth.register")}<ArrowRight className="h-5 w-5" />
+                          <span className="flex items-center gap-2">{t("auth.register")}<ArrowRight className="h-5 w-5 rtl-flip" />
                           </span>
                         )}
                       </Button>
@@ -529,12 +529,12 @@ const RegisterPage = () => {
                   variants={fadeInUp}
                   className="mt-8 text-center text-sm text-muted-foreground"
                 >
-                  Already have an account?{" "}
+                  {t("auth.haveAccount")}{" "}
                   <Link
                     to="/login"
                     className="font-semibold text-primary hover:text-primary/80 transition-colors inline-flex items-center gap-1"
                   >{t("auth.login")}<motion.span whileHover={{ x: 2 }}>
-                      <ArrowRight className="h-4 w-4" />
+                      <ArrowRight className="h-4 w-4 rtl-flip" />
                     </motion.span>
                   </Link>
                 </motion.p>

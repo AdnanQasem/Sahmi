@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import DashboardLayout from "./DashboardLayout";
 import EmptyState from "@/components/dashboard/EmptyState";
 import FundingProgressBar from "@/components/dashboard/FundingProgressBar";
+import { calculateFundingPercent } from "@/lib/fundingProgress";
 import StatusBadge from "@/components/dashboard/StatusBadge";
 import investmentsService, { Investment } from "@/services/investmentsService";
 import projectsService, { Project } from "@/services/projectsService";
@@ -52,11 +53,7 @@ const projectRaised = (project: Project) => Number(project.funded_amount || 0);
 const projectGoal = (project: Project) => Number(project.goal_amount || 0);
 
 const projectFundingPercent = (project: Project) => {
-  const apiPercent = Number(project.funding_percent || 0);
-  if (apiPercent > 0) return Math.min(Math.round(apiPercent), 100);
-
-  const goal = projectGoal(project);
-  return goal > 0 ? Math.min(Math.round((projectRaised(project) / goal) * 100), 100) : 0;
+  return calculateFundingPercent(projectRaised(project), projectGoal(project));
 };
 
 export type Timeframe = "1M" | "3M" | "6M" | "1Y" | "ALL";

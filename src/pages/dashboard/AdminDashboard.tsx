@@ -24,6 +24,7 @@ import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import adminProjectsService from "@/services/adminProjectsService";
+import AdminProjectReviewDetails from "@/components/admin/AdminProjectReviewDetails";
 
 const formatCurrency = (value: number) => formatLocaleCurrency(value);
 
@@ -45,10 +46,13 @@ const AdminDashboard = () => {
   const projects = useMemo(() => projectsQuery.data?.results || [], [projectsQuery.data?.results]);
   const categories = useMemo(() => categoriesQuery.data || [], [categoriesQuery.data]);
   const pendingProjects = useMemo(
-    () =>
-      projects.filter(
-        (project) => !project.deleted_at && !project.is_verified && project.status === "draft",
-      ),
+    () => projects.flatMap((project) => {
+      if (project.deleted_at) return [];
+      const records: Array<{ project: typeof project; isEdit: boolean }> = [];
+      if (!project.is_verified && project.status === "draft") records.push({ project, isEdit: false });
+      if (project.pending_edit_request) records.push({ project, isEdit: true });
+      return records;
+    }),
     [projects],
   );
   const totalFunded = useMemo(
@@ -97,36 +101,36 @@ const AdminDashboard = () => {
           ) : (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <StatCard
-                label="Total Projects"
+                label={t("admin.totalProjects")}
                 value={String(projects.length)}
-                subtext="Across every campaign status"
+                subtext={t("admin.acrossCampaignStatuses")}
                 icon={FolderOpen}
                 iconBgClass="bg-primary/10"
                 iconColorClass="text-primary"
                 index={0}
               />
               <StatCard
-                label="Awaiting Review"
+                label={t("admin.awaitingReview")}
                 value={String(pendingProjects.length)}
-                subtext={pendingProjects.length ? "Needs an admin decision" : "Review queue is clear"}
+                subtext={t(pendingProjects.length ? "admin.needsDecision" : "admin.reviewQueueClear")}
                 icon={ClipboardCheck}
                 iconBgClass="bg-warning/10"
                 iconColorClass="text-warning"
                 index={1}
               />
               <StatCard
-                label="Live Projects"
+                label={t("admin.liveProjects")}
                 value={String(activeCount)}
-                subtext="Visible to the Sahmi community"
+                subtext={t("admin.visibleToCommunity")}
                 icon={CheckCircle2}
                 iconBgClass="bg-success/10"
                 iconColorClass="text-success"
                 index={2}
               />
               <StatCard
-                label="Funding Raised"
+                label={t("admin.fundingRaised")}
                 value={formatCurrency(totalFunded)}
-                subtext="Confirmed across all projects"
+                subtext={t("admin.confirmedAcrossProjects")}
                 icon={CircleDollarSign}
                 iconBgClass="bg-secondary/10"
                 iconColorClass="text-secondary"
@@ -158,7 +162,7 @@ const AdminDashboard = () => {
                   <p className="mt-1 text-sm text-muted-foreground">{t("admin.reviewQueueText")}</p>
                 </div>
                 <Button variant="outline" size="sm" asChild>
-                  <Link to="/dashboard/admin/projects#review-queue">{t("admin.openReviewQueue")}<ArrowRight className="h-4 w-4" />
+                  <Link to="/dashboard/admin/projects#review-queue">{t("admin.openReviewQueue")}<ArrowRight className="h-4 w-4 rtl-flip" />
                   </Link>
                 </Button>
               </div>
@@ -171,28 +175,32 @@ const AdminDashboard = () => {
                 </div>
               ) : pendingProjects.length ? (
                 <div className="divide-y divide-border">
-                  {pendingProjects.slice(0, 4).map((project) => (
-                    <Link
-                      key={project.id}
-                      to="/dashboard/admin/projects#review-queue"
-                      className="group flex items-center gap-4 px-5 py-4 transition-colors hover:bg-muted/40 sm:px-6"
-                    >
-                      <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-primary/15 to-secondary/15">
-                        {project.cover_image ? (
-                          <img src={project.cover_image} alt="" className="h-full w-full object-cover" />
-                        ) : (
-                          <FolderOpen className="h-5 w-5 text-primary/50" />
-                        )}
+                  {pendingProjects.slice(0, 4).map(({ project, isEdit }) => (
+                    <details key={`${project.id}-${isEdit}`} className="group px-5 py-4 sm:px-6">
+                      <summary className="flex cursor-pointer list-none items-center gap-4">
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-primary/15 to-secondary/15">
+                          {project.cover_image ? (
+                            <img src={project.cover_image} alt="" className="h-full w-full object-cover" />
+                          ) : (
+                            <FolderOpen className="h-5 w-5 text-primary/50" />
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-semibold text-foreground">{project.title}</p>
+                          <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                            {project.entrepreneur?.full_name || project.entrepreneur?.email || t("admin.unknownOwner")}
+                          </p>
+                        </div>
+                        <span className="hidden shrink-0 rounded-full bg-warning/15 px-2.5 py-1 text-[11px] font-semibold text-warning sm:inline-flex">{t("admin.review")}</span>
+                        <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-90 rtl-flip" />
+                      </summary>
+                      <div className="mt-5 border-t border-border pt-5">
+                        <AdminProjectReviewDetails project={project} isEditReview={isEdit} />
+                        <Button className="mt-4" size="sm" asChild>
+                          <Link to="/dashboard/admin/projects#review-queue">{t("admin.openReviewQueue")}<ArrowRight className="h-4 w-4 rtl-flip" /></Link>
+                        </Button>
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold text-foreground">{project.title}</p>
-                        <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                          {project.entrepreneur?.full_name || project.entrepreneur?.email || "Unknown owner"}
-                        </p>
-                      </div>
-                      <span className="hidden shrink-0 rounded-full bg-warning/15 px-2.5 py-1 text-[11px] font-semibold text-warning sm:inline-flex">{t("admin.review")}</span>
-                      <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
-                    </Link>
+                    </details>
                   ))}
                 </div>
               ) : (
@@ -225,7 +233,7 @@ const AdminDashboard = () => {
                     <h3 className="font-semibold text-foreground">{t("admin.usersRoles")}</h3>
                     <p className="mt-0.5 text-xs text-muted-foreground">{t("admin.manageUsersText")}</p>
                   </div>
-                  <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
+                  <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary rtl-flip" />
                 </Link>
                 <Link
                   to="/dashboard/admin/projects"
@@ -237,10 +245,10 @@ const AdminDashboard = () => {
                   <div className="min-w-0 flex-1">
                     <h3 className="font-semibold text-foreground">{t("admin.projects")}</h3>
                     <p className="mt-0.5 text-xs text-muted-foreground">
-                      Review and manage {projects.length} {projects.length === 1 ? "project" : "projects"}.
+                      {t("admin.reviewProjectCount", { count: projects.length })}
                     </p>
                   </div>
-                  <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
+                  <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary rtl-flip" />
                 </Link>
                 <Link
                   to="/dashboard/admin/categories"
@@ -252,10 +260,10 @@ const AdminDashboard = () => {
                   <div className="min-w-0 flex-1">
                     <h3 className="font-semibold text-foreground">{t("admin.categories")}</h3>
                     <p className="mt-0.5 text-xs text-muted-foreground">
-                      Organize {categories.length} {categories.length === 1 ? "category" : "categories"}.
+                      {t("admin.organizeCategoryCount", { count: categories.length })}
                     </p>
                   </div>
-                  <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
+                  <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary rtl-flip" />
                 </Link>
                 <Link
                   to="/dashboard/admin/investments"
@@ -268,7 +276,7 @@ const AdminDashboard = () => {
                     <h3 className="font-semibold text-foreground">{t("admin.investments")}</h3>
                     <p className="mt-0.5 text-xs text-muted-foreground">{t("admin.investmentsText")}</p>
                   </div>
-                  <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
+                  <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary rtl-flip" />
                 </Link>
                 <Link
                   to="/dashboard/admin/milestones"
@@ -281,7 +289,7 @@ const AdminDashboard = () => {
                     <h3 className="font-semibold text-foreground">{t("admin.milestones")}</h3>
                     <p className="mt-0.5 text-xs text-muted-foreground">{t("admin.milestonesManageText")}</p>
                   </div>
-                  <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
+                  <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary rtl-flip" />
                 </Link>
                 <Link
                   to="/dashboard/admin/repayments"
@@ -294,7 +302,7 @@ const AdminDashboard = () => {
                     <h3 className="font-semibold text-foreground">{t("admin.repayments")}</h3>
                     <p className="mt-0.5 text-xs text-muted-foreground">{t("admin.repaymentsManageText")}</p>
                   </div>
-                  <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
+                  <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary rtl-flip" />
                 </Link>
               </div>
             </section>

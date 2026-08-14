@@ -38,6 +38,31 @@ export interface ProjectCostItem {
   unit_cost: string;
 }
 
+export interface ProjectFaq {
+  question: string;
+  answer: string;
+}
+
+export interface ProjectFieldChange {
+  before: unknown;
+  after: unknown;
+}
+
+export interface ProjectUpdate {
+  id: string;
+  published_at: string;
+  changes: Record<string, ProjectFieldChange>;
+}
+
+export interface ProjectRepayment {
+  id: string;
+  amount: number;
+  scheduled_date: string;
+  actual_payment_date: string | null;
+  status: "pending" | "paid" | "overdue" | "canceled";
+  payment_method: string;
+}
+
 export interface ProjectMilestone {
   id?: string;
   title: string;
@@ -67,23 +92,38 @@ export interface Project {
   minimum_investment: string;
   expected_roi: string;
   cost_items: ProjectCostItem[];
+  faqs?: ProjectFaq[];
   milestones: ProjectMilestone[];
   funding_period_days: number;
   start_date?: string;
   end_date?: string | null;
   status: "draft" | "active" | "closed" | "successful" | "failed" | "paused";
   is_verified: boolean;
+  business_plan?: string | null;
+  financial_projections?: string | null;
+  ownership_proof?: string | null;
   cover_image?: string | null;
   video_url?: string;
   investor_count: number;
   days_left: number | null;
   funding_percent: number;
+  repayment_status?: "on_track" | "delayed" | "completed";
   view_count?: number;
   rating?: string;
   reviews_count?: number;
   deleted_at?: string | null;
   created_at: string;
   updated_at?: string;
+  implementation_complete?: boolean;
+  updates?: ProjectUpdate[];
+  pending_edit_request?: {
+    id: string;
+    payload: Partial<Project>;
+    changes: Record<string, ProjectFieldChange>;
+    files: Partial<Record<"cover_image" | "business_plan" | "financial_projections" | "ownership_proof", string>>;
+    submitted_by: string;
+    created_at: string;
+  } | null;
 }
 
 export interface ProjectListParams {
@@ -94,6 +134,13 @@ export interface ProjectListParams {
   ordering?: string;
   page?: number;
   page_size?: number;
+}
+
+export interface ProjectContentTranslation {
+  language: "en" | "ar";
+  description: string;
+  cost_items: ProjectCostItem[];
+  milestones: Array<Pick<ProjectMilestone, "id" | "title" | "description" | "deliverables">>;
 }
 
 export interface ProjectModerationPayload {
@@ -118,10 +165,14 @@ export interface ProjectCreatePayload {
   minimum_investment?: string;
   expected_roi?: string;
   cost_items: ProjectCostItem[];
+  faqs: ProjectFaq[];
   milestones: ProjectMilestone[];
   funding_period_days: string;
   video_url?: string;
   cover_image?: File | null;
+  business_plan?: File | null;
+  financial_projections?: File | null;
+  ownership_proof?: File | null;
 }
 
 const toFormData = (payload: ProjectCreatePayload) => {
@@ -167,6 +218,13 @@ const projectsService = {
     return await api.get(`projects/${slug}/`);
   },
 
+  getProjectTranslation: async (
+    slug: string,
+    language: "en" | "ar",
+  ): Promise<ProjectContentTranslation> => {
+    return await api.get(`projects/${slug}/translation/`, { params: { language } });
+  },
+
   createProject: async (payload: ProjectCreatePayload): Promise<Project> => {
     return await api.post("projects/", toFormData(payload), {
       headers: { "Content-Type": "multipart/form-data" },
@@ -201,6 +259,10 @@ const projectsService = {
 
   getProjectPayments: async (slug: string): Promise<ConfirmedPayment[]> => {
     return await api.get(`projects/${slug}/payments/`);
+  },
+
+  getProjectRepayments: async (slug: string): Promise<ProjectRepayment[]> => {
+    return await api.get(`projects/${slug}/repayments/`);
   },
 };
 

@@ -15,7 +15,7 @@ export interface User {
   timezone?: string;
   bio?: string;
   business_name?: string;
-  profile_picture?: string;
+  profile_picture?: string | null;
   is_verified?: boolean;
   is_kyc_verified?: boolean;
   date_joined?: string;
@@ -41,6 +41,10 @@ export interface RegisterPayload {
   website?: string;
   timezone?: string;
   business_name?: string;
+  business_registration_number?: string;
+  business_established_date?: string | null;
+  business_address?: string;
+  risk_preference?: "low" | "medium" | "high";
 }
 
 
@@ -90,8 +94,18 @@ const authService = {
     }
   },
 
-  updateCurrentUser: async (payload: Partial<Pick<User, "preferred_language" | "full_name" | "phone_number" | "country" | "city" | "website" | "timezone" | "bio">>): Promise<User> => {
+  updateCurrentUser: async (payload: Partial<Pick<User, "email" | "preferred_language" | "full_name" | "phone_number" | "country" | "city" | "website" | "timezone" | "bio" | "business_name" | "business_registration_number" | "business_established_date" | "business_address" | "risk_preference" | "profile_picture">>): Promise<User> => {
     const user: User = await api.patch("auth/me/", payload);
+    localStorage.setItem("user", JSON.stringify(user));
+    return user;
+  },
+
+  uploadProfilePicture: async (file: File): Promise<User> => {
+    const payload = new FormData();
+    payload.append("profile_picture", file);
+    const user: User = await api.patch("auth/me/", payload, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
     localStorage.setItem("user", JSON.stringify(user));
     return user;
   },

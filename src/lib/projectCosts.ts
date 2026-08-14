@@ -1,4 +1,5 @@
 import type { ProjectCostItem } from "@/services/projectsService";
+import i18n from "@/i18n";
 
 export const emptyProjectCostItem = (index = 0): ProjectCostItem => ({
   name: String(index + 1),
@@ -20,12 +21,26 @@ export const calculateCostItemTotal = (item: ProjectCostItem) => {
 export const calculateCostTableTotal = (items: ProjectCostItem[]) =>
   items.reduce((total, item) => total + calculateCostItemTotal(item), 0);
 
+export const calculateCostItemFunding = (
+  items: ProjectCostItem[],
+  fundedAmount: number,
+) => {
+  let remainingFunding = Number.isFinite(fundedAmount) ? Math.max(fundedAmount, 0) : 0;
+
+  return items.map((item) => {
+    const itemTotal = Math.max(calculateCostItemTotal(item), 0);
+    const funded = Math.min(remainingFunding, itemTotal);
+    remainingFunding = Math.max(remainingFunding - itemTotal, 0);
+    return funded;
+  });
+};
+
 export const validateProjectCostTable = (
   items: ProjectCostItem[],
   goalAmount: string,
 ): string | null => {
-  if (!items.length) return "Add at least one project cost item.";
-  if (items.length > 50) return "A project cost table may contain at most 50 items.";
+  if (!items.length) return i18n.t("validation.costItemRequired");
+  if (items.length > 50) return i18n.t("validation.costItemLimit");
   if (
     items.some(
       (item) =>
@@ -37,13 +52,13 @@ export const validateProjectCostTable = (
         Number(item.unit_cost) <= 0,
     )
   ) {
-    return "Every cost item needs a description, whole-number quantity, and positive unit cost.";
+    return i18n.t("validation.costItemInvalid");
   }
 
   const goal = Number(goalAmount);
   const total = calculateCostTableTotal(items);
   if (Number.isFinite(goal) && goal > 0 && Math.abs(total - goal) > 0.005) {
-    return "The cost table total must equal the funding goal.";
+    return i18n.t("validation.costTotalMismatch");
   }
   return null;
 };

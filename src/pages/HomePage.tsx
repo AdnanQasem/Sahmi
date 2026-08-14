@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import i18n from "@/i18n";
 import { motion, AnimatePresence } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -26,13 +27,14 @@ const toProjectCard = (project: Project) => ({
   slug: project.slug,
   title: project.title,
   description: project.short_description || project.description,
-  category: project.category_detail?.name ?? "Project",
-  founder: project.entrepreneur?.business_name || project.entrepreneur?.full_name || "Sahmi founder",
+  category: project.category_detail?.name ?? i18n.t("projects.projectFallback"),
+  founder: project.entrepreneur?.business_name || project.entrepreneur?.full_name || i18n.t("projects.founderFallback"),
   image: project.cover_image || fallbackImage,
   goal: Number(project.goal_amount),
   raised: Number(project.funded_amount),
-  supporters: project.investor_count,
+  investors: project.investor_count,
   daysLeft: project.days_left ?? 0,
+  repaymentStatus: project.repayment_status,
   verified: project.is_verified,
 });
 
@@ -81,9 +83,13 @@ const HomePage = () => {
   const canCreateProject = !user || user.user_type === "entrepreneur" || user.user_type === "admin";
   const featuredProjectsQuery = useQuery({
     queryKey: ["projects", "featured"],
-    queryFn: () => projectsService.listProjects({ page_size: 3, ordering: "-investor_count" }),
+    queryFn: () => projectsService.listProjects({ page_size: 12, status: "active", is_verified: true, ordering: "-investor_count" }),
+    refetchInterval: 5_000,
   });
-  const featuredProjects = featuredProjectsQuery.data?.results.map(toProjectCard) ?? [];
+  const featuredProjects = featuredProjectsQuery.data?.results
+    .filter((project) => Number(project.funding_percent) < 100 && Number(project.funded_amount) < Number(project.goal_amount))
+    .slice(0, 3)
+    .map(toProjectCard) ?? [];
 
   return (
     <div className="flex flex-col">
@@ -127,7 +133,7 @@ const HomePage = () => {
             >
               <Button size="xl" asChild className="shadow-lg hover:shadow-primary/20 transition-all hover:scale-105 active:scale-95">
                 <Link to="/projects">
-                  {t("home.browse")} <ArrowRight className="ms-1 h-5 w-5" />
+                  {t("home.browse")} <ArrowRight className="ms-1 h-5 w-5 rtl-flip" />
                 </Link>
               </Button>
               {canCreateProject && (
@@ -300,7 +306,7 @@ const HomePage = () => {
                         initial={{ x: -10 }}
                         whileHover={{ x: 0 }}
                       >
-                        <ArrowRight className={`h-5 w-5 ${step.iconColor}`} />
+                        <ArrowRight className={`h-5 w-5 rtl-flip ${step.iconColor}`} />
                       </motion.div>
                     </div>
                   </div>
@@ -364,7 +370,7 @@ const HomePage = () => {
               <Button variant="ghost" size="lg" className="group hidden hover:bg-muted md:flex text-primary font-bold" asChild>
                 <Link to="/projects">
                   {t("home.browse")}
-                  <ArrowRight className="ms-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
+                  <ArrowRight className="ms-2 h-5 w-5 transition-transform group-hover:translate-x-1 rtl-flip" />
                 </Link>
               </Button>
             </motion.div>
@@ -428,9 +434,9 @@ const HomePage = () => {
             viewport={{ once: true }}
           >
             {[
-              { name: "Sami Al-Haddad", role: "Investor", text: "Sahmi provided a transparent way for me to support local talent. The verification process gives me peace of mind." },
-              { name: "Noor Mansour", role: "Entrepreneur", text: "Thanks to Sahmi, our solar project went from an idea to reality in three months. The community support is incredible." },
-              { name: "Fatima Jaber", role: "Supporter", text: "I love tracking the progress of projects I've backed. The transparency here is unlike any other platform." }
+              { name: "Sami Al-Haddad" },
+              { name: "Noor Mansour" },
+              { name: "Fatima Jaber" }
             ].map((testimonial, idx) => (
               <motion.div 
                 key={idx} 

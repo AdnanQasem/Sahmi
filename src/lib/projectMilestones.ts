@@ -1,4 +1,5 @@
 import type { ProjectMilestone } from "@/services/projectsService";
+import i18n from "@/i18n";
 
 const toDateInput = (date: Date) => {
   const offset = date.getTimezoneOffset() * 60_000;
@@ -16,27 +17,12 @@ export const emptyProjectMilestone = (index = 0): ProjectMilestone => ({
   description: "",
   target_date: suggestedMilestoneDate(index),
   deliverables: "",
-  percentage_of_project: index === 0 ? "100" : "0",
+  percentage_of_project: index === 0 ? "100" : "",
   order: index + 1,
 });
 
 export const reindexProjectMilestones = (milestones: ProjectMilestone[]) =>
   milestones.map((milestone, index) => ({ ...milestone, order: index + 1 }));
-
-export const redistributeMilestonePercentages = (milestones: ProjectMilestone[]) => {
-  if (!milestones.length) return [];
-  const base = Math.floor((10000 / milestones.length)) / 100;
-  return reindexProjectMilestones(
-    milestones.map((milestone, index) => ({
-      ...milestone,
-      percentage_of_project: (
-        index === milestones.length - 1
-          ? 100 - base * (milestones.length - 1)
-          : base
-      ).toFixed(2),
-    })),
-  );
-};
 
 export const milestonePercentageTotal = (milestones: ProjectMilestone[]) =>
   milestones.reduce((total, milestone) => {
@@ -45,29 +31,29 @@ export const milestonePercentageTotal = (milestones: ProjectMilestone[]) =>
   }, 0);
 
 export const validateProjectMilestones = (milestones: ProjectMilestone[]) => {
-  if (!milestones.length) return "Add at least one project milestone.";
-  if (milestones.length > 20) return "A project timeline may contain at most 20 milestones.";
+  if (!milestones.length) return i18n.t("validation.milestoneRequired");
+  if (milestones.length > 20) return i18n.t("validation.milestoneLimit");
 
   let previousDate = "";
   for (const milestone of milestones) {
     if (!milestone.title.trim() || !milestone.description.trim()) {
-      return "Every milestone needs a title and description.";
+      return i18n.t("validation.milestoneDetailsRequired");
     }
     if (!/^\d{4}-\d{2}-\d{2}$/.test(milestone.target_date)) {
-      return "Every milestone needs a valid target date.";
+      return i18n.t("validation.milestoneDateRequired");
     }
     if (previousDate && milestone.target_date < previousDate) {
-      return "Milestones must be ordered by target date.";
+      return i18n.t("validation.milestoneDateOrder");
     }
     previousDate = milestone.target_date;
     const percentage = Number(milestone.percentage_of_project);
     if (!Number.isFinite(percentage) || percentage <= 0 || percentage > 100) {
-      return "Every milestone percentage must be greater than 0 and no more than 100.";
+      return i18n.t("validation.milestonePercentageRange");
     }
   }
 
   if (Math.abs(milestonePercentageTotal(milestones) - 100) > 0.005) {
-    return "Milestone percentages must total 100%.";
+    return i18n.t("validation.milestonePercentageTotal");
   }
   return null;
 };

@@ -1,14 +1,18 @@
 import json
+import tempfile
+from unittest.mock import patch
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import override_settings
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 
 from apps.investments.models import Milestone
 
-from .models import Project, ProjectCategory
+from .models import Project, ProjectCategory, ProjectEditRequest
 
 
 User = get_user_model()
@@ -87,6 +91,7 @@ class ProjectCostTableTests(ProjectAPITestCase):
         }
         payload.update(overrides)
         return payload
+
 
     def test_entrepreneur_can_create_project_with_normalized_cost_table(self):
         self.client.force_authenticate(self.entrepreneur)
@@ -372,6 +377,121 @@ class ProjectCostTableTests(ProjectAPITestCase):
         self.assertEqual(self.project.milestones.count(), 1)
 
 
+class ProjectDocumentUploadTests(ProjectAPITestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.media_directory = tempfile.TemporaryDirectory()
+        cls.media_override = override_settings(MEDIA_ROOT=cls.media_directory.name)
+        cls.media_override.enable()
+        super().setUpClass()
+
+    @classmethod
+    def tearDownClass(cls):
+        super().tearDownClass()
+        cls.media_override.disable()
+        cls.media_directory.cleanup()
+
+    @staticmethod
+    def pdf(name="document.pdf", content_type="application/pdf", body=b"%PDF-1.7\nproject evidence"):
+        return SimpleUploadedFile(name, body, content_type=content_type)
+
+    def test_owner_can_upload_required_documents_with_randomized_names(self):
+        self.client.force_authenticate(self.entrepreneur)
+        response = self.client.patch(
+            reverse("project-detail", args=[self.project.slug]),
+            {
+                "business_plan": self.pdf("business-plan.pdf"),
+                "financial_projections": self.pdf("forecast.pdf"),
+                "ownership_proof": self.pdf("registration.pdf"),
+            },
+            format="multipart",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.project.refresh_from_db()
+        for field_name, original_name in (
+            ("business_plan", "business-plan.pdf"),
+            ("financial_projections", "forecast.pdf"),
+            ("ownership_proof", "registration.pdf"),
+        ):
+            stored_name = getattr(self.project, field_name).name
+            self.assertTrue(stored_name.startswith(f"project-documents/{self.project.id}/"))
+            self.assertTrue(stored_name.endswith(".pdf"))
+            self.assertNotIn(original_name, stored_name)
+
+        old_name = self.project.business_plan.name
+        storage = self.project.business_plan.storage
+        with self.captureOnCommitCallbacks(execute=True):
+            replacement = self.client.patch(
+                reverse("project-detail", args=[self.project.slug]),
+                {"business_plan": self.pdf("replacement.pdf")},
+                format="multipart",
+            )
+        self.assertEqual(replacement.status_code, status.HTTP_200_OK, replacement.data)
+        self.project.refresh_from_db()
+        self.assertNotEqual(self.project.business_plan.name, old_name)
+        self.assertFalse(storage.exists(old_name))
+
+    def test_rejects_oversized_spoofed_mime_and_invalid_signature(self):
+        self.client.force_authenticate(self.entrepreneur)
+        invalid_files = {
+            "wrong extension": self.pdf("plan.exe"),
+            "spoofed mime": self.pdf(content_type="text/plain"),
+            "invalid signature": self.pdf(body=b"not a pdf"),
+            "oversized": self.pdf(body=b"%PDF-" + b"x" * (10 * 1024 * 1024)),
+        }
+        for label, upload in invalid_files.items():
+            with self.subTest(label=label):
+                response = self.client.patch(
+                    reverse("project-detail", args=[self.project.slug]),
+                    {"business_plan": upload},
+                    format="multipart",
+                )
+                self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+                self.assertIn("business_plan", response.data)
+
+    def test_cross_user_cannot_upload_or_replace_documents(self):
+        other_owner = User.objects.create_user(
+            email="other-doc-owner@example.com",
+            username="other-doc-owner",
+            password="password",
+            user_type=User.UserType.ENTREPRENEUR,
+        )
+        self.client.force_authenticate(other_owner)
+        response = self.client.patch(
+            reverse("project-detail", args=[self.project.slug]),
+            {"business_plan": self.pdf()},
+            format="multipart",
+        )
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.project.refresh_from_db()
+        self.assertFalse(self.project.business_plan)
+
+    def test_verification_requires_all_three_documents(self):
+        self.client.force_authenticate(self.staff)
+        blocked = self.client.post(
+            reverse("project-verify", args=[self.project.slug]),
+            {"verification_notes": "Reviewed"},
+            format="json",
+        )
+        self.assertEqual(blocked.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(set(blocked.data), {"business_plan", "financial_projections", "ownership_proof"})
+        self.project.refresh_from_db()
+        self.assertFalse(self.project.is_verified)
+
+        self.project.business_plan.name = "project-documents/legacy/plan.pdf"
+        self.project.financial_projections.name = "project-documents/legacy/forecast.pdf"
+        self.project.ownership_proof.name = "project-documents/legacy/ownership.pdf"
+        self.project.save(update_fields=["business_plan", "financial_projections", "ownership_proof", "updated_at"])
+        allowed = self.client.post(
+            reverse("project-verify", args=[self.project.slug]),
+            {"verification_notes": "Reviewed"},
+            format="json",
+        )
+        self.assertEqual(allowed.status_code, status.HTTP_200_OK, allowed.data)
+        self.project.refresh_from_db()
+        self.assertTrue(self.project.is_verified)
+
+
 class ProjectCategoryPermissionTests(ProjectAPITestCase):
     def test_category_reads_are_public(self):
         list_response = self.client.get(reverse("category-list"))
@@ -483,6 +603,10 @@ class ProjectModerationTests(ProjectAPITestCase):
         self.assertIsNone(self.project.verified_by)
 
     def test_staff_can_verify_and_reject_projects_with_an_audit_record(self):
+        self.project.business_plan.name = "project-documents/plan.pdf"
+        self.project.financial_projections.name = "project-documents/forecast.pdf"
+        self.project.ownership_proof.name = "project-documents/ownership.pdf"
+        self.project.save(update_fields=["business_plan", "financial_projections", "ownership_proof", "updated_at"])
         self.client.force_authenticate(self.staff)
 
         verify_response = self.client.post(
@@ -551,6 +675,98 @@ class ProjectModerationTests(ProjectAPITestCase):
         self.project.refresh_from_db()
         self.assertEqual(self.project.status, Project.Status.DRAFT)
 
+class ProjectEditApprovalTests(ProjectAPITestCase):
+    def setUp(self):
+        super().setUp()
+        self.project.is_verified = True
+        self.project.status = Project.Status.ACTIVE
+        self.project.save(update_fields=["is_verified", "status", "updated_at"])
+
+    def test_entrepreneur_edit_stays_unpublished_until_admin_approval(self):
+        self.client.force_authenticate(self.entrepreneur)
+        response = self.client.patch(
+            reverse("project-detail", args=[self.project.slug]),
+            {"title": "Updated Green Farm", "short_description": "Proposed description"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_202_ACCEPTED, response.data)
+        self.project.refresh_from_db()
+        self.assertEqual(self.project.title, "Green Farm")
+        pending = ProjectEditRequest.objects.get(
+            project=self.project,
+            status=ProjectEditRequest.Status.PENDING,
+        )
+        self.assertEqual(pending.payload["title"], "Updated Green Farm")
+        self.assertEqual(pending.changes["title"]["before"], "Green Farm")
+        self.assertEqual(pending.changes["title"]["after"], "Updated Green Farm")
+
+        self.client.force_authenticate(self.staff)
+        admin_listing = self.client.get(reverse("admin-project-list"))
+        queued_project = next(
+            item for item in admin_listing.data["results"]
+            if str(item["id"]) == str(self.project.id)
+        )
+        self.assertEqual(
+            queued_project["pending_edit_request"]["payload"]["title"],
+            "Updated Green Farm",
+        )
+
+        self.client.force_authenticate(self.entrepreneur)
+        public_response = self.client.get(reverse("project-detail", args=[self.project.slug]))
+        self.assertEqual(public_response.data["title"], "Green Farm")
+
+        self.client.force_authenticate(self.staff)
+        approval = self.client.post(
+            reverse("admin-project-approve-edit", args=[self.project.id]),
+            {"verification_notes": "Approved"},
+            format="json",
+        )
+        self.assertEqual(approval.status_code, status.HTTP_200_OK, approval.data)
+        self.project.refresh_from_db()
+        pending.refresh_from_db()
+        self.assertEqual(self.project.title, "Updated Green Farm")
+        self.assertEqual(pending.status, ProjectEditRequest.Status.APPROVED)
+        public_update = self.client.get(reverse("project-detail", args=[self.project.slug]))
+        self.assertEqual(public_update.data["updates"][0]["changes"]["title"]["after"], "Updated Green Farm")
+
+    def test_project_faqs_are_persisted_and_public(self):
+        self.client.force_authenticate(self.entrepreneur)
+        response = self.client.patch(
+            reverse("project-detail", args=[self.project.slug]),
+            {"faqs": [{"question": "When will it open?", "answer": "After implementation."}]},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_202_ACCEPTED, response.data)
+        self.client.force_authenticate(self.staff)
+        approval = self.client.post(reverse("admin-project-approve-edit", args=[self.project.id]), {}, format="json")
+        self.assertEqual(approval.status_code, status.HTTP_200_OK, approval.data)
+        self.client.force_authenticate(user=None)
+        public = self.client.get(reverse("project-detail", args=[self.project.slug]))
+        self.assertEqual(public.data["faqs"][0]["question"], "When will it open?")
+
+    def test_rejected_edit_does_not_change_published_project(self):
+        ProjectEditRequest.objects.create(
+            project=self.project,
+            submitted_by=self.entrepreneur,
+            payload={"title": "Rejected title"},
+        )
+        self.client.force_authenticate(self.staff)
+        response = self.client.post(
+            reverse("admin-project-reject-edit", args=[self.project.id]),
+            {"verification_notes": "Please revise the title."},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.project.refresh_from_db()
+        self.assertEqual(self.project.title, "Green Farm")
+        self.assertEqual(
+            self.project.edit_requests.get().status,
+            ProjectEditRequest.Status.REJECTED,
+        )
+
+
 class PublicProjectPrivacyTests(ProjectAPITestCase):
     def test_public_detail_omits_private_owner_and_document_fields(self):
         self.project.status = Project.Status.ACTIVE
@@ -565,3 +781,45 @@ class PublicProjectPrivacyTests(ProjectAPITestCase):
         self.assertNotIn("email", response.data["entrepreneur"])
         self.assertNotIn("phone_number", response.data["entrepreneur"])
         self.assertNotIn("kyc_document", response.data["entrepreneur"])
+
+    @patch("apps.projects.translation._translate_text")
+    def test_public_project_translation_translates_content_but_not_identity_or_numbers(self, translate):
+        self.project.status = Project.Status.ACTIVE
+        self.project.is_verified = True
+        self.project.cost_items = [
+            {"name": "1", "description": "Solar panels", "quantity": "2", "unit_cost": "500.00"}
+        ]
+        self.project.save()
+        translate.side_effect = lambda value, language: f"{language}:{value}" if value else ""
+
+        response = self.client.get(
+            reverse("project-translation", args=[self.project.slug]),
+            {"language": "ar"},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["description"], "ar:A sustainable farming project.")
+        self.assertEqual(response.data["cost_items"][0]["description"], "ar:Solar panels")
+        self.assertEqual(response.data["cost_items"][0]["name"], "1")
+        self.assertEqual(response.data["cost_items"][0]["quantity"], "2")
+        self.assertNotIn("title", response.data)
+        self.assertNotIn("entrepreneur", response.data)
+
+    def test_public_project_translation_rejects_unsupported_language(self):
+        self.project.status = Project.Status.ACTIVE
+        self.project.is_verified = True
+        self.project.save()
+
+        response = self.client.get(
+            reverse("project-translation", args=[self.project.slug]),
+            {"language": "fr"},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_public_project_translation_hides_non_public_projects(self):
+        response = self.client.get(
+            reverse("project-translation", args=[self.project.slug]),
+            {"language": "ar"},
+        )
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)

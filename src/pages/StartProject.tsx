@@ -14,8 +14,19 @@ import ProjectCostTableEditor from "@/components/projects/ProjectCostTableEditor
 import { emptyProjectCostItem, validateProjectCostTable } from "@/lib/projectCosts";
 import ProjectTimelineEditor from "@/components/projects/ProjectTimelineEditor";
 import { emptyProjectMilestone, validateProjectMilestones } from "@/lib/projectMilestones";
+import ProjectDocumentFields from "@/components/projects/ProjectDocumentFields";
+import { validateRequiredProjectDocuments } from "@/lib/projectDocuments";
+import ProjectFaqEditor from "@/components/projects/ProjectFaqEditor";
 
-const steps = ["Basic Info", "Project Story", "Funding Goal", "Timeline", "Media", "Review"];
+const stepKeys = [
+  "projects.steps.basicInfo",
+  "projects.steps.projectStory",
+  "projects.steps.fundingGoal",
+  "projects.steps.timeline",
+  "projects.steps.media",
+  "projects.steps.faq",
+  "projects.steps.review",
+] as const;
 
 const initialForm: ProjectCreatePayload = {
   title: "",
@@ -28,10 +39,14 @@ const initialForm: ProjectCreatePayload = {
   minimum_investment: "100",
   expected_roi: "0",
   cost_items: [emptyProjectCostItem()],
+  faqs: [],
   milestones: [emptyProjectMilestone()],
   funding_period_days: "30",
   video_url: "",
   cover_image: null,
+  business_plan: null,
+  financial_projections: null,
+  ownership_proof: null,
 };
 
 const StartProject = () => {
@@ -55,8 +70,8 @@ const StartProject = () => {
       ...form,
       description: [
         form.description,
-        fundingBreakdown ? `\n\nFunding breakdown:\n${fundingBreakdown}` : "",
-        risks ? `\n\nRisks and challenges:\n${risks}` : "",
+        fundingBreakdown ? `\n\n${t("projects.breakdown")}:\n${fundingBreakdown}` : "",
+        risks ? `\n\n${t("projects.risks")}:\n${risks}` : "",
       ].join(""),
     }),
     onSuccess: (project) => {
@@ -65,7 +80,7 @@ const StartProject = () => {
     },
     onError: (error) => {
       setFieldErrors(getFieldErrors(error));
-      toast.error(getErrorMessage(error, "Could not submit project."));
+      toast.error(getErrorMessage(error, t("projects.submitFailed")));
     },
   });
 
@@ -84,17 +99,17 @@ const StartProject = () => {
   const validateStep = () => {
     const errors: Record<string, string> = {};
     if (currentStep === 0) {
-      if (!form.title.trim()) errors.title = "Project title is required.";
-      if (!form.category) errors.category = "Category is required.";
-      if (!form.short_description.trim()) errors.short_description = "Short description is required.";
-      if (!form.location.trim()) errors.location = "Location is required.";
+      if (!form.title.trim()) errors.title = t("validation.projectTitleRequired");
+      if (!form.category) errors.category = t("validation.categoryRequired");
+      if (!form.short_description.trim()) errors.short_description = t("validation.shortDescriptionRequired");
+      if (!form.location.trim()) errors.location = t("validation.locationRequired");
     }
     if (currentStep === 1 && !form.description.trim()) {
-      errors.description = "Project story is required.";
+      errors.description = t("validation.projectStoryRequired");
     }
     if (currentStep === 2) {
-      if (!form.goal_amount) errors.goal_amount = "Funding goal is required.";
-      if (!form.funding_period_days) errors.funding_period_days = "Campaign duration is required.";
+      if (!form.goal_amount) errors.goal_amount = t("validation.fundingGoalRequired");
+      if (!form.funding_period_days) errors.funding_period_days = t("validation.campaignDurationRequired");
       const costError = validateProjectCostTable(form.cost_items, form.goal_amount);
       if (costError) errors.cost_items = costError;
     }
@@ -102,9 +117,12 @@ const StartProject = () => {
       const milestoneError = validateProjectMilestones(form.milestones);
       if (milestoneError) errors.milestones = milestoneError;
     }
-    if (currentStep === 5) {
-      if (!acceptedTerms) errors.terms = "You must accept the terms before submitting.";
-      if (!acceptedUpdates) errors.transparency = "You must commit to supporter updates.";
+    if (currentStep === 4) {
+      Object.assign(errors, validateRequiredProjectDocuments(form));
+    }
+    if (currentStep === 6) {
+      if (!acceptedTerms) errors.terms = t("validation.termsRequired");
+      if (!acceptedUpdates) errors.transparency = t("validation.updatesCommitmentRequired");
     }
     setFieldErrors(errors);
     return Object.keys(errors).length === 0;
@@ -112,7 +130,7 @@ const StartProject = () => {
 
   const handleContinue = () => {
     if (validateStep()) {
-      setCurrentStep((step) => Math.min(steps.length - 1, step + 1));
+      setCurrentStep((step) => Math.min(stepKeys.length - 1, step + 1));
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
   };
@@ -135,8 +153,8 @@ const StartProject = () => {
       <div className="container max-w-3xl py-8">
         <div className="mb-10">
           <div className="flex items-center justify-between">
-            {steps.map((step, i) => (
-              <div key={step} className="flex flex-1 items-center">
+            {stepKeys.map((stepKey, i) => (
+              <div key={stepKey} className="flex flex-1 items-center">
                 <div className="flex flex-col items-center">
                   <div
                     className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold transition-all ${
@@ -149,9 +167,9 @@ const StartProject = () => {
                   >
                     {i < currentStep ? <CheckCircle className="h-5 w-5" /> : i + 1}
                   </div>
-                  <span className="mt-1.5 hidden text-xs text-muted-foreground sm:block">{step}</span>
+                  <span className="mt-1.5 hidden text-xs text-muted-foreground sm:block">{t(stepKey)}</span>
                 </div>
-                {i < steps.length - 1 && (
+                {i < stepKeys.length - 1 && (
                   <div className={`mx-2 h-0.5 flex-1 ${i < currentStep ? "bg-primary" : "bg-muted"}`} />
                 )}
               </div>
@@ -279,11 +297,27 @@ const StartProject = () => {
                   <Input id="video_url" placeholder="https://youtube.com/..." className="mt-1.5" value={form.video_url} onChange={(event) => updateForm("video_url", event.target.value)} />
                   {fieldErrors.video_url && <p className="mt-1 text-xs text-destructive">{fieldErrors.video_url}</p>}
                 </div>
+                <ProjectDocumentFields
+                  files={form}
+                  errors={fieldErrors}
+                  required
+                  onChange={(field, file) => updateForm(field, file)}
+                  onError={(field, error) => setFieldErrors((current) => {
+                    const next = { ...current };
+                    if (error) next[field] = error;
+                    else delete next[field];
+                    return next;
+                  })}
+                />
               </div>
             </div>
           )}
 
           {currentStep === 5 && (
+            <ProjectFaqEditor items={form.faqs} onChange={(faqs) => updateForm("faqs", faqs)} />
+          )}
+
+          {currentStep === 6 && (
             <div className="space-y-5">
               <h2 className="text-xl font-semibold text-foreground">{t("common.submit")}</h2>
               <p className="text-sm text-muted-foreground">{t("projects.reviewText")}</p>
@@ -315,13 +349,13 @@ const StartProject = () => {
             }}
             disabled={currentStep === 0 || createMutation.isPending}
           >
-            <ArrowLeft className="mr-1 h-4 w-4" />{t("common.back")}</Button>
-          {currentStep < steps.length - 1 ? (
-            <Button onClick={handleContinue}>{t("common.next")}<ArrowRight className="ml-1 h-4 w-4" />
+            <ArrowLeft className="me-1 h-4 w-4 rtl-flip" />{t("common.back")}</Button>
+          {currentStep < stepKeys.length - 1 ? (
+            <Button onClick={handleContinue}>{t("common.next")}<ArrowRight className="ms-1 h-4 w-4 rtl-flip" />
             </Button>
           ) : (
             <Button onClick={handleSubmit} disabled={createMutation.isPending}>
-              {createMutation.isPending ? "Submitting..." : "Submit for Review"}
+              {createMutation.isPending ? t("common.submitting") : t("projects.submitForReview")}
             </Button>
           )}
         </div>

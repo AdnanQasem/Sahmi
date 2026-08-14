@@ -15,6 +15,8 @@ import ProjectCostTableEditor from "@/components/projects/ProjectCostTableEditor
 import { emptyProjectCostItem, validateProjectCostTable } from "@/lib/projectCosts";
 import ProjectTimelineEditor from "@/components/projects/ProjectTimelineEditor";
 import { emptyProjectMilestone, validateProjectMilestones } from "@/lib/projectMilestones";
+import ProjectDocumentFields from "@/components/projects/ProjectDocumentFields";
+import ProjectFaqEditor from "@/components/projects/ProjectFaqEditor";
 
 const EditProject = () => {
   const { t } = useTranslation();
@@ -35,10 +37,14 @@ const EditProject = () => {
     minimum_investment: "",
     expected_roi: "",
     cost_items: [emptyProjectCostItem()],
+    faqs: [],
     milestones: [emptyProjectMilestone()],
     funding_period_days: "",
     video_url: "",
     cover_image: null,
+    business_plan: null,
+    financial_projections: null,
+    ownership_proof: null,
   });
 
   const projectQuery = useQuery({
@@ -67,25 +73,51 @@ const EditProject = () => {
       cost_items: projectQuery.data.cost_items?.length
         ? projectQuery.data.cost_items
         : [emptyProjectCostItem()],
+      faqs: projectQuery.data.faqs ?? [],
       milestones: projectQuery.data.milestones?.length
         ? projectQuery.data.milestones
         : [emptyProjectMilestone()],
       funding_period_days: String(projectQuery.data.funding_period_days),
       video_url: projectQuery.data.video_url ?? "",
       cover_image: null,
+      business_plan: null,
+      financial_projections: null,
+      ownership_proof: null,
     });
     initializedProjectId.current = projectQuery.data.id;
   }, [projectQuery.data]);
 
   const updateMutation = useMutation({
-    mutationFn: () => projectsService.updateProject(id as string, form),
+    mutationFn: () => {
+      const original = projectQuery.data!;
+      const payload: Partial<ProjectCreatePayload> = {};
+      const scalarFields: Array<keyof ProjectCreatePayload> = [
+        "title", "category", "short_description", "description", "location",
+        "location_governorate", "goal_amount", "minimum_investment", "expected_roi",
+        "funding_period_days", "video_url",
+      ];
+      scalarFields.forEach((field) => {
+        if (String(form[field] ?? "") !== String(original[field as keyof typeof original] ?? "")) {
+          (payload as Record<string, unknown>)[field] = form[field];
+        }
+      });
+      (["cost_items", "milestones", "faqs"] as const).forEach((field) => {
+        if (JSON.stringify(form[field]) !== JSON.stringify(original[field] ?? [])) {
+          (payload as Record<string, unknown>)[field] = form[field];
+        }
+      });
+      (["cover_image", "business_plan", "financial_projections", "ownership_proof"] as const).forEach((field) => {
+        if (form[field] instanceof File) payload[field] = form[field];
+      });
+      return projectsService.updateProject(id as string, payload);
+    },
     onSuccess: (project) => {
-      toast.success(t("projects.successUpdate"));
+      toast.success(t(user?.is_staff ? "projects.successUpdate" : "projects.editsSubmittedForReview"));
       navigate(user?.is_staff ? adminReturnPath : `/projects/${project.slug}`);
     },
     onError: (error) => {
       setFieldErrors(getFieldErrors(error));
-      toast.error(getErrorMessage(error, "Could not update project."));
+      toast.error(getErrorMessage(error, t("projects.updateFailed")));
     },
   });
 
@@ -114,7 +146,7 @@ const EditProject = () => {
         <div className="container">
           <Button variant="ghost" size="sm" asChild className="mb-4">
             <Link to={user?.is_staff ? adminReturnPath : `/projects/${id}`}>
-              <ArrowLeft className="mr-1 h-4 w-4" /> {user?.is_staff ? "Back to Admin" : "Back to Project"}
+              <ArrowLeft className="me-1 h-4 w-4 rtl-flip" /> {t(user?.is_staff ? "projects.backToAdmin" : "projects.backToProject")}
             </Link>
           </Button>
           <h1 className="mb-2 text-2xl font-bold text-foreground">{t("projects.editTitle")}</h1>
@@ -200,6 +232,23 @@ const EditProject = () => {
               onChange={(milestones) => updateForm("milestones", milestones)}
               error={fieldErrors.milestones}
             />
+            <ProjectFaqEditor items={form.faqs} onChange={(faqs) => updateForm("faqs", faqs)} />
+            <ProjectDocumentFields
+              files={form}
+              current={{
+                business_plan: projectQuery.data.business_plan,
+                financial_projections: projectQuery.data.financial_projections,
+                ownership_proof: projectQuery.data.ownership_proof,
+              }}
+              errors={fieldErrors}
+              onChange={(field, file) => updateForm(field, file)}
+              onError={(field, error) => setFieldErrors((current) => {
+                const next = { ...current };
+                if (error) next[field] = error;
+                else delete next[field];
+                return next;
+              })}
+            />
           </div>
         </div>
 
@@ -208,7 +257,9 @@ const EditProject = () => {
             <Link to={user?.is_staff ? adminReturnPath : "/dashboard/entrepreneur"}>{t("common.cancel")}</Link>
           </Button>
           <Button type="submit" disabled={updateMutation.isPending}>
-            {updateMutation.isPending ? "Saving..." : "Save Changes"}
+            {updateMutation.isPending
+              ? t("common.saving")
+              : t(user?.is_staff ? "common.saveChanges" : "projects.submitEditsForReview")}
           </Button>
         </div>
       </form>

@@ -15,9 +15,11 @@ import { Textarea } from "@/components/ui/textarea";
 import StatusBadge from "@/components/dashboard/StatusBadge";
 import type { Project } from "@/services/projectsService";
 import { formatCurrency, formatDate, formatPercent } from "@/i18n/format";
+import AdminProjectReviewDetails from "@/components/admin/AdminProjectReviewDetails";
 
 interface AdminProjectReviewDialogProps {
   project: Project | null;
+  isEditReview?: boolean;
   notes: string;
   onNotesChange: (value: string) => void;
   onOpenChange: (open: boolean) => void;
@@ -28,6 +30,7 @@ interface AdminProjectReviewDialogProps {
 
 const AdminProjectReviewDialog = ({
   project,
+  isEditReview = false,
   notes,
   onNotesChange,
   onOpenChange,
@@ -57,7 +60,7 @@ const AdminProjectReviewDialog = ({
             <div className="absolute bottom-4 start-5 end-5 flex items-end justify-between gap-3">
               <div className="min-w-0 text-white">
                 <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-white/75">
-                  {t("adminForm.reviewProject")}
+                  {t(isEditReview ? "adminForm.reviewProjectEdits" : "adminForm.reviewProject")}
                 </p>
                 <h2 className="truncate text-xl font-bold sm:text-2xl">{project.title}</h2>
               </div>
@@ -110,6 +113,8 @@ const AdminProjectReviewDialog = ({
               <p className="mt-2 line-clamp-4 text-sm leading-relaxed text-muted-foreground">{project.description}</p>
             </div>
 
+            <AdminProjectReviewDetails project={project} isEditReview={isEditReview} />
+
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-3">
                 <Label htmlFor="review-notes">{t("adminForm.reviewNotes")}</Label>
@@ -131,7 +136,7 @@ const AdminProjectReviewDialog = ({
               <Button variant="ghost" asChild disabled={isPending}>
                 <Link to={"/projects/" + project.slug} target="_blank" rel="noreferrer">
                   <ExternalLink className="h-4 w-4" />
-                  {t("adminForm.viewProject")}
+                  {t(isEditReview ? "adminForm.viewCurrentProject" : "adminForm.viewProject")}
                 </Link>
               </Button>
               <Button
@@ -145,7 +150,7 @@ const AdminProjectReviewDialog = ({
               </Button>
               <Button onClick={onApprove} disabled={isPending}>
                 <CheckCircle2 className="h-4 w-4" />
-                {isPending ? t("common.saving") : t("adminForm.approvePublish")}
+                {isPending ? t("common.saving") : t(isEditReview ? "adminForm.approveEdits" : "adminForm.approvePublish")}
               </Button>
             </DialogFooter>
           </div>

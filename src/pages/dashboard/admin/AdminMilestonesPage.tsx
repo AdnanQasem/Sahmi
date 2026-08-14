@@ -237,7 +237,9 @@ const AdminMilestonesPage = () => {
                           <p className="font-semibold text-foreground">
                             <bdi dir="ltr">{formatNumber(milestone.percentage_of_project)}%</bdi>
                           </p>
-                          <p className="text-xs text-muted-foreground">Order {milestone.order}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {t("admin.order")} <bdi dir="ltr">{milestone.order}</bdi>
+                          </p>
                         </TableCell>
                         <TableCell><StatusBadge status={milestone.status} /></TableCell>
                         <TableCell className="text-muted-foreground">{date(milestone.target_date)}</TableCell>
@@ -291,7 +293,7 @@ const AdminMilestonesPage = () => {
                     </div>
                     <div className="flex items-center justify-between gap-3">
                       <p className="text-sm font-semibold text-foreground">
-                        {currency(milestone.funding_released)} released
+                        {t("admin.releasedAmount", { amount: currency(milestone.funding_released) })}
                       </p>
                       <div className="flex gap-1">
                         <Button variant="outline" size="sm" onClick={() => openEdit(milestone)}>

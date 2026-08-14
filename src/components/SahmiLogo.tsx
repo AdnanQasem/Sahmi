@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import { useTranslation } from "react-i18next";
 
 interface SahmiLogoProps {
   size?: "sm" | "md" | "lg";
@@ -7,6 +8,7 @@ interface SahmiLogoProps {
 }
 
 const SahmiLogo = ({ size = "md", variant = "full", className = "" }: SahmiLogoProps) => {
+  const { t } = useTranslation();
   const sizes = {
     sm: { icon: 28, gap: "gap-1.5" },
     md: { icon: 36, gap: "gap-2" },
@@ -25,7 +27,7 @@ const SahmiLogo = ({ size = "md", variant = "full", className = "" }: SahmiLogoP
   return (
     <motion.div
       className={`flex items-center ${gap} ${className}`}
-      aria-label="Sahmi Palestine Connect"
+      aria-label={t("language.logoLabel")}
       whileHover={{ scale: 1.02 }}
       whileTap={{ scale: 0.98 }}
       transition={{ type: "spring", stiffness: 400, damping: 25 }}
@@ -104,7 +106,7 @@ const SahmiLogo = ({ size = "md", variant = "full", className = "" }: SahmiLogoP
               letterSpacing: "0.15em",
             }}
           >
-            Palestine Connect
+            {t("language.logoTagline")}
           </span>
         </div>
       )}

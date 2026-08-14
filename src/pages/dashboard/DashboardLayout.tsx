@@ -1,4 +1,4 @@
-import { useState, ReactNode } from "react";
+import { useEffect, useState, ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import notificationService from "@/services/notificationService";
 import { Link, useLocation, useNavigate } from "react-router-dom";
@@ -10,7 +10,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useTranslation } from "react-i18next";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { formatDate } from "@/i18n/format";
-import { translateNotificationType } from "@/i18n/labels";
+import { translateNotificationType, translateSystemNotificationBody } from "@/i18n/labels";
 import {
   LayoutDashboard,
   Bell,
@@ -57,6 +57,7 @@ interface RecentNotification {
   tone: NotificationTone;
   unread?: boolean;
   roles: UserRole[];
+  targetUrl: string;
 }
 
 const notificationToneClasses: Record<NotificationTone, string> = {
@@ -175,10 +176,14 @@ const DashboardLayout = ({ children, roleBase }: DashboardLayoutProps) => {
   const location = useLocation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const notificationsQuery = useQuery({ queryKey: ["notifications"], queryFn: notificationService.list, refetchInterval: 30_000 });
+  const notificationsQuery = useQuery({ queryKey: ["notifications"], queryFn: () => notificationService.list(), refetchInterval: 30_000 });
   const unreadQuery = useQuery({ queryKey: ["notification-unread"], queryFn: notificationService.unreadCount, refetchInterval: 30_000 });
   const markRead = useMutation({ mutationFn: notificationService.markRead, onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ["notifications"] }); void queryClient.invalidateQueries({ queryKey: ["notification-unread"] }); } });
   const markAllRead = useMutation({ mutationFn: notificationService.markAllRead, onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ["notifications"] }); void queryClient.invalidateQueries({ queryKey: ["notification-unread"] }); } });
+  useEffect(() => notificationService.subscribe(() => {
+    void queryClient.invalidateQueries({ queryKey: ["notifications"] });
+    void queryClient.invalidateQueries({ queryKey: ["notification-unread"] });
+  }), [queryClient]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
 
@@ -188,9 +193,12 @@ const DashboardLayout = ({ children, roleBase }: DashboardLayoutProps) => {
     (item) => role && item.roles.includes(role)
   );
   const visibleNotifications: RecentNotification[] = (notificationsQuery.data?.results ?? []).map((notification) => ({
-    id: notification.id, title: translateNotificationType(t, notification.notification_type), description: notification.body,
+    id: notification.id,
+    title: notification.title === "Investment confirmed" ? notification.title : translateNotificationType(t, notification.notification_type),
+    description: translateSystemNotificationBody(t, notification.notification_type, notification.body),
     time: formatDate(notification.created_at, { dateStyle: "medium", timeStyle: "short" }, isRtl ? "ar" : "en"), icon: Info, tone: "info",
     unread: !notification.read_at, roles: role ? [role] : [],
+    targetUrl: notification.target_url || roleBase,
   }));
   const unreadCount = unreadQuery.data?.unread_count ?? visibleNotifications.filter((notification) => notification.unread).length;
 
@@ -441,7 +449,11 @@ const DashboardLayout = ({ children, roleBase }: DashboardLayoutProps) => {
                 </div>
 
                 <div className="max-h-[320px] overflow-y-auto p-2">
-                  {visibleNotifications.length > 0 ? (
+                  {notificationsQuery.isPending ? (
+                    <div className="px-4 py-8 text-center text-sm text-muted-foreground">{t("notifications.loading")}</div>
+                  ) : notificationsQuery.isError ? (
+                    <div className="px-4 py-8 text-center"><p className="text-sm font-medium text-destructive">{t("notifications.loadError")}</p><Button variant="outline" size="sm" className="mt-3" onClick={() => void notificationsQuery.refetch()}>{t("admin.tryAgain")}</Button></div>
+                  ) : visibleNotifications.length > 0 ? (
                     visibleNotifications.map((notification) => {
                       const NotificationIcon = notification.icon;
 
@@ -450,8 +462,16 @@ const DashboardLayout = ({ children, roleBase }: DashboardLayoutProps) => {
                           key={notification.id}
                           role="button"
                           tabIndex={0}
-                          onClick={() => notification.unread && markRead.mutate(notification.id)}
-                          onKeyDown={(event) => { if (event.key === "Enter") notification.unread && markRead.mutate(notification.id); }}
+                          onClick={() => {
+                            if (notification.unread) markRead.mutate(notification.id);
+                            navigate(notification.targetUrl);
+                          }}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter") {
+                              if (notification.unread) markRead.mutate(notification.id);
+                              navigate(notification.targetUrl);
+                            }
+                          }}
                           className="flex cursor-pointer gap-3 rounded-lg px-2 py-3 transition-colors hover:bg-muted/60"
                         >
                           <div className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${notificationToneClasses[notification.tone]}`}>
@@ -487,13 +507,10 @@ const DashboardLayout = ({ children, roleBase }: DashboardLayoutProps) => {
                   )}
                 </div>
 
-                {role !== "admin" && (
-                  <div className="border-t border-border p-2">
-                    <Button variant="ghost" size="sm" className="w-full cursor-pointer justify-center" asChild>
-                      <Link to={`${roleBase}/settings`}>{t("notifications.settings")}</Link>
-                    </Button>
-                  </div>
-                )}
+                <div className="grid grid-cols-2 border-t border-border p-2">
+                  <Button variant="ghost" size="sm" asChild><Link to={`${roleBase}/notifications`}>{t("notifications.viewAll")}</Link></Button>
+                  <Button variant="ghost" size="sm" asChild><Link to={`${roleBase}/settings`}>{t("notifications.settings")}</Link></Button>
+                </div>
               </PopoverContent>
             </Popover>
 

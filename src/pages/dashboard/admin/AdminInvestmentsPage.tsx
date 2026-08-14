@@ -250,7 +250,9 @@ const AdminInvestmentsPage = () => {
                         </TableCell>
                         <TableCell>
                           <p className="font-semibold text-foreground">{currency(investment.amount)}</p>
-                          <p className="text-xs text-muted-foreground">Qty {investment.quantity}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {t("admin.quantityShort")} <bdi dir="ltr">{investment.quantity}</bdi>
+                          </p>
                         </TableCell>
                         <TableCell><StatusBadge status={investment.status} /></TableCell>
                         <TableCell className="text-muted-foreground">

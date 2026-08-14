@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import authService, { User } from "@/services/authService";
+import authService, { type RegisterPayload, type User } from "@/services/authService";
 import { getErrorMessage } from "@/services/api";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
@@ -9,8 +9,9 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (data: any) => Promise<void>;
+  register: (data: RegisterPayload) => Promise<void>;
   logout: () => Promise<void>;
+  refreshUser: () => Promise<User | null>;
   isAuthenticated: boolean;
 }
 
@@ -46,18 +47,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       await changeLanguage(data.preferred_language);
       setUser(data);
       toast.success(t("auth.welcomeBack"));
-    } catch (error: any) {
+    } catch (error: unknown) {
       const message = getErrorMessage(error, t("auth.invalidCredentials"));
       toast.error(message);
       throw error;
     }
   };
 
-  const register = async (data: any) => {
+  const register = async (data: RegisterPayload) => {
     try {
       await authService.register(data);
       toast.success(t("auth.registrationSuccess"));
-    } catch (error: any) {
+    } catch (error: unknown) {
       const message = getErrorMessage(error, t("auth.registrationFailed"));
       toast.error(message);
       throw error;
@@ -73,6 +74,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const refreshUser = async () => {
+    const token = localStorage.getItem("accessToken");
+    if (!token) return null;
+    const refreshed = await authService.getCurrentUser();
+    localStorage.setItem("user", JSON.stringify(refreshed));
+    setUser(refreshed);
+    return refreshed;
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -81,6 +91,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         login,
         register,
         logout,
+        refreshUser,
         isAuthenticated: !!user,
       }}
     >

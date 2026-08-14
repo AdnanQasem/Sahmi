@@ -64,7 +64,7 @@ const mockInvestors = [
     projectCount: 4,
     lastInvestment: new Date(Date.now() - 1000 * 60 * 60 * 24 * 2),
     status: "active",
-    projects: ["Solar Energy Initiative", "Clean Water Project"],
+    projects: ["solarEnergy", "cleanWater"],
     joinDate: new Date(Date.now() - 1000 * 60 * 60 * 24 * 90),
   },
   {
@@ -76,7 +76,7 @@ const mockInvestors = [
     projectCount: 3,
     lastInvestment: new Date(Date.now() - 1000 * 60 * 60 * 24 * 5),
     status: "active",
-    projects: ["Tech Hub Development"],
+    projects: ["techHub"],
     joinDate: new Date(Date.now() - 1000 * 60 * 60 * 24 * 60),
   },
   {
@@ -88,7 +88,7 @@ const mockInvestors = [
     projectCount: 6,
     lastInvestment: new Date(Date.now() - 1000 * 60 * 60 * 24 * 1),
     status: "premium",
-    projects: ["Solar Energy Initiative", "Clean Water Project", "Youth Education"],
+    projects: ["solarEnergy", "cleanWater", "youthEducation"],
     joinDate: new Date(Date.now() - 1000 * 60 * 60 * 24 * 180),
   },
   {
@@ -100,7 +100,7 @@ const mockInvestors = [
     projectCount: 2,
     lastInvestment: new Date(Date.now() - 1000 * 60 * 60 * 24 * 14),
     status: "active",
-    projects: ["Agricultural Innovation"],
+    projects: ["agriculturalInnovation"],
     joinDate: new Date(Date.now() - 1000 * 60 * 60 * 24 * 30),
   },
   {
@@ -112,7 +112,7 @@ const mockInvestors = [
     projectCount: 5,
     lastInvestment: new Date(Date.now() - 1000 * 60 * 60 * 24 * 3),
     status: "premium",
-    projects: ["Tech Hub Development", "Healthcare Access", "Clean Water Project"],
+    projects: ["techHub", "healthcareAccess", "cleanWater"],
     joinDate: new Date(Date.now() - 1000 * 60 * 60 * 24 * 120),
   },
   {
@@ -124,7 +124,7 @@ const mockInvestors = [
     projectCount: 2,
     lastInvestment: new Date(Date.now() - 1000 * 60 * 60 * 24 * 7),
     status: "active",
-    projects: ["Solar Energy Initiative"],
+    projects: ["solarEnergy"],
     joinDate: new Date(Date.now() - 1000 * 60 * 60 * 24 * 45),
   },
 ];
@@ -451,7 +451,7 @@ const InvestorsPage = () => {
                         <div className="flex flex-wrap items-center gap-2 mb-3">
                           {investor.projects.slice(0, 2).map((project) => (
                             <Badge key={project} variant="outline" className="text-xs border-primary/20">
-                              {project}
+                              {t(`investorPage.sampleProjects.${project}`)}
                             </Badge>
                           ))}
                           {investor.projects.length > 2 && (

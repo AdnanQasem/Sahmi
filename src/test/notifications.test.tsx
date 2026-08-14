@@ -5,8 +5,8 @@ import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { changeLanguage } from "@/i18n";
 
-const mocks = vi.hoisted(() => ({ list: vi.fn(), unreadCount: vi.fn(), markRead: vi.fn(), markAllRead: vi.fn() }));
-vi.mock("@/services/notificationService", () => ({ default: { list: mocks.list, unreadCount: mocks.unreadCount, markRead: mocks.markRead, markAllRead: mocks.markAllRead } }));
+const mocks = vi.hoisted(() => ({ list: vi.fn(), unreadCount: vi.fn(), markRead: vi.fn(), markAllRead: vi.fn(), subscribe: vi.fn(() => vi.fn()) }));
+vi.mock("@/services/notificationService", () => ({ default: { list: mocks.list, unreadCount: mocks.unreadCount, markRead: mocks.markRead, markAllRead: mocks.markAllRead, subscribe: mocks.subscribe } }));
 vi.mock("@/hooks/useAuth", () => ({ useAuth: () => ({ user: { id: "me", full_name: "Me", user_type: "investor", is_staff: false }, logout: vi.fn() }) }));
 import DashboardLayout from "@/pages/dashboard/DashboardLayout";
 

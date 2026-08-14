@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.db.models import Sum
 from rest_framework import serializers
 
 from apps.projects.models import Project
@@ -66,6 +67,29 @@ class AdminInvestmentSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Amount must be greater than zero.")
         return value
 
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        project = attrs.get("project", getattr(self.instance, "project", None))
+        amount = attrs.get("amount", getattr(self.instance, "amount", None))
+        investment_status = attrs.get("status", getattr(self.instance, "status", Investment.Status.PENDING))
+        if project and amount and investment_status in {
+            Investment.Status.PENDING,
+            Investment.Status.CONFIRMED,
+        }:
+            reserved = Investment.objects.filter(
+                project=project,
+                status__in=[Investment.Status.PENDING, Investment.Status.CONFIRMED],
+            )
+            if self.instance:
+                reserved = reserved.exclude(pk=self.instance.pk)
+            reserved_total = reserved.aggregate(total=Sum("amount"))["total"] or 0
+            remaining = project.goal_amount - reserved_total
+            if amount > remaining:
+                raise serializers.ValidationError(
+                    {"amount": f"Exceeding value. Remaining funding is {max(remaining, 0)}."}
+                )
+        return attrs
+
 
 class AdminMilestoneSerializer(serializers.ModelSerializer):
     project_detail = AdminInvestmentProjectSummarySerializer(
@@ -92,6 +116,57 @@ class AdminMilestoneSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ["id", "project_detail", "created_at", "updated_at"]
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        project = attrs.get("project", getattr(self.instance, "project", None))
+        milestone_status = attrs.get(
+            "status",
+            getattr(self.instance, "status", Milestone.Status.PENDING),
+        )
+        actual_completion_date = attrs.get(
+            "actual_completion_date",
+            getattr(self.instance, "actual_completion_date", None),
+        )
+        funding_released = attrs.get(
+            "funding_released",
+            getattr(self.instance, "funding_released", 0),
+        )
+
+        implementation_statuses = {
+            Milestone.Status.IN_PROGRESS,
+            Milestone.Status.COMPLETED,
+            Milestone.Status.DELAYED,
+        }
+        if (
+            project
+            and milestone_status in implementation_statuses
+            and project.funded_amount < project.goal_amount
+        ):
+            raise serializers.ValidationError({
+                "status": (
+                    "Implementation cannot begin until the project reaches "
+                    "100% funding."
+                )
+            })
+        if (
+            project
+            and funding_released > 0
+            and project.funded_amount < project.goal_amount
+        ):
+            raise serializers.ValidationError({
+                "funding_released": (
+                    "Project funds cannot be released until the project reaches "
+                    "100% funding."
+                )
+            })
+        if milestone_status == Milestone.Status.COMPLETED and not actual_completion_date:
+            raise serializers.ValidationError({
+                "actual_completion_date": (
+                    "Record the completion date before completing this milestone."
+                )
+            })
+        return attrs
 
 
 class AdminRepaymentSerializer(serializers.ModelSerializer):
@@ -133,3 +208,54 @@ class AdminRepaymentSerializer(serializers.ModelSerializer):
         if value <= 0:
             raise serializers.ValidationError("Amount must be greater than zero.")
         return value
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        investment = attrs.get("investment", getattr(self.instance, "investment", None))
+        scheduled_date = attrs.get(
+            "scheduled_date",
+            getattr(self.instance, "scheduled_date", None),
+        )
+        if not investment:
+            return attrs
+
+        project = investment.project
+        if project.funded_amount < project.goal_amount:
+            raise serializers.ValidationError({
+                "investment": (
+                    "Return of Investment payments cannot be scheduled until "
+                    "the project reaches 100% funding."
+                )
+            })
+
+        milestones = project.milestones.all()
+        if not milestones.exists() or milestones.exclude(
+            status=Milestone.Status.COMPLETED,
+        ).exists():
+            raise serializers.ValidationError({
+                "investment": (
+                    "Return of Investment payments cannot be scheduled until "
+                    "implementation is complete and the project is operating."
+                )
+            })
+
+        completion_dates = list(
+            milestones.values_list("actual_completion_date", flat=True)
+        )
+        if any(date is None for date in completion_dates):
+            raise serializers.ValidationError({
+                "investment": (
+                    "Every implementation milestone must have a completion date "
+                    "before Return of Investment payments can be scheduled."
+                )
+            })
+
+        operations_start_date = max(completion_dates)
+        if scheduled_date and scheduled_date < operations_start_date:
+            raise serializers.ValidationError({
+                "scheduled_date": (
+                    "The first Return of Investment payment cannot be scheduled "
+                    f"before the project became operational on {operations_start_date}."
+                )
+            })
+        return attrs

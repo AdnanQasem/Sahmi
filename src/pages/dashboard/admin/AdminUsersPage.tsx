@@ -82,12 +82,6 @@ type ConfirmAction = { type: "deactivate" | "delete"; user: AdminUser };
 
 const PAGE_SIZE = 15;
 
-const roleLabels: Record<AdminUserType, string> = {
-  investor: "Investor",
-  entrepreneur: "Entrepreneur",
-  admin: "Admin",
-};
-
 const roleClasses: Record<AdminUserType, string> = {
   investor: "bg-secondary/10 text-secondary",
   entrepreneur: "bg-primary/10 text-primary",
@@ -394,7 +388,7 @@ const AdminUsersPage = () => {
 
         <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           {[
-            { label: "Matching users", value: resultCount, icon: Users, tone: "bg-primary/10 text-primary" },
+            { label: t("admin.matchingUsers"), value: resultCount, icon: Users, tone: "bg-primary/10 text-primary" },
             { label: t("admin.activePage"), value: pageStats.active, icon: UserCheck, tone: "bg-success/10 text-success" },
             { label: t("admin.verifiedPage"), value: pageStats.verified, icon: CheckCircle2, tone: "bg-secondary/10 text-secondary" },
             { label: t("admin.staffPage"), value: pageStats.staff, icon: ShieldCheck, tone: "bg-accent/15 text-amber-700 dark:text-amber-300" },
@@ -472,13 +466,13 @@ const AdminUsersPage = () => {
             <div>
               <h2 className="font-semibold text-foreground">{t("admin.accounts")}</h2>
               <p className="mt-0.5 text-xs text-muted-foreground">
-                {usersQuery.isLoading ? "Loading users..." : `${resultCount} ${resultCount === 1 ? "account" : "accounts"} found`}
+                {usersQuery.isLoading ? t("admin.loadingUsers") : t("admin.accountsFound", { count: resultCount })}
               </p>
             </div>
             {currentUserQuery.data?.is_superuser && (
               <span className="hidden items-center gap-1.5 rounded-full bg-accent/15 px-2.5 py-1 text-xs font-semibold text-amber-700 dark:text-amber-300 sm:inline-flex">
                 <Shield className="h-3.5 w-3.5" />
-                {t("adminForm.superuser")} session
+                {t("adminForm.superuserSession")}
               </span>
             )}
           </div>
@@ -538,16 +532,18 @@ const AdminUsersPage = () => {
                         </TableCell>
                         <TableCell>
                           <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${roleClasses[account.user_type]}`}>
-                            {roleLabels[account.user_type]}
+                            {t(`roles.${account.user_type}`)}
                           </span>
                         </TableCell>
                         <TableCell>
                           <div className="space-y-1">
                             <div className={`flex items-center gap-1.5 text-xs font-medium ${account.is_verified ? "text-success" : "text-muted-foreground"}`}>
                               {account.is_verified ? <CheckCircle2 className="h-3.5 w-3.5" /> : <AlertCircle className="h-3.5 w-3.5" />}
-                              {account.is_verified ? "Verified" : "Not verified"}
+                              {t(account.is_verified ? "admin.verified" : "admin.notVerified")}
                             </div>
-                            <p className="text-[11px] text-muted-foreground">KYC {account.is_kyc_verified ? "approved" : "pending"}</p>
+                            <p className="text-[11px] text-muted-foreground">
+                              {t("admin.kycState", { state: t(account.is_kyc_verified ? "status.approved" : "status.pending") })}
+                            </p>
                           </div>
                         </TableCell>
                         <TableCell><AccessBadges user={account} /></TableCell>
@@ -580,17 +576,19 @@ const AdminUsersPage = () => {
                       <UserActions {...actionProps(account)} />
                     </div>
                     <div className="mt-4 flex flex-wrap items-center gap-2">
-                      <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${roleClasses[account.user_type]}`}>{roleLabels[account.user_type]}</span>
+                      <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${roleClasses[account.user_type]}`}>
+                        {t(`roles.${account.user_type}`)}
+                      </span>
                       <AccessBadges user={account} />
                     </div>
                     <div className="mt-4 grid grid-cols-2 gap-3 border-t border-border pt-4 text-xs">
                       <div>
                         <p className="text-muted-foreground">{t("admin.verification")}</p>
-                        <p className={`mt-1 font-semibold ${account.is_verified ? "text-success" : "text-foreground"}`}>{account.is_verified ? "Verified" : "Not verified"}</p>
+                        <p className={`mt-1 font-semibold ${account.is_verified ? "text-success" : "text-foreground"}`}>{t(account.is_verified ? "admin.verified" : "admin.notVerified")}</p>
                       </div>
                       <div>
                         <p className="text-muted-foreground">{t("admin.kyc")}</p>
-                        <p className="mt-1 font-semibold text-foreground">{account.is_kyc_verified ? "Approved" : "Pending"}</p>
+                        <p className="mt-1 font-semibold text-foreground">{t(account.is_kyc_verified ? "status.approved" : "status.pending")}</p>
                       </div>
                       <div>
                         <p className="text-muted-foreground">{t("admin.joined")}</p>
@@ -608,24 +606,24 @@ const AdminUsersPage = () => {
           ) : (
             <div className="px-6 py-16 text-center">
               <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary"><UserRound className="h-5 w-5" /></div>
-              <h3 className="mt-4 font-semibold text-foreground">{hasFilters ? "No users match these filters" : "No accounts yet"}</h3>
+              <h3 className="mt-4 font-semibold text-foreground">{t(hasFilters ? "admin.noUsersMatch" : "admin.noAccountsYet")}</h3>
               <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
-                {hasFilters ? "Try a broader search or clear the filters." : "Create the first user account to get started."}
+                {t(hasFilters ? "admin.tryBroaderUserSearch" : "admin.createFirstUser")}
               </p>
               <Button size="sm" className="mt-4" variant={hasFilters ? "outline" : "default"} onClick={hasFilters ? clearFilters : openCreateDialog}>
                 {hasFilters ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-                {hasFilters ? "Clear filters" : "Create user"}
+                {hasFilters ? t("projects.clearFilters") : t("admin.createUser")}
               </Button>
             </div>
           )}
 
           {!usersQuery.isLoading && !usersQuery.isError && resultCount > 0 && (
             <div className="flex flex-col gap-3 border-t border-border px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-              <p className="text-xs text-muted-foreground">Page {page} of {totalPages}</p>
+              <p className="text-xs text-muted-foreground">{t("admin.pageOf", { page, pages: totalPages })}</p>
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" onClick={() => setPage((current) => Math.max(current - 1, 1))} disabled={!usersQuery.data?.previous || usersQuery.isFetching}>
-                  <ChevronLeft className="h-4 w-4" />{t("common.previous")}</Button>
-                <Button variant="outline" size="sm" onClick={() => setPage((current) => current + 1)} disabled={!usersQuery.data?.next || usersQuery.isFetching}>{t("common.next")}<ChevronRight className="h-4 w-4" />
+                  <ChevronLeft className="h-4 w-4 rtl-flip" />{t("common.previous")}</Button>
+                <Button variant="outline" size="sm" onClick={() => setPage((current) => current + 1)} disabled={!usersQuery.data?.next || usersQuery.isFetching}>{t("common.next")}<ChevronRight className="h-4 w-4 rtl-flip" />
                 </Button>
               </div>
             </div>
@@ -670,9 +668,7 @@ const AdminUsersPage = () => {
               <AlertDialogTitle>{t(confirmAction?.type === "delete" ? "adminForm.deleteAccountQuestion" : "adminForm.deactivateAccountQuestion")}</AlertDialogTitle>
               <AlertDialogDescription>
                 {confirmAction?.type === "delete" ? (
-                  <>{t("admin.deleting")}<strong className="font-semibold text-foreground">{confirmAction.user.full_name || confirmAction.user.email}</strong> also
-                    permanently deletes their owned projects, investments, repayments, milestones, and notifications through database cascades. This action cannot be undone.
-                  </>
+                  <>{t("admin.deleteCascade", { name: confirmAction.user.full_name || confirmAction.user.email })}</>
                 ) : (
                   <>{t("admin.accountDeactivation", { name: confirmAction?.user.full_name || confirmAction?.user.email })}</>
                 )}

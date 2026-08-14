@@ -1,4 +1,5 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Send, Search, Loader2, RefreshCw, MessageSquare, UserPlus } from "lucide-react";
 import DashboardLayout from "./DashboardLayout";
@@ -17,7 +18,7 @@ const relativeTime = (value: string | null | undefined, language: string, justNo
   if (!value) return "";
   const seconds = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 1000));
   if (seconds < 60) return justNow;
-  const locale = language === "ar" ? "ar-PS" : "en-US";
+  const locale = language === "ar" ? "ar-PS-u-nu-latn" : "en-US-u-nu-latn";
   const formatter = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
   if (seconds < 3600) return formatter.format(-Math.floor(seconds / 60), "minute");
   if (seconds < 86400) return formatter.format(-Math.floor(seconds / 3600), "hour");
@@ -27,6 +28,7 @@ const MessagesPage = () => {
   const { t, i18n } = useTranslation();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const [searchParams] = useSearchParams();
   const roleBase = user?.user_type === "investor" ? "/dashboard/investor" : "/dashboard/entrepreneur";
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
@@ -60,6 +62,18 @@ const MessagesPage = () => {
       void queryClient.invalidateQueries({ queryKey: ["conversation-unread"] });
     },
   });
+  useEffect(() => {
+    const conversationId = searchParams.get("conversation");
+    if (!conversationId || !conversations.data?.results.some((item) => item.id === conversationId)) return;
+    setSelectedId(conversationId);
+    const conversation = conversations.data.results.find((item) => item.id === conversationId);
+    if (conversation && conversation.unread_count > 0) {
+      void messagingService.markRead(conversationId).then(() => {
+        void queryClient.invalidateQueries({ queryKey: ["conversations"] });
+        void queryClient.invalidateQueries({ queryKey: ["conversation-unread"] });
+      });
+    }
+  }, [conversations.data, queryClient, searchParams]);
   const send = useMutation({
     mutationFn: ({ id, body }: { id: string; body: string }) => messagingService.sendMessage(id, body),
     onSuccess: () => {

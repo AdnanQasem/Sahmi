@@ -1,5 +1,6 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { useTranslation } from "react-i18next";
 
 interface ProtectedRouteProps {
   allowedUserTypes?: Array<"investor" | "entrepreneur" | "admin">;
@@ -10,11 +11,12 @@ interface ProtectedRouteProps {
 const ProtectedRoute = ({ allowedUserTypes, requireStaff = false, redirectTo = "/" }: ProtectedRouteProps) => {
   const { isAuthenticated, loading, user } = useAuth();
   const location = useLocation();
+  const { t } = useTranslation();
 
   if (loading) {
     return (
       <div className="container flex min-h-[60vh] items-center justify-center text-sm text-muted-foreground">
-        Checking your session...
+        {t("auth.checkingSession")}
       </div>
     );
   }

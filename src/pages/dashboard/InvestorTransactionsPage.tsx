@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { formatNumber, formatPercent } from "@/i18n/format";
+import { calculateFundingPercent, fundingProgressBarWidth, fundingProgressColor } from "@/lib/fundingProgress";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -77,8 +78,12 @@ const InvestorTransactionsPage = () => {
   const latestTransaction = transactions[0];
   const ledgerTransactions = filteredTransactions.filter((transaction) => transaction.id !== latestTransaction?.id);
   const latestProjectProgress = latestTransaction?.project_detail
-    ? Math.round(Number(latestTransaction.project_detail.funding_percent || 0))
+    ? calculateFundingPercent(
+        Number(latestTransaction.project_detail.funded_amount),
+        Number(latestTransaction.project_detail.goal_amount),
+      )
     : 0;
+  const latestProgressColor = fundingProgressColor(latestProjectProgress);
 
   const openTransaction = (transaction: Investment) => {
     setSelectedTransaction(transaction);
@@ -186,12 +191,15 @@ const InvestorTransactionsPage = () => {
                       </div>
                       <div>
                         <p className="mb-1 flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                          {t("transactions.progress")} <bdi dir="ltr">{formatPercent(latestProjectProgress)}</bdi>
+                          {t("transactions.progress")} <bdi dir="ltr" style={{ color: latestProgressColor }}>{formatPercent(latestProjectProgress)}</bdi>
                         </p>
                         <div className="h-1.5 w-full overflow-hidden rounded-full bg-primary/10">
                           <div 
-                            className="h-full rounded-full bg-gradient-to-r from-primary to-secondary transition-all duration-1000 ease-out" 
-                            style={{ width: `${Math.min(100, latestProjectProgress)}%` }}
+                            className="h-full rounded-full transition-all duration-1000 ease-out"
+                            style={{
+                              width: `${fundingProgressBarWidth(latestProjectProgress)}%`,
+                              backgroundColor: latestProgressColor,
+                            }}
                           />
                         </div>
                       </div>

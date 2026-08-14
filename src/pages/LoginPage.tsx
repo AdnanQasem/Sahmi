@@ -265,7 +265,7 @@ const LoginPage = () => {
                     >
                       <Loader2 className="h-5 w-5 animate-spin" />{t("auth.loggingIn")}</motion.div>
                   ) : (
-                    <span className="flex items-center gap-2">{t("auth.login")}<ArrowRight className="h-5 w-5" />
+                    <span className="flex items-center gap-2">{t("auth.login")}<ArrowRight className="h-5 w-5 rtl-flip" />
                     </span>
                   )}
                 </Button>
@@ -277,12 +277,12 @@ const LoginPage = () => {
             variants={fadeInUp}
             className="mt-8 text-center text-sm text-muted-foreground"
           >
-            Don't have an account?{" "}
+            {t("auth.noAccount")}{" "}
             <Link
               to="/register"
               className="font-semibold text-primary hover:text-primary/80 transition-colors inline-flex items-center gap-1"
             >{t("auth.createAccount")}<motion.span whileHover={{ x: 2 }}>
-                <ArrowRight className="h-4 w-4" />
+                <ArrowRight className="h-4 w-4 rtl-flip" />
               </motion.span>
             </Link>
           </motion.p>

@@ -97,7 +97,7 @@ const AdminCategoriesPage = () => {
       <div className="space-y-8">
         <AdminPageHeader
           icon={Tags}
-          eyebrow="Catalogue administration"
+          eyebrow={t("admin.catalogueAdministration")}
           title={t("admin.categoriesTitle")}
           description={t("admin.categoriesText")}
           actions={
@@ -132,8 +132,8 @@ const AdminCategoriesPage = () => {
               </div>
               <p className="mt-1 text-sm text-muted-foreground">
                 {categoriesQuery.isLoading
-                  ? "Loading the catalogue..."
-                  : `${categories.length} ${categories.length === 1 ? "category" : "categories"} available.`}
+                  ? t("admin.loadingCatalogue")
+                  : t("admin.categoriesAvailable", { count: categories.length })}
               </p>
             </div>
           </div>
@@ -169,12 +169,12 @@ const AdminCategoriesPage = () => {
                         <Tags className="h-4 w-4" />
                       </div>
                       <span className="rounded-full bg-muted px-2.5 py-1 text-[11px] font-semibold text-muted-foreground">
-                        {projectCount} {projectCount === 1 ? "project" : "projects"}
+                        {t("admin.projectCount", { count: projectCount })}
                       </span>
                     </div>
                     <h3 className="mt-4 font-semibold text-foreground">{category.name}</h3>
                     <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
-                      {category.description || "No description has been added yet."}
+                      {category.description || t("admin.noCategoryDescription")}
                     </p>
                     <div className="mt-auto flex items-center justify-end gap-1 pt-4">
                       <Button
@@ -193,13 +193,13 @@ const AdminCategoriesPage = () => {
                         disabled={projectCount > 0}
                         aria-label={
                           projectCount > 0
-                            ? category.name + " is in use and cannot be deleted"
-                            : "Delete " + category.name
+                            ? t("admin.categoryInUse", { name: category.name })
+                            : t("admin.deleteNamedCategory", { name: category.name })
                         }
                         title={
                           projectCount > 0
-                            ? "Move projects to another category before deleting this one."
-                            : "Delete category"
+                            ? t("admin.moveProjectsBeforeDelete")
+                            : t("adminForm.deleteCategory")
                         }
                       >
                         <Trash2 className="h-4 w-4" />
@@ -245,8 +245,7 @@ const AdminCategoriesPage = () => {
               </div>
               <AlertDialogTitle>{t("admin.deleteCategoryQuestion")}</AlertDialogTitle>
               <AlertDialogDescription>
-                <strong className="font-semibold text-foreground">{categoryToDelete?.name}</strong> will be
-                permanently removed. Categories assigned to projects cannot be deleted.
+                {t("admin.deleteCategoryCascade", { name: categoryToDelete?.name })}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -256,7 +255,7 @@ const AdminCategoriesPage = () => {
                 disabled={deleteCategoryMutation.isPending}
                 onClick={() => categoryToDelete && deleteCategoryMutation.mutate(categoryToDelete)}
               >
-                {deleteCategoryMutation.isPending ? "Deleting..." : "Delete category"}
+                {deleteCategoryMutation.isPending ? t("common.deleting") : t("adminForm.deleteCategory")}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

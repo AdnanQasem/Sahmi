@@ -55,6 +55,9 @@ class Notification(UUIDTimestampModel):
         choices=DeliveryStatus.choices,
         default=DeliveryStatus.PENDING,
     )
+    in_app_visible = models.BooleanField(default=True)
+    email_sent_at = models.DateTimeField(null=True, blank=True)
+    email_error = models.CharField(max_length=500, blank=True)
 
     class Meta:
         ordering = ["-created_at"]

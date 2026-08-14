@@ -1,18 +1,22 @@
+from django.db import transaction
 from django.db.models.deletion import ProtectedError
 from django.utils import timezone
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
+from apps.notifications.models import Notification
+from apps.notifications.services import notify_on_commit
 from .admin_serializers import (
     AdminProjectCategorySerializer,
     AdminProjectDocumentSerializer,
     AdminProjectImageSerializer,
     AdminProjectSerializer,
 )
-from .models import Project, ProjectCategory, ProjectDocument, ProjectImage
+from .models import Project, ProjectCategory, ProjectDocument, ProjectEditRequest, ProjectImage
 from .serializers import (
     ProjectRejectionSerializer,
+    ProjectSerializer,
     ProjectStatusSerializer,
     ProjectVerificationSerializer,
 )
@@ -39,7 +43,7 @@ class AdminProjectCategoryViewSet(viewsets.ModelViewSet):
 class AdminProjectViewSet(viewsets.ModelViewSet):
     queryset = (
         Project.objects.select_related("entrepreneur", "category", "verified_by")
-        .prefetch_related("images", "supporting_documents")
+        .prefetch_related("images", "supporting_documents", "milestones", "edit_requests")
         .all()
     )
     serializer_class = AdminProjectSerializer
@@ -85,7 +89,7 @@ class AdminProjectViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"])
     def verify(self, request, pk=None):
         project = self.get_object()
-        serializer = ProjectVerificationSerializer(data=request.data)
+        serializer = ProjectVerificationSerializer(data=request.data, context={"project": project})
         serializer.is_valid(raise_exception=True)
         project.is_verified = True
         project.status = Project.Status.ACTIVE
@@ -136,6 +140,81 @@ class AdminProjectViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         project.status = serializer.validated_data["status"]
         project.save(update_fields=["status", "updated_at"])
+        return Response(self.get_serializer(project).data)
+
+    def _pending_edit(self, project):
+        pending = project.edit_requests.filter(
+            status=ProjectEditRequest.Status.PENDING,
+        ).first()
+        if pending is None:
+            from rest_framework.exceptions import NotFound
+            raise NotFound("This project has no pending edit request.")
+        return pending
+
+    @action(detail=True, methods=["post"], url_path="approve-edit")
+    @transaction.atomic
+    def approve_edit(self, request, pk=None):
+        project = self.get_object()
+        pending = self._pending_edit(project)
+        serializer = ProjectSerializer(
+            project,
+            data=pending.payload,
+            partial=True,
+            context={"request": request},
+        )
+        serializer.is_valid(raise_exception=True)
+        project = serializer.save()
+
+        file_fields = ("cover_image", "business_plan", "financial_projections", "ownership_proof")
+        changed_files = []
+        for field in file_fields:
+            staged_file = getattr(pending, field)
+            if staged_file:
+                setattr(project, field, staged_file.name)
+                changed_files.append(field)
+        if changed_files:
+            project.save(update_fields=[*changed_files, "updated_at"])
+
+        pending.status = ProjectEditRequest.Status.APPROVED
+        pending.review_notes = str(request.data.get("verification_notes", ""))[:2000]
+        pending.reviewed_by = request.user
+        pending.reviewed_at = timezone.now()
+        pending.save(update_fields=["status", "review_notes", "reviewed_by", "reviewed_at", "updated_at"])
+        notify_on_commit(
+            recipient=project.entrepreneur,
+            notification_type=Notification.NotificationType.PROJECT_VERIFIED,
+            title="Project edits approved",
+            body=f"Your edits to “{project.title}” were approved and published.",
+            actor=request.user,
+            target_type="project",
+            target_id=str(project.id),
+        )
+        return Response(self.get_serializer(project).data)
+
+    @action(detail=True, methods=["post"], url_path="reject-edit")
+    def reject_edit(self, request, pk=None):
+        project = self.get_object()
+        pending = self._pending_edit(project)
+        notes = str(request.data.get("verification_notes", "")).strip()
+        if not notes:
+            return Response(
+                {"verification_notes": ["Review notes are required when rejecting edits."]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        pending.status = ProjectEditRequest.Status.REJECTED
+        pending.review_notes = notes[:2000]
+        pending.reviewed_by = request.user
+        pending.reviewed_at = timezone.now()
+        pending.save(update_fields=["status", "review_notes", "reviewed_by", "reviewed_at", "updated_at"])
+        notify_on_commit(
+            recipient=project.entrepreneur,
+            notification_type=Notification.NotificationType.PROJECT_REJECTED,
+            title="Project edits need revision",
+            body=f"Your proposed edits to “{project.title}” were not approved. Review the administrator notes.",
+            actor=request.user,
+            target_type="project",
+            target_id=str(project.id),
+        )
         return Response(self.get_serializer(project).data)
 
 

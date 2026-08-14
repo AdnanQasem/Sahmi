@@ -190,7 +190,7 @@ const InvestorDashboard = () => {
 
         <div className="grid gap-6 lg:grid-cols-5">
           <div className="lg:col-span-3 rounded-2xl border border-border bg-card p-6 shadow-sm">
-            <SectionHeader title={t("dashboard.portfolioPerformance")} subtitle="Investment amount grouped by month" />
+            <SectionHeader title={t("dashboard.portfolioPerformance")} subtitle={t("dashboard.investmentByMonth")} />
             <ResponsiveContainer width="100%" height={220}>
               <AreaChart data={performance}>
                 <defs>
@@ -209,7 +209,7 @@ const InvestorDashboard = () => {
           </div>
 
           <div className="lg:col-span-2 rounded-2xl border border-border bg-card p-6 shadow-sm">
-            <SectionHeader title={t("dashboard.portfolioAllocation")} subtitle="By project category" />
+            <SectionHeader title={t("dashboard.portfolioAllocation")} subtitle={t("dashboard.byProjectCategory")} />
             {allocation.length ? (
               <div className="flex flex-col sm:flex-row items-center gap-6">
                 <div className="relative w-full sm:w-48 h-48">
@@ -278,26 +278,26 @@ const InvestorDashboard = () => {
                 </div>
               </div>
             ) : (
-              <EmptyState icon={BookMarked} title={t("dashboard.noAllocation")} description="Make your first investment to see category allocation." ctaLabel={t("home.browse")} ctaHref="/projects" />
+              <EmptyState icon={BookMarked} title={t("dashboard.noAllocation")} description={t("dashboard.firstInvestmentAllocation")} ctaLabel={t("home.browse")} ctaHref="/projects" />
             )}
           </div>
         </div>
 
         <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
           <div className="px-6 py-5 border-b border-border">
-            <SectionHeader title={t("dashboard.recentTransactions")} subtitle="Your last 5 project payments from the backend" />
+            <SectionHeader title={t("dashboard.recentTransactions")} subtitle={t("dashboard.recentBackendPayments", { count: 5 })} />
           </div>
           {investments.length === 0 ? (
             <div className="p-6">
-              <EmptyState icon={Briefcase} title={t("dashboard.noTransactions")} description="Start exploring verified Palestinian projects and make your first investment today." ctaLabel={t("home.browse")} ctaHref="/projects" />
+              <EmptyState icon={Briefcase} title={t("dashboard.noTransactions")} description={t("dashboard.firstInvestmentPrompt")} ctaLabel={t("home.browse")} ctaHref="/projects" />
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border bg-muted/30">
-                    {["Project", "Amount Paid", "Payment", "Status", "Date & Time", "Details"].map((header) => (
-                      <th key={header} className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">{header}</th>
+                    {["project", "amountPaid", "payment", "status", "dateTime", "details"].map((header) => (
+                      <th key={header} className="px-6 py-3 text-start text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t(`dashboard.table.${header}`)}</th>
                     ))}
                   </tr>
                 </thead>
@@ -319,7 +319,7 @@ const InvestorDashboard = () => {
                       <td className="px-6 py-4">
                         <div className="min-w-[200px]">
                           <p className="font-medium text-foreground">{getProjectTitle(investment)}</p>
-                          <Badge variant="outline" className="mt-1 text-xs">{investment.project_detail?.category_detail?.name ?? "Project"}</Badge>
+                          <Badge variant="outline" className="mt-1 text-xs">{investment.project_detail?.category_detail?.name ?? t("projects.projectFallback")}</Badge>
                         </div>
                       </td>
                       <td className="px-6 py-4 font-semibold text-foreground">{currency(amountOf(investment))}</td>
@@ -350,9 +350,9 @@ const InvestorDashboard = () => {
         </div>
 
         <div id="watched-projects" className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-          <SectionHeader title={t("dashboard.watchedProjects")} subtitle="Live verified projects from the backend" />
+          <SectionHeader title={t("dashboard.watchedProjects")} subtitle={t("dashboard.liveVerifiedBackendProjects")} />
           {availableProjects.length === 0 ? (
-            <EmptyState icon={CheckCircle} title={t("dashboard.noLiveProjects")} description="No verified projects are available right now." />
+            <EmptyState icon={CheckCircle} title={t("dashboard.noLiveProjects")} description={t("dashboard.noVerifiedProjects")} />
           ) : (
             <div className="space-y-4">
               {availableProjects.map((project: Project) => (
@@ -361,8 +361,11 @@ const InvestorDashboard = () => {
                     <div>
                       <p className="font-semibold text-foreground text-sm">{project.title}</p>
                       <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
-                        <Badge variant="outline" className="text-xs">{project.category_detail?.name ?? "Project"}</Badge>
-                        <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {project.days_left ?? 0}d left</span>
+                        <Badge variant="outline" className="text-xs">{project.category_detail?.name ?? t("projects.projectFallback")}</Badge>
+                        <span className="flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          {t("dashboard.daysRemaining", { count: project.days_left ?? 0 })}
+                        </span>
                       </div>
                     </div>
                     <Button size="sm" variant="ghost" asChild className="h-8 text-xs text-primary hover:bg-primary/5">

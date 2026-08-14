@@ -119,6 +119,7 @@ const AdminProjectFileFields = ({ form, update, project }: AdminProjectFilesProp
       fileKey: "business_plan",
       clearKey: "clear_business_plan",
       currentUrl: project?.business_plan,
+      accept: "application/pdf,.pdf",
     },
     {
       id: "admin-project-financial-projections",
@@ -126,6 +127,7 @@ const AdminProjectFileFields = ({ form, update, project }: AdminProjectFilesProp
       fileKey: "financial_projections",
       clearKey: "clear_financial_projections",
       currentUrl: project?.financial_projections,
+      accept: "application/pdf,.pdf",
     },
     {
       id: "admin-project-ownership-proof",
@@ -133,6 +135,7 @@ const AdminProjectFileFields = ({ form, update, project }: AdminProjectFilesProp
       fileKey: "ownership_proof",
       clearKey: "clear_ownership_proof",
       currentUrl: project?.ownership_proof,
+      accept: "application/pdf,.pdf",
     },
   ];
 

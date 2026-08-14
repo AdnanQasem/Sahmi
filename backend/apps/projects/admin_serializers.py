@@ -5,7 +5,7 @@ from django.utils.text import slugify
 from rest_framework import serializers
 from rest_framework.validators import UniqueValidator
 
-from .models import Project, ProjectCategory, ProjectDocument, ProjectImage
+from .models import Project, ProjectCategory, ProjectDocument, ProjectEditRequest, ProjectImage
 from .serializers import ProjectSerializer
 
 
@@ -64,6 +64,7 @@ class AdminProjectDocumentSerializer(serializers.ModelSerializer):
 
 
 class AdminProjectSerializer(ProjectSerializer):
+    pending_edit_request = serializers.SerializerMethodField()
     slug = serializers.SlugField(
         required=False,
         allow_blank=True,
@@ -113,6 +114,7 @@ class AdminProjectSerializer(ProjectSerializer):
             "minimum_investment",
             "expected_roi",
             "cost_items",
+            "faqs",
             "funding_period_days",
             "start_date",
             "end_date",
@@ -144,6 +146,9 @@ class AdminProjectSerializer(ProjectSerializer):
             "milestones",
             "days_left",
             "funding_percent",
+            "pending_edit_request",
+            "implementation_complete",
+            "updates",
             "deleted_at",
             "created_at",
             "updated_at",
@@ -157,10 +162,41 @@ class AdminProjectSerializer(ProjectSerializer):
             "supporting_documents",
             "days_left",
             "funding_percent",
+            "pending_edit_request",
+            "implementation_complete",
+            "updates",
             "created_at",
             "updated_at",
         ]
         extra_kwargs = {"slug": {"required": False, "allow_blank": True}}
+
+    def get_pending_edit_request(self, obj):
+        pending = obj.edit_requests.filter(status=ProjectEditRequest.Status.PENDING).first()
+        if pending is None:
+            return None
+        request = self.context.get("request")
+        file_urls = {}
+        for field in ("cover_image", "business_plan", "financial_projections", "ownership_proof"):
+            file = getattr(pending, field)
+            if file:
+                url = file.url
+                file_urls[field] = request.build_absolute_uri(url) if request else url
+        changes = pending.changes
+        if not changes:
+            current = ProjectSerializer(obj, context=self.context).data
+            changes = {
+                field: {"before": current.get(field), "after": after}
+                for field, after in pending.payload.items()
+                if current.get(field) != after
+            }
+        return {
+            "id": str(pending.id),
+            "payload": pending.payload,
+            "changes": changes,
+            "files": file_urls,
+            "submitted_by": str(pending.submitted_by_id),
+            "created_at": pending.created_at,
+        }
 
     def validate(self, attrs):
         attrs = super().validate(attrs)
@@ -183,6 +219,68 @@ class AdminProjectSerializer(ProjectSerializer):
                 attrs["verified_by"] = request.user if request else None
             if "verified_at" not in attrs and not getattr(instance, "verified_at", None):
                 attrs["verified_at"] = timezone.now()
+
+        next_return_date = attrs.get(
+            "next_repayment_date",
+            getattr(self.instance, "next_repayment_date", None),
+        )
+        if next_return_date:
+            funded_amount = attrs.get(
+                "funded_amount",
+                getattr(self.instance, "funded_amount", 0),
+            )
+            goal_amount = attrs.get(
+                "goal_amount",
+                getattr(self.instance, "goal_amount", 0),
+            )
+            if funded_amount < goal_amount:
+                raise serializers.ValidationError({
+                    "next_repayment_date": (
+                        "Return of Investment payments cannot be scheduled until "
+                        "the project reaches 100% funding."
+                    )
+                })
+
+            milestone_data = attrs.get("milestones")
+            if milestone_data is not None:
+                completion_dates = [
+                    milestone.get("actual_completion_date")
+                    for milestone in milestone_data
+                    if milestone.get("status") == "completed"
+                ]
+                implementation_complete = bool(milestone_data) and all(
+                    milestone.get("status") == "completed"
+                    and milestone.get("actual_completion_date")
+                    for milestone in milestone_data
+                )
+            elif self.instance:
+                milestones = self.instance.milestones.all()
+                implementation_complete = milestones.exists() and not milestones.exclude(
+                    status="completed",
+                ).exists()
+                completion_dates = list(
+                    milestones.values_list("actual_completion_date", flat=True)
+                )
+                implementation_complete = implementation_complete and all(completion_dates)
+            else:
+                implementation_complete = False
+                completion_dates = []
+
+            if not implementation_complete:
+                raise serializers.ValidationError({
+                    "next_repayment_date": (
+                        "Return of Investment payments cannot be scheduled until "
+                        "implementation is complete and the project is operating."
+                    )
+                })
+            operations_start_date = max(completion_dates)
+            if next_return_date < operations_start_date:
+                raise serializers.ValidationError({
+                    "next_repayment_date": (
+                        "The first Return of Investment payment cannot be scheduled "
+                        f"before the project became operational on {operations_start_date}."
+                    )
+                })
         return attrs
 
     @staticmethod

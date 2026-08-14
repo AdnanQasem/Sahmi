@@ -22,7 +22,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import StatusBadge from "@/components/dashboard/StatusBadge";
 import type { Project, ProjectModerationPayload } from "@/services/projectsService";
-import { formatCurrency, formatDate } from "@/i18n/format";
+import { formatCurrency, formatDate, formatPercent } from "@/i18n/format";
+import { calculateFundingPercent, fundingProgressBarWidth, fundingProgressColor } from "@/lib/fundingProgress";
 
 interface AdminProjectListItemProps {
   project: Project;
@@ -42,7 +43,11 @@ const AdminProjectListItem = ({
   const { t } = useTranslation();
   const pendingReview = !project.is_verified && project.status === "draft";
   const isArchived = Boolean(project.deleted_at);
-  const fundedPercent = Math.min(Math.max(Number(project.funding_percent) || 0, 0), 100);
+  const fundedPercent = calculateFundingPercent(
+    Number(project.funded_amount),
+    Number(project.goal_amount),
+  );
+  const progressColor = fundingProgressColor(fundedPercent);
 
   return (
     <article className="group rounded-2xl border border-border bg-card p-4 transition-all duration-200 hover:border-primary/20 hover:shadow-md sm:p-5">
@@ -106,12 +111,16 @@ const AdminProjectListItem = ({
           </div>
           <div className="col-span-2 h-1.5 overflow-hidden rounded-full bg-muted">
             <div
-              className="h-full rounded-full bg-gradient-to-r from-primary to-secondary transition-[width] duration-500"
-              style={{ width: fundedPercent + "%" }}
+              className="h-full rounded-full transition-[width] duration-500"
+              style={{
+                width: fundingProgressBarWidth(fundedPercent) + "%",
+                backgroundColor: progressColor,
+              }}
               role="progressbar"
               aria-valuemin={0}
+              aria-valuenow={fundingProgressBarWidth(fundedPercent)}
               aria-valuemax={100}
-              aria-valuenow={fundedPercent}
+              aria-valuetext={formatPercent(fundedPercent)}
             />
           </div>
         </div>
@@ -159,7 +168,7 @@ const AdminProjectListItem = ({
               {pendingReview && (
                 <DropdownMenuItem onSelect={() => onReview(project)}>
                   <CheckCircle2 className="me-2 h-4 w-4" />
-                  {t("admin.reviewQueue")} submission
+                  {t("adminForm.reviewSubmission")}
                 </DropdownMenuItem>
               )}
               <DropdownMenuSeparator />

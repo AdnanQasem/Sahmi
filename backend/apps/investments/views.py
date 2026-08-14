@@ -1,4 +1,5 @@
 from django.db import transaction
+from django.db.models import Sum
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
@@ -9,6 +10,7 @@ from .models import Investment, Milestone, Repayment
 from .permissions import InvestmentPermission, MilestonePermission, RepaymentPermission
 from .serializers import InvestmentSerializer, MilestoneSerializer, RepaymentSerializer
 from .services import sync_project_totals
+from apps.projects.models import Project
 
 
 class InvestmentViewSet(viewsets.ModelViewSet):
@@ -34,7 +36,28 @@ class InvestmentViewSet(viewsets.ModelViewSet):
                 | queryset.filter(project__entrepreneur=user)).distinct()
 
     def perform_create(self, serializer):
-        investment = serializer.save(investor=self.request.user)
+        with transaction.atomic():
+            project = Project.objects.select_for_update().get(
+                pk=serializer.validated_data["project"].pk
+            )
+            if not project.is_verified or project.status != Project.Status.ACTIVE:
+                raise ValidationError(
+                    {"project": "Project is not currently accepting investments."}
+                )
+            reserved = (
+                Investment.objects.filter(
+                    project=project,
+                    status__in=[Investment.Status.PENDING, Investment.Status.CONFIRMED],
+                ).aggregate(total=Sum("amount"))["total"]
+                or 0
+            )
+            amount = serializer.validated_data["amount"]
+            remaining = project.goal_amount - reserved
+            if amount > remaining:
+                raise ValidationError(
+                    {"amount": f"Exceeding value. Remaining funding is {max(remaining, 0)}."}
+                )
+            investment = serializer.save(investor=self.request.user, project=project)
         from apps.notifications.models import Notification
         from apps.notifications.services import notify_on_commit
 
@@ -116,14 +139,29 @@ class InvestmentViewSet(viewsets.ModelViewSet):
     )
     def confirm(self, request, pk=None):
         """Only an authorized staff member may confirm an investment."""
-        investment = self.get_object()
-        if investment.status == Investment.Status.CONFIRMED:
-            return Response(InvestmentSerializer(investment).data)
-        if investment.status != Investment.Status.PENDING:
-            raise ValidationError(
-                "Only pending investments can be confirmed by an administrator."
-            )
         with transaction.atomic():
+            investment = Investment.objects.select_for_update().select_related(
+                "project", "project__entrepreneur", "investor"
+            ).get(pk=self.get_object().pk)
+            project = Project.objects.select_for_update().get(pk=investment.project_id)
+            if investment.status == Investment.Status.CONFIRMED:
+                return Response(InvestmentSerializer(investment).data)
+            if investment.status != Investment.Status.PENDING:
+                raise ValidationError(
+                    "Only pending investments can be confirmed by an administrator."
+                )
+            confirmed_total = (
+                Investment.objects.filter(
+                    project=project,
+                    status=Investment.Status.CONFIRMED,
+                ).aggregate(total=Sum("amount"))["total"]
+                or 0
+            )
+            if confirmed_total + investment.amount > project.goal_amount:
+                remaining = max(project.goal_amount - confirmed_total, 0)
+                raise ValidationError(
+                    {"amount": f"Exceeding value. Remaining funding is {remaining}."}
+                )
             investment.status = Investment.Status.CONFIRMED
             investment.save(update_fields=["status", "updated_at"])
             sync_project_totals(investment.project_id)
@@ -134,7 +172,7 @@ class InvestmentViewSet(viewsets.ModelViewSet):
             recipient=investment.investor,
             notification_type=Notification.NotificationType.INVESTMENT_STATUS_CHANGED,
             title="Investment confirmed",
-            body=f"Your investment of {investment.amount} has been confirmed.",
+            body=f"An investment of {investment.amount} on your project {investment.project.title} has been confirmed.",
             actor=request.user,
             target_type="investment",
             target_id=str(investment.id),
@@ -145,7 +183,7 @@ class InvestmentViewSet(viewsets.ModelViewSet):
                 recipient=owner,
                 notification_type=Notification.NotificationType.INVESTMENT_STATUS_CHANGED,
                 title="Investment confirmed",
-                body=f"An investment of {investment.amount} on your project “{investment.project.title}” has been confirmed.",
+                body=f"An investment of {investment.amount} on your project {investment.project.title} has been confirmed.",
                 actor=request.user,
                 target_type="investment",
                 target_id=str(investment.id),

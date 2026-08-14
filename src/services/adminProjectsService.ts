@@ -68,6 +68,7 @@ export interface AdminProject {
   minimum_investment: string;
   expected_roi: string;
   cost_items: ProjectCostItem[];
+  faqs: import("./projectsService").ProjectFaq[];
   milestones: ProjectMilestone[];
   funding_period_days: number;
   start_date: string;
@@ -118,6 +119,7 @@ export interface AdminProjectPayload {
   minimum_investment?: string;
   expected_roi?: string;
   cost_items: ProjectCostItem[];
+  faqs?: import("./projectsService").ProjectFaq[];
   milestones: ProjectMilestone[];
   funding_period_days?: number;
   start_date?: string;
@@ -250,6 +252,16 @@ const adminProjectsService = {
 
   rejectProject: async (id: string, verificationNotes: string): Promise<AdminProject> =>
     await api.post("admin/projects/" + id + "/reject/", {
+      verification_notes: verificationNotes,
+    }),
+
+  approveProjectEdit: async (id: string, verificationNotes = ""): Promise<AdminProject> =>
+    await api.post("admin/projects/" + id + "/approve-edit/", {
+      verification_notes: verificationNotes,
+    }),
+
+  rejectProjectEdit: async (id: string, verificationNotes: string): Promise<AdminProject> =>
+    await api.post("admin/projects/" + id + "/reject-edit/", {
       verification_notes: verificationNotes,
     }),
 
