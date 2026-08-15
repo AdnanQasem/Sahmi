@@ -1,0 +1,23 @@
+erDiagram
+  USER ||--o{ PROJECT : owns
+  USER ||--o{ INVESTMENT : makes
+  USER ||--o{ NOTIFICATION : receives
+  USER ||--|| NOTIFICATION_PREFERENCE : has
+  USER ||--o{ PROJECT_EDIT_REQUEST : submits
+  USER ||--o{ WITHDRAWAL_REQUEST : requests_reviews_releases
+  USER ||--o{ AUDIT_LOG : acts
+  USER ||--o{ CONVERSATION_PARTICIPANT : joins
+  USER ||--o{ MESSAGE : sends
+  PROJECT_CATEGORY ||--o{ PROJECT : categorizes
+  PROJECT ||--o{ PROJECT_IMAGE : has
+  PROJECT ||--o{ PROJECT_DOCUMENT : has
+  PROJECT ||--o{ PROJECT_EDIT_REQUEST : proposed_changes
+  PROJECT ||--o{ INVESTMENT : receives
+  PROJECT ||--|| PROJECT_FUNDING_ACCOUNT : owns
+  PROJECT ||--o{ MILESTONE : plans
+  PROJECT ||--o{ WITHDRAWAL_REQUEST : funds
+  PROJECT ||--o{ CONVERSATION : context
+  INVESTMENT ||--o{ REPAYMENT : schedules
+  MILESTONE ||--o{ WITHDRAWAL_REQUEST : allocation
+  CONVERSATION ||--o{ CONVERSATION_PARTICIPANT : contains
+  CONVERSATION ||--o{ MESSAGE : contains

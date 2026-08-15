@@ -123,18 +123,22 @@ const AdminProjectFinanceFields = ({ form, update, errors }: AdminProjectSection
         <Label htmlFor="admin-project-status">{t("adminForm.campaignStatus")}</Label>
         <Select
           value={form.status || "draft"}
+          disabled
           onValueChange={(value) => update("status", value as AdminProject["status"])}
         >
           <SelectTrigger id="admin-project-status"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="draft">{t("status.draft")}</SelectItem>
-            <SelectItem value="active">{t("status.active")}</SelectItem>
+            <SelectItem value="fundraising">{t("status.fundraising")}</SelectItem>
             <SelectItem value="paused">{t("status.paused")}</SelectItem>
-            <SelectItem value="closed">{t("status.closed")}</SelectItem>
-            <SelectItem value="successful">{t("status.successful")}</SelectItem>
+            <SelectItem value="fully_funded">{t("status.fully_funded")}</SelectItem>
+            <SelectItem value="implementation">{t("status.implementation")}</SelectItem>
+            <SelectItem value="completed">{t("status.completed")}</SelectItem>
             <SelectItem value="failed">{t("status.failed")}</SelectItem>
+            <SelectItem value="cancelled">{t("status.cancelled")}</SelectItem>
           </SelectContent>
         </Select>
+        <p className="text-xs text-muted-foreground">{t("funds.statusManaged")}</p>
       </div>
       <div className="space-y-2">
         <Label htmlFor="admin-project-repayment-status">{t("adminForm.repaymentStatus")}</Label>

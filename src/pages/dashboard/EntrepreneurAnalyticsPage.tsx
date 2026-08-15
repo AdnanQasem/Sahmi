@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { motion, type Variants } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
+import { dashboardPollingOptions } from "@/lib/dashboardPolling";
 import {
   Area,
   AreaChart,
@@ -194,17 +195,20 @@ const EntrepreneurAnalyticsPage = () => {
   const projectsQuery = useQuery({
     queryKey: ["dashboard", "entrepreneur", "analytics", "projects"],
     queryFn: projectsService.listMyProjects,
-    refetchInterval: 5000,
+    ...dashboardPollingOptions,
   });
 
   const investmentsQuery = useQuery({
     queryKey: ["dashboard", "entrepreneur", "analytics", "investments"],
     queryFn: investmentsService.listInvestments,
-    refetchInterval: 5000,
+    ...dashboardPollingOptions,
   });
 
   const projects = projectsQuery.data?.results ?? [];
-  const investments = investmentsQuery.data?.results ?? [];
+  const ownedProjectIds = new Set(projects.map((project) => project.id));
+  const investments = (investmentsQuery.data?.results ?? []).filter(
+    (investment) => ownedProjectIds.has(investment.project_detail?.id ?? investment.project),
+  );
   const isLoading = projectsQuery.isLoading || investmentsQuery.isLoading;
 
   const confirmedInvestments = investments.filter(
@@ -216,8 +220,8 @@ const EntrepreneurAnalyticsPage = () => {
   const totalInvestors = projects.reduce((sum, project) => sum + Number(project.investor_count || 0), 0);
   const rawTotalViews = projects.reduce((sum, project) => sum + Number(project.view_count || 0), 0);
   const totalViews = Math.max(rawTotalViews, totalInvestors > 0 ? Math.ceil(totalInvestors * 2.5) : 0);
-  const activeProjects = projects.filter((project) => project.status === "active").length;
-  const fundedProjects = projects.filter((project) => project.status === "successful" || projectFundingPercent(project) >= 100).length;
+  const activeProjects = projects.filter((project) => project.status === "fundraising").length;
+  const fundedProjects = projects.filter((project) => ["fully_funded", "implementation", "completed"].includes(project.status) || projectFundingPercent(project) >= 100).length;
   const avgFunding = projects.length
     ? Math.round(projects.reduce((sum, project) => sum + projectFundingPercent(project), 0) / projects.length)
     : 0;
@@ -404,7 +408,7 @@ const EntrepreneurAnalyticsPage = () => {
                     </div>
                   </div>
                 </div>
-                {projects.filter(p => p.status === 'active').length === 0 ? (
+                {projects.filter(p => p.status === 'fundraising').length === 0 ? (
                   <div className="flex-1 flex items-center justify-center text-center">
                     <p className="text-sm font-medium text-muted-foreground">{t("analytics.noActive")}</p>
                   </div>
@@ -414,7 +418,7 @@ const EntrepreneurAnalyticsPage = () => {
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
                           <Pie 
-                            data={projects.filter(p => p.status === 'active').map((p, i) => ({
+                            data={projects.filter(p => p.status === 'fundraising').map((p, i) => ({
                               name: chartProjectName(p.title),
                               value: Math.max(projectRaised(p), 1),
                               color: ["hsl(var(--primary))", "hsl(var(--secondary))", "hsl(var(--success))", "hsl(var(--warning))", "hsl(var(--accent))"][i % 5]
@@ -425,7 +429,7 @@ const EntrepreneurAnalyticsPage = () => {
                             outerRadius={55} 
                             paddingAngle={3}
                           >
-                            {projects.filter(p => p.status === 'active').map((_, i) => (
+                            {projects.filter(p => p.status === 'fundraising').map((_, i) => (
                               <Cell key={`cell-${i}`} fill={["hsl(var(--primary))", "hsl(var(--secondary))", "hsl(var(--success))", "hsl(var(--warning))", "hsl(var(--accent))"][i % 5]} />
                             ))}
                           </Pie>
@@ -434,7 +438,7 @@ const EntrepreneurAnalyticsPage = () => {
                       </ResponsiveContainer>
                     </div>
                     <div className="flex-1 overflow-y-auto pr-2 space-y-4">
-                      {projects.filter(p => p.status === 'active').map((project, i) => {
+                      {projects.filter(p => p.status === 'fundraising').map((project, i) => {
                         const colors = ["bg-primary", "bg-secondary", "bg-success", "bg-warning", "bg-accent"];
                         const bgColors = ["bg-primary/10", "bg-secondary/10", "bg-success/10", "bg-warning/10", "bg-accent/10"];
                         const textColors = ["text-primary", "text-secondary", "text-success", "text-warning", "text-accent"];

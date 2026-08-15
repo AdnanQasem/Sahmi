@@ -56,7 +56,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const register = async (data: RegisterPayload) => {
     try {
-      await authService.register(data);
+      const response = await authService.register(data);
+      localStorage.setItem("accessToken", response.access);
+      localStorage.setItem("refreshToken", response.refresh);
+      localStorage.setItem("user", JSON.stringify(response.user));
+      await changeLanguage(response.user.preferred_language);
+      setUser(response.user);
       toast.success(t("auth.registrationSuccess"));
     } catch (error: unknown) {
       const message = getErrorMessage(error, t("auth.registrationFailed"));

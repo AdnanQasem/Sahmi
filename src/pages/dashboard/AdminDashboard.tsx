@@ -3,6 +3,7 @@ import { formatCurrency as formatLocaleCurrency } from "@/i18n/format";
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { dashboardPollingOptions } from "@/lib/dashboardPolling";
 import {
   AlertCircle,
   ArrowRight,
@@ -34,7 +35,7 @@ const AdminDashboard = () => {
     queryKey: ["admin", "projects"],
     queryFn: () => adminProjectsService.listProjects({ page_size: 100, ordering: "-created_at" }),
     staleTime: 30_000,
-    refetchInterval: 60_000,
+    ...dashboardPollingOptions,
   });
 
   const categoriesQuery = useQuery({
@@ -60,7 +61,7 @@ const AdminDashboard = () => {
     [projects],
   );
   const activeCount = projects.filter(
-    (project) => !project.deleted_at && project.status === "active",
+    (project) => !project.deleted_at && project.status === "fundraising",
   ).length;
   const isRefreshing = projectsQuery.isFetching || categoriesQuery.isFetching;
 

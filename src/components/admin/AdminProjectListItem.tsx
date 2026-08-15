@@ -172,28 +172,24 @@ const AdminProjectListItem = ({
                 </DropdownMenuItem>
               )}
               <DropdownMenuSeparator />
-              {project.status === "active" && (
+              {project.status === "fundraising" && (
                 <DropdownMenuItem onSelect={() => onStatusChange(project, "paused")}>
                   <CirclePause className="me-2 h-4 w-4" />
                   {t("adminForm.pauseCampaign")}
                 </DropdownMenuItem>
               )}
               {project.status === "paused" && project.is_verified && (
-                <DropdownMenuItem onSelect={() => onStatusChange(project, "active")}>
+                <DropdownMenuItem onSelect={() => onStatusChange(project, "fundraising")}>
                   <Play className="me-2 h-4 w-4" />
                   {t("adminForm.resumeCampaign")}
                 </DropdownMenuItem>
               )}
-              {(project.status === "active" || project.status === "paused") && (
-                <DropdownMenuItem onSelect={() => onStatusChange(project, "closed")}>
-                  <CheckCircle2 className="me-2 h-4 w-4" />
-                  {t("adminForm.closeCampaign")}
-                </DropdownMenuItem>
-              )}
-              {project.status === "closed" && (
-                <DropdownMenuItem onSelect={() => onStatusChange(project, "successful")}>
-                  <CheckCircle2 className="me-2 h-4 w-4" />
-                  {t("adminForm.markSuccessful")}
+              {project.status === "fully_funded" && (
+                <DropdownMenuItem asChild>
+                  <Link to="/dashboard/admin/funds">
+                    <CheckCircle2 className="me-2 h-4 w-4" />
+                    {t("funds.finalize")}
+                  </Link>
                 </DropdownMenuItem>
               )}
               <DropdownMenuSeparator />

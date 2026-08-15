@@ -1,6 +1,5 @@
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import i18n from "@/i18n";
 import { motion, AnimatePresence } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -20,23 +19,7 @@ import {
   Quote,
 } from "lucide-react";
 
-const fallbackImage = "/placeholder.svg";
-
-const toProjectCard = (project: Project) => ({
-  id: project.id,
-  slug: project.slug,
-  title: project.title,
-  description: project.short_description || project.description,
-  category: project.category_detail?.name ?? i18n.t("projects.projectFallback"),
-  founder: project.entrepreneur?.business_name || project.entrepreneur?.full_name || i18n.t("projects.founderFallback"),
-  image: project.cover_image || fallbackImage,
-  goal: Number(project.goal_amount),
-  raised: Number(project.funded_amount),
-  investors: project.investor_count,
-  daysLeft: project.days_left ?? 0,
-  repaymentStatus: project.repayment_status,
-  verified: project.is_verified,
-});
+import { toProjectCard } from "@/lib/mappers";
 
 // Animation Variants
 const fadeInUp = {
@@ -83,7 +66,7 @@ const HomePage = () => {
   const canCreateProject = !user || user.user_type === "entrepreneur" || user.user_type === "admin";
   const featuredProjectsQuery = useQuery({
     queryKey: ["projects", "featured"],
-    queryFn: () => projectsService.listProjects({ page_size: 12, status: "active", is_verified: true, ordering: "-investor_count" }),
+    queryFn: () => projectsService.listProjects({ page_size: 12, status: "fundraising", is_verified: true, ordering: "-investor_count" }),
     refetchInterval: 5_000,
   });
   const featuredProjects = featuredProjectsQuery.data?.results

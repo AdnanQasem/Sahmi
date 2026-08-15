@@ -2,6 +2,7 @@ from datetime import timedelta
 from decimal import Decimal, DecimalException
 
 from django.db import transaction
+from django.core.exceptions import ObjectDoesNotExist
 from django.utils import timezone
 from rest_framework import serializers
 
@@ -73,8 +74,8 @@ class ProjectStatusSerializer(serializers.Serializer):
         choices=[
             Project.Status.PAUSED,
             Project.Status.ACTIVE,
-            Project.Status.CLOSED,
-            Project.Status.SUCCESSFUL,
+            Project.Status.FAILED,
+            Project.Status.CANCELLED,
         ]
     )
 
@@ -117,6 +118,7 @@ class ProjectCategoryRelatedField(serializers.PrimaryKeyRelatedField):
 class ProjectMilestonesField(serializers.JSONField):
     def to_representation(self, value):
         milestones = value.all().order_by("order", "target_date", "created_at")
+        request = self.context.get("request")
         return [
             {
                 "id": str(milestone.id),
@@ -133,6 +135,31 @@ class ProjectMilestonesField(serializers.JSONField):
                 "percentage_of_project": f"{milestone.percentage_of_project:.2f}",
                 "funding_released": f"{milestone.funding_released:.2f}",
                 "order": milestone.order,
+                "completion_status": milestone.completion_status,
+                "completion_summary": milestone.completion_summary,
+                "completion_submitted_at": (
+                    milestone.completion_submitted_at.isoformat()
+                    if milestone.completion_submitted_at
+                    else None
+                ),
+                "completion_evidence": (
+                    request.build_absolute_uri(milestone.completion_evidence.url)
+                    if milestone.completion_evidence
+                    and request
+                    and (
+                        request.user.is_staff
+                        or request.user.id == milestone.project.entrepreneur_id
+                        or milestone.completion_status == milestone.CompletionStatus.APPROVED
+                    )
+                    else None
+                ),
+                "completion_review_notes": (
+                    milestone.completion_review_notes
+                    if request
+                    and request.user.is_authenticated
+                    and (request.user.is_staff or request.user.id == milestone.project.entrepreneur_id)
+                    else ""
+                ),
             }
             for milestone in milestones
         ]
@@ -157,13 +184,16 @@ class ProjectSerializer(serializers.ModelSerializer):
     status = serializers.SerializerMethodField()
     implementation_complete = serializers.SerializerMethodField()
     updates = serializers.SerializerMethodField()
+    funding_account = serializers.SerializerMethodField()
 
     class Meta:
         model = Project
         fields = [
             "id", "entrepreneur", "title", "slug", "description", "short_description",
             "category", "category_detail", "location", "location_governorate",
-            "goal_amount", "funded_amount", "minimum_investment", "expected_roi", "cost_items", "faqs",
+            "goal_amount", "funded_amount", "funding_account", "funding_reached_at",
+            "pending_payment_deadline", "funding_finalized_at", "funding_finalized_by",
+            "minimum_investment", "expected_roi", "cost_items", "faqs",
             "funding_period_days", "start_date", "end_date", "status", "is_verified",
             "verified_at", "verification_notes", "business_plan", "financial_projections",
             "ownership_proof", "cover_image", "images", "video_url",
@@ -174,12 +204,29 @@ class ProjectSerializer(serializers.ModelSerializer):
             "funding_percent", "implementation_complete", "updates", "created_at", "updated_at",
         ]
         read_only_fields = [
-            "id", "entrepreneur", "slug", "funded_amount", "status", "is_verified",
+            "id", "entrepreneur", "slug", "funded_amount", "funding_account",
+            "funding_reached_at", "pending_payment_deadline", "funding_finalized_at", "funding_finalized_by",
+            "status", "is_verified",
             "verified_at", "verification_notes", "ai_classified_category",
             "ai_confidence_score", "ai_classification_at", "ai_generated_summary",
             "milestone_count", "total_repaid", "view_count", "investor_count",
             "rating", "reviews_count", "implementation_complete", "updates", "created_at", "updated_at",
         ]
+
+    def get_funding_account(self, obj):
+        try:
+            account = obj.funding_account
+        except ObjectDoesNotExist:
+            account = None
+        if account is None:
+            zero = "0.00"
+            return {"secured": zero, "released": zero, "refunded": zero, "available": zero}
+        return {
+            "secured": f"{account.secured:.2f}",
+            "released": f"{account.released:.2f}",
+            "refunded": f"{account.refunded:.2f}",
+            "available": f"{account.available:.2f}",
+        }
 
     def get_implementation_complete(self, obj):
         milestones = list(obj.milestones.all())
@@ -226,7 +273,7 @@ class ProjectSerializer(serializers.ModelSerializer):
         return max((obj.end_date.date() - timezone.localdate()).days, 0)
 
     def get_status(self, obj):
-        if obj.goal_amount and obj.funded_amount >= obj.goal_amount:
+        if obj.status == Project.Status.ACTIVE and obj.goal_amount and obj.funded_amount >= obj.goal_amount:
             return Project.Status.SUCCESSFUL
         return obj.status
 
@@ -536,13 +583,15 @@ class PublicProjectSerializer(serializers.ModelSerializer):
     status = serializers.SerializerMethodField()
     implementation_complete = serializers.SerializerMethodField()
     updates = serializers.SerializerMethodField()
+    funding_account = serializers.SerializerMethodField()
 
     class Meta:
         model = Project
         fields = [
             "id", "entrepreneur", "title", "slug", "description", "short_description",
             "category_detail", "location", "location_governorate",
-            "goal_amount", "funded_amount", "minimum_investment", "expected_roi", "cost_items", "faqs",
+            "goal_amount", "funded_amount", "funding_account", "funding_reached_at",
+            "pending_payment_deadline", "funding_finalized_at", "minimum_investment", "expected_roi", "cost_items", "faqs",
             "funding_period_days", "start_date", "end_date", "status", "is_verified",
             "verified_at", "cover_image", "images", "video_url",
             "milestone_count", "milestones", "repayment_status",
@@ -557,7 +606,7 @@ class PublicProjectSerializer(serializers.ModelSerializer):
         return max((obj.end_date.date() - timezone.localdate()).days, 0)
 
     def get_status(self, obj):
-        if obj.goal_amount and obj.funded_amount >= obj.goal_amount:
+        if obj.status == Project.Status.ACTIVE and obj.goal_amount and obj.funded_amount >= obj.goal_amount:
             return Project.Status.SUCCESSFUL
         return obj.status
 
@@ -572,6 +621,9 @@ class PublicProjectSerializer(serializers.ModelSerializer):
     def get_updates(self, obj):
         return ProjectSerializer.get_updates(self, obj)
 
+    def get_funding_account(self, obj):
+        return ProjectSerializer.get_funding_account(self, obj)
+
 
 class ProjectListSerializer(ProjectSerializer):
     class Meta(ProjectSerializer.Meta):
@@ -579,7 +631,7 @@ class ProjectListSerializer(ProjectSerializer):
             "id", "title", "slug", "short_description", "category", "category_detail",
             "location", "goal_amount", "funded_amount", "minimum_investment",
             "expected_roi", "status", "is_verified", "cover_image", "investor_count",
-            "repayment_status", "days_left", "funding_percent", "created_at", "updated_at",
+            "repayment_status", "funding_account", "days_left", "funding_percent", "created_at", "updated_at",
         ]
 
 

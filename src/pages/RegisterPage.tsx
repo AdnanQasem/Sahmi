@@ -53,6 +53,7 @@ const benefits = [Briefcase, TrendingUp, Leaf];
 const testimonials = [{ author: "Maria A." }, { author: "Khaled M." }];
 const passwordRequirements = [
   { labelKey: "settings.password8", check: (p: string) => p.length >= 8 },
+  { labelKey: "settings.passwordCase", check: (p: string) => /[a-z]/.test(p) && /[A-Z]/.test(p) },
   { labelKey: "settings.passwordNumber", check: (p: string) => /\d/.test(p) },
   { labelKey: "settings.passwordSpecial", check: (p: string) => /[!@#$%^&*]/.test(p) },
 ];
@@ -61,6 +62,7 @@ const RegisterPage = () => {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [userType, setUserType] = useState<"investor" | "entrepreneur">("investor");
   const [agreedToTerms, setAgreedToTerms] = useState(false);
@@ -85,6 +87,10 @@ const RegisterPage = () => {
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (password !== confirmPassword) {
+      setFieldErrors({ confirm_password: t("auth.passwordMismatch") });
+      return;
+    }
     setSubmitting(true);
     setFieldErrors({});
     try {
@@ -95,9 +101,7 @@ const RegisterPage = () => {
         user_type: userType,
       });
       setShowSuccess(true);
-      setTimeout(() => {
-        navigate("/login", { replace: true });
-      }, 2000);
+      navigate("/projects", { replace: true });
     } catch (error) {
       setFieldErrors(getFieldErrors(error));
     } finally {
@@ -466,6 +470,20 @@ const RegisterPage = () => {
                     <motion.div
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.65 }}
+                    >
+                      <Label htmlFor="confirm_password" className="text-foreground font-medium">{t("auth.confirmPassword")}</Label>
+                      <div className="relative mt-2">
+                        <Lock className="absolute start-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
+                        <Input id="confirm_password" type={showPassword ? "text" : "password"} className="h-12 rounded-xl border-border/60 ps-10" value={confirmPassword} onChange={(event) => { setConfirmPassword(event.target.value); setFieldErrors((current) => { const next = { ...current }; delete next.confirm_password; return next; }); }} autoComplete="new-password" required minLength={8} />
+                      </div>
+                      {confirmPassword && password !== confirmPassword && <p className="mt-1 text-xs text-destructive">{t("auth.passwordMismatch")}</p>}
+                      {fieldErrors.confirm_password && <p className="mt-1 text-xs text-destructive">{fieldErrors.confirm_password}</p>}
+                    </motion.div>
+
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 0.7 }}
                       className="flex items-start space-x-3"
                     >
@@ -507,7 +525,7 @@ const RegisterPage = () => {
                         type="submit"
                         size="lg"
                         className="w-full h-12 rounded-xl text-base font-semibold shadow-lg hover:shadow-primary/20 transition-all"
-                        disabled={submitting || !agreedToTerms}
+                        disabled={submitting || !agreedToTerms || password !== confirmPassword}
                       >
                         {submitting ? (
                           <motion.div

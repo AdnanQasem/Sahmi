@@ -1,8 +1,10 @@
 import { useTranslation } from "react-i18next";
+import i18n from "@/i18n";
 import { formatCurrency, formatDate, formatNumber } from "@/i18n/format";
 import { Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
+import { dashboardPollingOptions } from "@/lib/dashboardPolling";
 import {
   Area,
   AreaChart,
@@ -63,7 +65,7 @@ const groupInvestmentsByMonth = (investments: Investment[]) => {
     raised: data.raised,
     investors: data.investors.size,
   }));
-  return rows.length ? rows : [{ month: "Now", raised: 0, investors: 0 }];
+  return rows.length ? rows : [{ month: i18n.t("dashboard.now"), raised: 0, investors: 0 }];
 };
 
 const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: { name: string; value: number }[]; label?: string }) => {
@@ -73,7 +75,9 @@ const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?:
       <div className="rounded-xl border border-border bg-card px-4 py-3 shadow-lg text-sm">
         <p className="mb-1 text-xs font-medium text-muted-foreground">{label}</p>
         <p className="font-bold text-foreground">
-          {item.name === "raised" ? currency(item.value) : `${item.value} investors`}
+          {item.name === "raised"
+            ? currency(item.value)
+            : i18n.t("dashboard.investorsValue", { count: formatNumber(item.value) })}
         </p>
       </div>
     );
@@ -88,19 +92,19 @@ const EntrepreneurDashboard = () => {
   const projectsQuery = useQuery({
     queryKey: ["dashboard", "entrepreneur", "projects"],
     queryFn: projectsService.listMyProjects,
-    refetchInterval: 5000,
+    ...dashboardPollingOptions,
   });
   const investmentsQuery = useQuery({
     queryKey: ["dashboard", "entrepreneur", "investments"],
     queryFn: investmentsService.listInvestments,
-    refetchInterval: 5000,
+    ...dashboardPollingOptions,
   });
 
   const projects = projectsQuery.data?.results ?? [];
   const investments = investmentsQuery.data?.results ?? [];
-  const activeProjects = projects.filter((project) => project.status === "active").length;
+  const activeProjects = projects.filter((project) => project.status === "fundraising").length;
   const completedProjects = projects.filter(
-    (project) => project.status === "successful" || projectRaised(project) >= projectGoal(project),
+    (project) => ["fully_funded", "implementation", "completed"].includes(project.status) || projectRaised(project) >= projectGoal(project),
   ).length;
   const pendingProjects = projects.filter((project) => project.status === "draft" || !project.is_verified).length;
   const totalRaised = projects.reduce((sum, project) => sum + projectRaised(project), 0);
@@ -408,7 +412,7 @@ const EntrepreneurDashboard = () => {
                             <Eye className="h-3.5 w-3.5" /> 
                             <span className="font-medium">{formatNumber(project.view_count ?? 0)}</span>{t("dashboard.viewsCount")}</span>
                         </div>
-                        {project.status === "active" && (
+                        {project.status === "fundraising" && (
                           <div className="mt-4">
                             <FundingProgressBar raised={projectRaised(project)} goal={projectGoal(project)} size="sm" />
                           </div>

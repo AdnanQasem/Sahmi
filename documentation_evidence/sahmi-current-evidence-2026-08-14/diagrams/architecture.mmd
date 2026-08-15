@@ -1,0 +1,15 @@
+flowchart TB
+  Browser[React 18 SPA\nVite + TypeScript + Tailwind/shadcn] -->|JSON/multipart + JWT| API[Django REST Framework API]
+  Browser -->|SSE project/notification events| API
+  API --> Auth[SimpleJWT + blacklist]
+  API --> ORM[Django ORM/services]
+  ORM --> DB[(SQLite local default\nPostgreSQL in Docker configuration)]
+  API --> Media[(Local MEDIA_ROOT uploads)]
+  API --> Email[Django email backend\nconsole default / SMTP configurable]
+  API --> Redis[(Redis configured for Celery\nand project SSE pub/sub)]
+  API --> Mock[MockPaymentProvider\nsimulated payout reference]
+  API --> Translate[Google Translate HTTP endpoint\nproject-content translation only]
+  Admin[Django admin + React admin dashboard] --> API
+
+  classDef simulated fill:#fff3cd,stroke:#9a6700,color:#332701;
+  class Mock simulated;

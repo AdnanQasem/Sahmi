@@ -33,11 +33,7 @@ const LegalDocumentPage = ({ type, sectionCount }: LegalDocumentPageProps) => {
           </p>
         </header>
 
-        <aside className="my-6 rounded-2xl border border-amber-500/25 bg-amber-500/10 p-5 text-sm leading-6 text-foreground">
-          {t("legal.developmentNotice")}
-        </aside>
-
-        <div className="space-y-5">
+        <div className="mt-6 space-y-5">
           {Array.from({ length: sectionCount }, (_, index) => {
             const section = index + 1;
             return (

@@ -37,7 +37,8 @@ export interface AdminInvestment {
   amount: string;
   quantity: number;
   investment_date: string;
-  status: "pending" | "confirmed" | "canceled" | "completed";
+  status: "pending" | "confirmed" | "completed" | "failed" | "cancelled" | "refunded";
+  pending_expires_at: string | null;
   transaction_id: string;
   payment_method: "card" | "bank_transfer" | "paypal";
   expected_return: string;

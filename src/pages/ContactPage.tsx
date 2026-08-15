@@ -21,7 +21,6 @@ import {
   Heart,
   ArrowRight,
   CheckCircle,
-  Twitter,
   Linkedin,
   Instagram,
 } from "lucide-react";
@@ -80,9 +79,8 @@ const contactInfo = [
 ];
 
 const socialLinks = [
-  { icon: Twitter, label: "Twitter", href: "#", color: "hover:bg-sky-500 hover:text-white" },
-  { icon: Linkedin, label: "LinkedIn", href: "#", color: "hover:bg-blue-600 hover:text-white" },
-  { icon: Instagram, label: "Instagram", href: "#", color: "hover:bg-pink-500 hover:text-white" },
+  { icon: Instagram, label: "Instagram", href: "https://www.instagram.com/ikr_la/?hl=en", color: "hover:bg-pink-500 hover:text-white" },
+  { icon: Linkedin, label: "LinkedIn", href: "https://www.linkedin.com/in/ikrayyem-alabadla-542189325/", color: "hover:bg-blue-600 hover:text-white" },
 ];
 
 const faqIndexes = [0, 1, 2, 3, 4, 5];
@@ -453,6 +451,10 @@ const ContactPage = () => {
                     <motion.a
                       key={social.label}
                       href={social.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title={social.label}
+                      aria-label={social.label}
                       whileHover={{ scale: 1.1, y: -2 }}
                       whileTap={{ scale: 0.95 }}
                       className={`flex h-12 w-12 items-center justify-center rounded-xl border border-border bg-card text-muted-foreground transition-all ${social.color} shadow-sm`}

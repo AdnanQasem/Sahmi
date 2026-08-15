@@ -293,7 +293,6 @@ class AdminProjectAPITests(AdminAPIBase):
                 "milestone_count": 4,
                 "repayment_status": Project.RepaymentStatus.DELAYED,
                 "total_repaid": "1000.00",
-                "next_repayment_date": "2027-01-15",
                 "view_count": 50,
                 "investor_count": 7,
                 "rating": "4.75",
@@ -307,18 +306,21 @@ class AdminProjectAPITests(AdminAPIBase):
         self.assertEqual(response.data["entrepreneur_detail"]["email"], self.owner.email)
         self.assertEqual(str(response.data["verified_by"]), str(self.staff.pk))
         self.assertNotIn("clear_cover_image", response.data)
+        created_status = response.data["status"]
 
         response = self.client.patch(
             reverse("admin-project-detail", args=[project_id]),
-            {"funded_amount": "9000.00", "status": Project.Status.CLOSED},
+            {"location": "Nablus", "funding_account": {"secured": "9000.00"}},
             format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["funded_amount"], "9000.00")
+        self.assertEqual(response.data["funded_amount"], "0.00")
+        self.assertEqual(response.data["funding_account"]["secured"], "0.00")
+        self.assertEqual(response.data["location"], "Nablus")
 
         response = self.client.get(
             reverse("admin-project-list"),
-            {"search": "Admin Created", "status": Project.Status.CLOSED, "ordering": "title"},
+            {"search": "Admin Created", "status": created_status, "ordering": "title"},
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual([item["id"] for item in response.data["results"]], [project_id])
@@ -441,7 +443,7 @@ class AdminFinanceAPITests(AdminAPIBase):
                 "project": str(self.project.pk),
                 "amount": "500.00",
                 "quantity": 2,
-                "status": Investment.Status.CONFIRMED,
+                "status": Investment.Status.PENDING,
                 "transaction_id": "ADMIN-TXN-1",
                 "payment_method": Investment.PaymentMethod.CARD,
                 "expected_return": "70.00",
@@ -455,6 +457,12 @@ class AdminFinanceAPITests(AdminAPIBase):
         self.assertEqual(investment_response.data["investor_detail"]["email"], self.investor.email)
         self.assertEqual(investment_response.data["project_detail"]["slug"], self.project.slug)
 
+        Investment.objects.filter(pk=investment_id).update(status=Investment.Status.CONFIRMED)
+        Project.objects.filter(pk=self.project.pk).update(
+            funded_amount=self.project.goal_amount,
+            status=Project.Status.IMPLEMENTATION,
+        )
+
         milestone_response = self.client.post(
             reverse("admin-milestone-list"),
             {
@@ -462,14 +470,19 @@ class AdminFinanceAPITests(AdminAPIBase):
                 "title": "First delivery",
                 "description": "Deliver first batch",
                 "target_date": "2027-02-01",
-                "status": Milestone.Status.IN_PROGRESS,
-                "percentage_of_project": "25.00",
-                "funding_released": "1000.00",
+                "status": Milestone.Status.PENDING,
+                "percentage_of_project": "100.00",
+                "funding_released": "0.00",
                 "order": 1,
             },
             format="json",
         )
         self.assertEqual(milestone_response.status_code, status.HTTP_201_CREATED, milestone_response.data)
+        Milestone.objects.filter(pk=milestone_response.data["id"]).update(
+            status=Milestone.Status.COMPLETED,
+            actual_completion_date=date(2027, 2, 15),
+            funding_released=self.project.goal_amount,
+        )
 
         repayment_response = self.client.post(
             reverse("admin-repayment-list"),

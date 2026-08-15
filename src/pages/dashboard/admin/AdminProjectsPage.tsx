@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { dashboardPollingOptions } from "@/lib/dashboardPolling";
 import { toast } from "sonner";
 import {
   AlertCircle,
@@ -20,6 +21,7 @@ import StatusBadge from "@/components/dashboard/StatusBadge";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import AdminProjectReviewDialog from "@/components/admin/AdminProjectReviewDialog";
 import AdminProjectListItem from "@/components/admin/AdminProjectListItem";
+import AdminEditImageReviews from "@/components/admin/AdminEditImageReviews";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -42,6 +44,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import projectsService, {
   type Project,
+  type EditImageReview,
+  type EditImageReviewStatus,
   type ProjectModerationPayload,
 } from "@/services/projectsService";
 import adminProjectsService from "@/services/adminProjectsService";
@@ -68,7 +72,7 @@ const AdminProjectsPage = () => {
     queryKey: ["admin", "projects"],
     queryFn: () => adminProjectsService.listProjects({ page_size: 100, ordering: "-created_at" }),
     staleTime: 30_000,
-    refetchInterval: 60_000,
+    ...dashboardPollingOptions,
   });
 
   const categoriesQuery = useQuery({
@@ -160,6 +164,20 @@ const AdminProjectsPage = () => {
       refreshAdminData();
     },
     onError: (error) => toast.error(getErrorMessage(error, t("admin.rejectProjectFailed"))),
+  });
+
+  const imageReviewMutation = useMutation({
+    mutationFn: ({ project, image, status, notes }: { project: Project; image: EditImageReview; status: EditImageReviewStatus; notes: string }) =>
+      adminProjectsService.reviewProjectEditImage(project.id, {
+        image_key: image.key,
+        status,
+        review_notes: notes,
+      }),
+    onSuccess: () => {
+      toast.success(t("adminForm.imageReviewSaved"));
+      refreshAdminData();
+    },
+    onError: (error) => toast.error(getErrorMessage(error, t("adminForm.imageReviewFailed"))),
   });
 
   const statusMutation = useMutation({
@@ -333,6 +351,12 @@ const AdminProjectsPage = () => {
               )}
             </section>
 
+            <AdminEditImageReviews
+              projects={pendingReviews.filter((review) => review.isEdit).map((review) => review.project)}
+              pending={imageReviewMutation.isPending}
+              onSave={(project, image, status, notes) => imageReviewMutation.mutate({ project, image, status, notes })}
+            />
+
             <section id="projects-section" className="scroll-mt-24">
               <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
                 <div className="border-b border-border p-5 sm:p-6">
@@ -359,11 +383,13 @@ const AdminProjectsPage = () => {
                         <SelectContent>
                           <SelectItem value="all">{t("admin.allStatuses")}</SelectItem>
                           <SelectItem value="draft">{t("status.draft")}</SelectItem>
-                          <SelectItem value="active">{t("status.active")}</SelectItem>
+                          <SelectItem value="fundraising">{t("status.fundraising")}</SelectItem>
                           <SelectItem value="paused">{t("status.paused")}</SelectItem>
-                          <SelectItem value="closed">{t("status.closed")}</SelectItem>
-                          <SelectItem value="successful">{t("status.successful")}</SelectItem>
+                          <SelectItem value="fully_funded">{t("status.fully_funded")}</SelectItem>
+                          <SelectItem value="implementation">{t("status.implementation")}</SelectItem>
+                          <SelectItem value="completed">{t("status.completed")}</SelectItem>
                           <SelectItem value="failed">{t("status.failed")}</SelectItem>
+                          <SelectItem value="cancelled">{t("status.cancelled")}</SelectItem>
                         </SelectContent>
                       </Select>
                       <Select

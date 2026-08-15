@@ -95,7 +95,7 @@ const AdminMilestoneDialog = ({
       deliverables: form.deliverables?.trim(),
       order: Number(form.order) || 0,
     };
-    if (payload.funding_released === "") delete payload.funding_released;
+    delete payload.funding_released;
     onSubmit(payload);
   };
 
@@ -210,8 +210,10 @@ const AdminMilestoneDialog = ({
                 min="0"
                 step="0.01"
                 value={form.funding_released || ""}
-                onChange={(event) => update("funding_released", event.target.value)}
+                readOnly
+                disabled
               />
+              <p className="text-xs text-muted-foreground">{t("funds.releaseOnlyThroughRequests")}</p>
             </div>
             <div className="space-y-2 sm:col-span-2">
               <Label htmlFor="milestone-deliverables">{t("adminForm.deliverables")}</Label>

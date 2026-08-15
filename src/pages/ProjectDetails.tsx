@@ -1,5 +1,4 @@
 import { useTranslation } from "react-i18next";
-import i18n from "@/i18n";
 import { formatCurrency, formatDate, formatNumber, formatPercent } from "@/i18n/format";
 import { useState, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -11,10 +10,21 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import ProjectCard from "@/components/ProjectCard";
 import projectsService, { Project, ConfirmedPayment } from "@/services/projectsService";
 import ProjectCostTable from "@/components/projects/ProjectCostTable";
 import ProjectTimeline from "@/components/projects/ProjectTimeline";
+import { toProjectCard } from "@/lib/mappers";
 import { calculateFundingPercent, fundingProgressBarWidth, fundingProgressColor } from "@/lib/fundingProgress";
 import investmentsService from "@/services/investmentsService";
 import { API_BASE_URL, getFieldErrors, getErrorMessage } from "@/services/api";
@@ -26,22 +36,6 @@ import {
 
 const fallbackImage = "/placeholder.svg";
 
-const toProjectCard = (project: Project) => ({
-  id: project.id,
-  slug: project.slug,
-  title: project.title,
-  description: project.short_description || project.description,
-  category: project.category_detail?.name ?? i18n.t("projects.projectFallback"),
-  founder: project.entrepreneur?.business_name || project.entrepreneur?.full_name || i18n.t("projects.founderFallback"),
-  image: project.cover_image || fallbackImage,
-  goal: Number(project.goal_amount),
-  raised: Number(project.funded_amount),
-  investors: project.investor_count,
-  daysLeft: project.days_left ?? 0,
-  repaymentStatus: project.repayment_status,
-  verified: project.is_verified,
-});
-
 const ProjectDetails = () => {
   const { t, i18n: activeI18n } = useTranslation();
   const { id } = useParams();
@@ -51,6 +45,7 @@ const ProjectDetails = () => {
   const [amount, setAmount] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   const projectQuery = useQuery({
     queryKey: ["project", id],
@@ -297,6 +292,11 @@ const ProjectDetails = () => {
     .slice(0, 3)
     .map(toProjectCard);
   const canManageProject = !!user && (user.id === project.entrepreneur?.id || user.user_type === "admin");
+  const postFundingStatusLabel = project.status === "implementation"
+    ? t("projects.badges.inImplementation")
+    : project.status === "completed"
+      ? t("projects.badges.projectCompleted")
+      : t("projects.badges.fullyFunded");
 
   const handleInvest = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -340,7 +340,14 @@ const ProjectDetails = () => {
                 <Badge variant="success" className="flex items-center gap-1">
                   <CheckCircle className="h-3 w-3" />{t("projects.verified")}</Badge>
               )}
-              <Badge variant="outline">{t(`status.${project.status}`, { defaultValue: project.status })}</Badge>
+              <Badge
+                variant={project.status === "completed" ? "success" : "outline"}
+                className={["fully_funded", "implementation", "completed"].includes(project.status) ? "border-success/30 text-success" : undefined}
+              >
+                {["fully_funded", "implementation", "completed"].includes(project.status)
+                  ? postFundingStatusLabel
+                  : t(`status.${project.status}`, { defaultValue: project.status })}
+              </Badge>
             </div>
             <h1 className="mb-2 text-3xl font-bold text-foreground">{project.title}</h1>
             <p className="mb-6 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
@@ -357,14 +364,28 @@ const ProjectDetails = () => {
                   variant="destructive"
                   size="sm"
                   disabled={deleteMutation.isPending}
-                  onClick={() => {
-                    if (window.confirm(t("projects.deleteConfirmation"))) {
-                      deleteMutation.mutate();
-                    }
-                  }}
+                  onClick={() => setDeleteDialogOpen(true)}
                 >
                   {deleteMutation.isPending ? t("common.deleting") : t("projects.deleteProject")}
                 </Button>
+                <AlertDialog open={deleteDialogOpen} onOpenChange={(open) => !deleteMutation.isPending && setDeleteDialogOpen(open)}>
+                  <AlertDialogContent className="rounded-2xl">
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>{t("projects.deleteProject")}</AlertDialogTitle>
+                      <AlertDialogDescription>{t("projects.deleteConfirmation")}</AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel disabled={deleteMutation.isPending}>{t("common.cancel")}</AlertDialogCancel>
+                      <AlertDialogAction
+                        disabled={deleteMutation.isPending}
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        onClick={() => deleteMutation.mutate()}
+                      >
+                        {deleteMutation.isPending ? t("common.deleting") : t("projects.deleteProject")}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </div>
             )}
 
@@ -527,7 +548,7 @@ const ProjectDetails = () => {
           <div className="lg:col-span-1">
             <div className="sticky top-20 space-y-4">
               <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-                {project.status === "active" || project.status === "successful" ? (
+                {["fundraising", "fully_funded", "implementation", "completed"].includes(project.status) ? (
                   <>
                     <div className="mb-1 text-3xl font-bold text-primary">{formatCurrency(Number(project.funded_amount))}</div>
                     <div className="mb-4 text-sm text-muted-foreground">
@@ -544,11 +565,17 @@ const ProjectDetails = () => {
                         <div className="text-xs text-muted-foreground">{t("projects.investors")}</div>
                       </div>
                       <div>
-                        <div className="font-bold text-foreground">{formatNumber(project.days_left ?? 0)}</div>
-                        <div className="text-xs text-muted-foreground">{t("projects.daysLeft")}</div>
+                        {project.status === "fundraising" ? (
+                          <>
+                            <div className="font-bold text-foreground">{formatNumber(project.days_left ?? 0)}</div>
+                            <div className="text-xs text-muted-foreground">{t("projects.daysLeft")}</div>
+                          </>
+                        ) : (
+                          <div className="font-semibold text-success">{postFundingStatusLabel}</div>
+                        )}
                       </div>
                     </div>
-                    {project.status === "active" ? (
+                    {project.status === "fundraising" ? (
                       <form className="space-y-3" onSubmit={handleInvest}>
                         <Input
                           type="number"
@@ -617,6 +644,54 @@ const ProjectDetails = () => {
             </div>
           </div>
         </div>
+
+        {project.status === "completed" && (
+          <section className="mt-16 rounded-3xl border border-success/20 bg-success/[0.04] p-6 sm:p-8">
+            <div className="mb-6">
+              <Badge variant="success" className="mb-3 gap-1">
+                <CheckCircle className="h-3.5 w-3.5" />
+                {t("projects.badges.projectCompleted")}
+              </Badge>
+              <h2 className="text-2xl font-bold text-foreground">{t("projects.successStory.title")}</h2>
+              <p className="mt-2 text-sm text-muted-foreground">{t("projects.successStory.description")}</p>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {publicMilestones.map((milestone) => (
+                <article key={milestone.id ?? milestone.order} className="rounded-xl border border-success/15 bg-card p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <h3 className="font-semibold text-foreground">{milestone.title}</h3>
+                    <CheckCircle className="h-5 w-5 shrink-0 text-success" />
+                  </div>
+                  <p className="mt-2 text-sm text-muted-foreground">{milestone.deliverables || milestone.description}</p>
+                  {milestone.actual_completion_date && (
+                    <p className="mt-3 text-xs font-medium text-success">
+                      {t("projects.successStory.completedOn", {
+                        date: formatDate(milestone.actual_completion_date, { dateStyle: "medium" }),
+                      })}
+                    </p>
+                  )}
+                </article>
+              ))}
+            </div>
+            <div className="mt-8">
+              <h3 className="text-lg font-semibold text-foreground">{t("projects.successStory.finalEvidence")}</h3>
+              {project.images?.length ? (
+                <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {project.images.map((item) => (
+                    <figure key={item.id} className="overflow-hidden rounded-xl border border-border bg-card">
+                      <img src={item.image} alt={item.alt_text || project.title} className="aspect-video w-full object-cover" loading="lazy" />
+                      {item.alt_text && <figcaption className="p-3 text-sm text-muted-foreground">{item.alt_text}</figcaption>}
+                    </figure>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-3 rounded-xl border border-border bg-card p-4 text-sm text-muted-foreground">
+                  {t("projects.successStory.noPublicEvidence")}
+                </p>
+              )}
+            </div>
+          </section>
+        )}
 
         {related.length > 0 && (
           <section className="mt-16 border-t border-border pt-12">

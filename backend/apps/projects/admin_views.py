@@ -4,6 +4,7 @@ from django.utils import timezone
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.exceptions import ValidationError
 
 from apps.notifications.models import Notification
 from apps.notifications.services import notify_on_commit
@@ -42,7 +43,7 @@ class AdminProjectCategoryViewSet(viewsets.ModelViewSet):
 
 class AdminProjectViewSet(viewsets.ModelViewSet):
     queryset = (
-        Project.objects.select_related("entrepreneur", "category", "verified_by")
+        Project.objects.select_related("entrepreneur", "category", "verified_by", "funding_account")
         .prefetch_related("images", "supporting_documents", "milestones", "edit_requests")
         .all()
     )
@@ -142,6 +143,30 @@ class AdminProjectViewSet(viewsets.ModelViewSet):
         project.save(update_fields=["status", "updated_at"])
         return Response(self.get_serializer(project).data)
 
+    @action(detail=True, methods=["post"], url_path="finalize-funding")
+    def finalize_funding(self, request, pk=None):
+        from apps.investments.services import finalize_project_funding
+
+        project = self.get_object()
+        try:
+            project = finalize_project_funding(project.pk, request.user, request=request)
+        except ValueError as exc:
+            raise ValidationError({"project": str(exc)}) from exc
+        recipients = {project.entrepreneur_id: project.entrepreneur}
+        for investment in project.investments.filter(status__in=["confirmed", "completed"]).select_related("investor"):
+            recipients[investment.investor_id] = investment.investor
+        for recipient in recipients.values():
+            notify_on_commit(
+                recipient=recipient,
+                notification_type=Notification.NotificationType.INVESTMENT_STATUS_CHANGED,
+                title="Funds secured",
+                body=f"Funding for “{project.title}” was finalized and the project entered implementation.",
+                actor=request.user,
+                target_type="project",
+                target_id=str(project.id),
+            )
+        return Response(self.get_serializer(project).data)
+
     def _pending_edit(self, project):
         pending = project.edit_requests.filter(
             status=ProjectEditRequest.Status.PENDING,
@@ -150,6 +175,52 @@ class AdminProjectViewSet(viewsets.ModelViewSet):
             from rest_framework.exceptions import NotFound
             raise NotFound("This project has no pending edit request.")
         return pending
+
+    @action(detail=True, methods=["post"], url_path="review-edit-image")
+    @transaction.atomic
+    def review_edit_image(self, request, pk=None):
+        project = self.get_object()
+        pending = ProjectEditRequest.objects.select_for_update().get(pk=self._pending_edit(project).pk)
+        image_key = str(request.data.get("image_key", "")).strip()
+        review_status = str(request.data.get("status", "")).strip()
+        review_notes = str(request.data.get("review_notes", "")).strip()
+        allowed_statuses = {"approved", "needs_revision", "rejected"}
+        if review_status not in allowed_statuses:
+            raise ValidationError({"status": "Choose approved, needs_revision, or rejected."})
+        if not review_notes:
+            raise ValidationError({"review_notes": "Quick review notes are required."})
+        valid_keys = set()
+        if pending.cover_image:
+            valid_keys.add("cover_image")
+        elif project.cover_image:
+            valid_keys.add("project_cover")
+        valid_keys.update(f"project_image:{image_id}" for image_id in project.images.values_list("id", flat=True))
+        if image_key not in valid_keys:
+            raise ValidationError({"image_key": "This image does not belong to the pending editing request project."})
+
+        image_reviews = dict(pending.image_reviews or {})
+        before = image_reviews.get(image_key)
+        image_reviews[image_key] = {
+            **(before or {}),
+            "status": review_status,
+            "review_notes": review_notes[:2000],
+            "reviewed_by": request.user.full_name or request.user.email,
+            "reviewed_by_id": str(request.user.id),
+            "reviewed_at": timezone.now().isoformat(),
+        }
+        pending.image_reviews = image_reviews
+        pending.save(update_fields=["image_reviews", "updated_at"])
+
+        from apps.audit.services import log as audit_log
+        audit_log(
+            action="project_edit.image_reviewed",
+            actor=request.user,
+            target_type="project_edit",
+            target_id=str(pending.id),
+            metadata={"project_id": str(project.id), "image_key": image_key, "before": before, "after": image_reviews[image_key]},
+            request=request,
+        )
+        return Response(self.get_serializer(project).data)
 
     @action(detail=True, methods=["post"], url_path="approve-edit")
     @transaction.atomic

@@ -5,7 +5,6 @@ import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion"
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import SahmiLogo from "@/components/SahmiLogo";
 import { useAuth } from "@/hooks/useAuth";
 import { getFieldErrors } from "@/services/api";
@@ -59,7 +58,6 @@ const LoginPage = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [currentTestimonial, setCurrentTestimonial] = useState(0);
@@ -211,21 +209,8 @@ const LoginPage = () => {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.5 }}
-                className="flex items-center justify-between"
+                className="flex items-center justify-end"
               >
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="remember"
-                    checked={rememberMe}
-                    onCheckedChange={(checked) => setRememberMe(checked as boolean)}
-                  />
-                  <label
-                    htmlFor="remember"
-                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                  >
-                    {t("auth.remember", { defaultValue: "Remember me" })}
-                  </label>
-                </div>
                 <Link
                   to="/forgot-password"
                   className="text-sm text-primary hover:text-primary/80 font-medium transition-colors"

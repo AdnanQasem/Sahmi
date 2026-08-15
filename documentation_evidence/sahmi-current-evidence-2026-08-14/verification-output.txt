@@ -1,0 +1,52 @@
+SAHMI CURRENT-WORKTREE VERIFICATION OUTPUT
+Run date: 2026-08-14 (Asia/Hebron)
+
+COMMAND: npm test -- --run
+EXIT: 0
+SUMMARY:
+ Test Files  20 passed (20)
+ Tests       53 passed (53)
+ Duration    22.75s
+WARNINGS: React Router v7 future flags (startTransition and relative splat path) in several component tests.
+
+COMMAND: npm run build
+EXIT: 0
+SUMMARY:
+ vite v5.4.19 building for production...
+ 3110 modules transformed.
+ dist/index.html                   1.15 kB | gzip:   0.49 kB
+ dist/assets/index-CW9BsAL_.css  117.21 kB | gzip:  17.97 kB
+ dist/assets/index-C1AtMpWw.js  1799.40 kB | gzip: 497.74 kB
+ built in 39.65s
+WARNINGS: caniuse-lite is 14 months old; main chunk exceeds 500 kB.
+
+COMMAND: npm run lint
+EXIT: 1
+SUMMARY: 83 problems (34 errors, 49 warnings); 0 errors and 29 warnings potentially fixable with --fix.
+PROJECT/CONFIG ERRORS:
+- src/components/ui/command.tsx:24 — @typescript-eslint/no-empty-object-type
+- src/components/ui/textarea.tsx:5 — @typescript-eslint/no-empty-object-type
+- src/pages/dashboard/InvestorDashboard.tsx:90 — @typescript-eslint/no-explicit-any
+- tailwind.config.ts:110 — @typescript-eslint/no-require-imports
+CONFIGURATION-SCOPE ISSUE: ESLint also scanned venv/ third-party Django and drf-spectacular JavaScript, accounting for most remaining errors. Project files additionally produced Fast Refresh, hook dependency, and unused-disable warnings.
+
+COMMAND (backend/): ..\venv\Scripts\python.exe manage.py test apps --settings=config.settings.test
+EXIT: 0
+SUMMARY:
+ Found 111 test(s).
+ System check identified no issues (0 silenced).
+ Ran 111 tests in 38.150s
+ OK
+WARNINGS: InsecureKeyLengthWarning because the configured test HMAC key is 18 bytes.
+
+COMMAND (backend/): ..\venv\Scripts\python.exe manage.py makemigrations --check --dry-run --settings=config.settings.test
+EXIT: 0
+OUTPUT: No changes detected
+
+COMMAND (backend/): ..\venv\Scripts\python.exe manage.py spectacular --file ../documentation_evidence/sahmi-current-evidence-2026-08-14/openapi-schema.yml --validate
+SCHEMA FILE: produced
+VALIDATION SUMMARY: Warnings 54 (33 unique), Errors 16 (4 unique)
+MAIN ERRORS: serializer inference failed for PasswordResetRequestView, PasswordResetConfirmView, ContactMessageView, and NotificationStreamView; additional warnings concerned method-field type hints, enum-name collisions, and fake-view withdrawal queryset evaluation.
+
+COVERAGE: Not generated; no coverage percentage is available.
+E2E: Not run; no Playwright spec files found and the Playwright-managed Chromium binary is absent. Four public screenshots were captured separately through installed system Chrome; this is visual evidence, not an E2E test result.

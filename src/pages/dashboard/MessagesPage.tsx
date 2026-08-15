@@ -13,6 +13,7 @@ import { getErrorMessage } from "@/services/api";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { formatDate } from "@/i18n/format";
+import { dashboardPollingInterval, dashboardPollingOptions } from "@/lib/dashboardPolling";
 
 const relativeTime = (value: string | null | undefined, language: string, justNow: string) => {
   if (!value) return "";
@@ -29,7 +30,11 @@ const MessagesPage = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
-  const roleBase = user?.user_type === "investor" ? "/dashboard/investor" : "/dashboard/entrepreneur";
+  const roleBase = user?.is_staff || user?.user_type === "admin"
+    ? "/dashboard/admin"
+    : user?.user_type === "investor"
+      ? "/dashboard/investor"
+      : "/dashboard/entrepreneur";
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [search, setSearch] = useState("");
@@ -40,7 +45,7 @@ const MessagesPage = () => {
   const conversations = useQuery({
     queryKey: ["conversations"],
     queryFn: messagingService.listConversations,
-    refetchInterval: 10_000,
+    ...dashboardPollingOptions,
   });
   const selected = conversations.data?.results.find((item) => item.id === selectedId) ?? null;
   const userResults = useQuery({
@@ -52,7 +57,8 @@ const MessagesPage = () => {
     queryKey: ["messages", selectedId],
     queryFn: () => messagingService.listMessages(selectedId!),
     enabled: Boolean(selectedId),
-    refetchInterval: selectedId ? 5_000 : false,
+    refetchInterval: selectedId ? dashboardPollingInterval : false,
+    refetchIntervalInBackground: false,
   });
 
   const markRead = useMutation({

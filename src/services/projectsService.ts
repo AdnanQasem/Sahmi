@@ -74,6 +74,40 @@ export interface ProjectMilestone {
   percentage_of_project: string;
   funding_released?: string;
   order: number;
+  completion_status?: "not_submitted" | "submitted" | "under_review" | "revision_required" | "rejected" | "approved";
+  completion_summary?: string;
+  completion_evidence?: string | null;
+  completion_submitted_at?: string | null;
+  completion_review_notes?: string;
+  completion_reviewed_at?: string | null;
+}
+
+export type EditImageReviewStatus = "approved" | "needs_revision" | "rejected";
+
+export interface EditImageReview {
+  key: string;
+  kind: "proposed_cover" | "current_cover" | "gallery";
+  url: string;
+  file_name: string;
+  upload_date: string;
+  size: number | null;
+  review_notes: string;
+  status: EditImageReviewStatus;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+}
+
+export interface ProjectFundingAccount {
+  secured: string;
+  released: string;
+  refunded: string;
+  available: string;
+}
+
+export interface ProjectImage {
+  id: string;
+  image: string;
+  alt_text: string;
 }
 
 export interface Project {
@@ -89,6 +123,10 @@ export interface Project {
   location_governorate?: string;
   goal_amount: string;
   funded_amount: string;
+  funding_account: ProjectFundingAccount;
+  funding_reached_at?: string | null;
+  pending_payment_deadline?: string | null;
+  funding_finalized_at?: string | null;
   minimum_investment: string;
   expected_roi: string;
   cost_items: ProjectCostItem[];
@@ -97,12 +135,13 @@ export interface Project {
   funding_period_days: number;
   start_date?: string;
   end_date?: string | null;
-  status: "draft" | "active" | "closed" | "successful" | "failed" | "paused";
+  status: "draft" | "fundraising" | "fully_funded" | "implementation" | "completed" | "failed" | "paused" | "cancelled";
   is_verified: boolean;
   business_plan?: string | null;
   financial_projections?: string | null;
   ownership_proof?: string | null;
   cover_image?: string | null;
+  images?: ProjectImage[];
   video_url?: string;
   investor_count: number;
   days_left: number | null;
@@ -121,6 +160,7 @@ export interface Project {
     payload: Partial<Project>;
     changes: Record<string, ProjectFieldChange>;
     files: Partial<Record<"cover_image" | "business_plan" | "financial_projections" | "ownership_proof", string>>;
+    images: EditImageReview[];
     submitted_by: string;
     created_at: string;
   } | null;
@@ -144,7 +184,7 @@ export interface ProjectContentTranslation {
 }
 
 export interface ProjectModerationPayload {
-  status: Extract<Project["status"], "active" | "paused" | "closed" | "successful">;
+  status: Extract<Project["status"], "fundraising" | "paused" | "failed" | "cancelled">;
   verification_notes?: string;
 }
 

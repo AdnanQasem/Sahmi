@@ -1,0 +1,31 @@
+flowchart LR
+  subgraph Entrepreneur
+    E1[Register/login] --> E2[Create draft project]
+    E2 --> E3[Submit documents, costs, FAQs, milestones]
+    E3 --> E4[Wait for moderation]
+    E4 --> E5[View investors/analytics]
+    E5 --> E6[After implementation: request milestone funds]
+    E6 --> E7[Submit completion evidence]
+  end
+  subgraph Admin
+    A1[Review project/edit request] --> A2[Verify or reject]
+    A2 --> A3[Confirm pending investment records]
+    A3 --> A4[Finalize fully funded project]
+    A4 --> A5[Review/approve/release request]
+    A5 --> A6[Review milestone completion]
+    A6 --> A7[Manage repayment records]
+  end
+  subgraph Investor
+    I1[Register/login] --> I2[Browse verified public projects]
+    I2 --> I3[Create pending investment]
+    I3 --> I4[Wait for admin confirmation]
+    I4 --> I5[Track project, notifications, transactions]
+    I5 --> I6[View completed-project ROI schedule]
+  end
+  E4 --> A1
+  I3 --> A3
+  A2 --> I2
+  E6 --> A5
+  E7 --> A6
+  A3 --> A4
+  A6 --> E7

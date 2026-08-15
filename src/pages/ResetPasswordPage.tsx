@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { Eye, EyeOff, Loader2, Lock } from "lucide-react";
+import { Check, Eye, EyeOff, Loader2, Lock } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import SahmiLogo from "@/components/SahmiLogo";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import authService from "@/services/authService";
 import { getErrorMessage, getFieldErrors } from "@/services/api";
+
+const passwordRequirements = [
+  { labelKey: "settings.password8", check: (value: string) => value.length >= 8 },
+  { labelKey: "settings.passwordCase", check: (value: string) => /[a-z]/.test(value) && /[A-Z]/.test(value) },
+  { labelKey: "settings.passwordNumber", check: (value: string) => /\d/.test(value) },
+  { labelKey: "settings.passwordSpecial", check: (value: string) => /[!@#$%^&*]/.test(value) },
+];
 
 const ResetPasswordPage = () => {
   const { t } = useTranslation();
@@ -52,6 +59,12 @@ const ResetPasswordPage = () => {
         ) : (
           <form className="mt-7 space-y-5" onSubmit={handleSubmit}>
             <div><Label htmlFor="new-password">{t("auth.newPassword")}</Label><div className="relative mt-2"><Lock className="absolute start-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" /><Input id="new-password" className="h-12 ps-10 pe-10" type={showPassword ? "text" : "password"} autoComplete="new-password" required minLength={8} value={password} onChange={(event) => setPassword(event.target.value)} /><button type="button" className="absolute end-3 top-1/2 -translate-y-1/2 text-muted-foreground" onClick={() => setShowPassword((current) => !current)} aria-label={t(showPassword ? "auth.hidePassword" : "auth.showPassword")}>{showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}</button></div></div>
+            <div className="space-y-2 rounded-xl bg-muted/40 p-3" aria-label={t("auth.passwordRequirements")}>
+              {passwordRequirements.map((requirement) => {
+                const met = requirement.check(password);
+                return <div key={requirement.labelKey} className={`flex items-center gap-2 text-sm ${met ? "text-success" : "text-muted-foreground"}`}><Check className="h-4 w-4" aria-hidden="true"/><span>{t(requirement.labelKey)}</span></div>;
+              })}
+            </div>
             <div><Label htmlFor="confirm-password">{t("auth.confirmPassword")}</Label><Input id="confirm-password" className="mt-2 h-12" type={showPassword ? "text" : "password"} autoComplete="new-password" required minLength={8} value={confirmation} onChange={(event) => setConfirmation(event.target.value)} /></div>
             {error && <p className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}
             <Button className="h-12 w-full" type="submit" disabled={submitting}>{submitting ? <><Loader2 className="h-4 w-4 animate-spin" />{t("auth.resettingPassword")}</> : t("auth.resetPassword")}</Button>

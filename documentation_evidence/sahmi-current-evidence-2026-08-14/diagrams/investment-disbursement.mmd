@@ -1,0 +1,26 @@
+flowchart TD
+  A[Authenticated user creates investment record] --> B[Pending; expires after 24h]
+  B -->|investor/staff cancels| C[Cancelled]
+  B -->|expiry checked opportunistically| D[Failed]
+  B -->|staff confirms under DB lock| E[Confirmed]
+  E --> F[Confirmed totals update project]
+  F -->|goal met; overfunding blocked| G[Fully Funded]
+  G --> H[24h pending-completion window + admin reconciliation]
+  H --> I[Funding account secured balance; project Implementation]
+  I --> J[Current milestone request: amount, purpose, evidence]
+  J --> K[Requested]
+  K --> L[Under Review]
+  L -->|notes required| M[Revision Required]
+  L -->|notes required| N[Rejected]
+  L --> O[Approved]
+  O -->|MockPaymentProvider| P[Released + simulated reference]
+  P --> Q[secured decreases; released and milestone funding_released increase]
+  Q --> R[Entrepreneur submits milestone completion evidence]
+  R --> S[Admin review/approve]
+  S -->|next milestone| J
+  S -->|all milestones complete and available = 0| T[Project Completed; investments Completed]
+  T --> U[Repayment records/schedule]
+  V[Refunded investment status and refunded balance field] -. no transition/service endpoint implemented .-> W[Future refund workflow]
+
+  classDef simulated fill:#fff3cd,stroke:#9a6700,color:#332701;
+  class P simulated;

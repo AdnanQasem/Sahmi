@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { formatCurrency, formatDate, formatNumber } from "@/i18n/format";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -54,80 +54,20 @@ const itemVariants: Variants = {
   }
 };
 
-const mockInvestors = [
-  {
-    id: "1",
-    name: "Sarah Ahmed",
-    email: "sarah.ahmed@email.com",
-    avatar: "SA",
-    totalInvested: 25000,
-    projectCount: 4,
-    lastInvestment: new Date(Date.now() - 1000 * 60 * 60 * 24 * 2),
-    status: "active",
-    projects: ["solarEnergy", "cleanWater"],
-    joinDate: new Date(Date.now() - 1000 * 60 * 60 * 24 * 90),
-  },
-  {
-    id: "2",
-    name: "Mohammad Hassan",
-    email: "m.hassan@email.com",
-    avatar: "MH",
-    totalInvested: 18500,
-    projectCount: 3,
-    lastInvestment: new Date(Date.now() - 1000 * 60 * 60 * 24 * 5),
-    status: "active",
-    projects: ["techHub"],
-    joinDate: new Date(Date.now() - 1000 * 60 * 60 * 24 * 60),
-  },
-  {
-    id: "3",
-    name: "Layla Khaled",
-    email: "layla.k@email.com",
-    avatar: "LK",
-    totalInvested: 42000,
-    projectCount: 6,
-    lastInvestment: new Date(Date.now() - 1000 * 60 * 60 * 24 * 1),
-    status: "premium",
-    projects: ["solarEnergy", "cleanWater", "youthEducation"],
-    joinDate: new Date(Date.now() - 1000 * 60 * 60 * 24 * 180),
-  },
-  {
-    id: "4",
-    name: "Ahmad Nasser",
-    email: "a.nasser@email.com",
-    avatar: "AN",
-    totalInvested: 8000,
-    projectCount: 2,
-    lastInvestment: new Date(Date.now() - 1000 * 60 * 60 * 24 * 14),
-    status: "active",
-    projects: ["agriculturalInnovation"],
-    joinDate: new Date(Date.now() - 1000 * 60 * 60 * 24 * 30),
-  },
-  {
-    id: "5",
-    name: "Fatima Omar",
-    email: "fatima.omar@email.com",
-    avatar: "FO",
-    totalInvested: 35000,
-    projectCount: 5,
-    lastInvestment: new Date(Date.now() - 1000 * 60 * 60 * 24 * 3),
-    status: "premium",
-    projects: ["techHub", "healthcareAccess", "cleanWater"],
-    joinDate: new Date(Date.now() - 1000 * 60 * 60 * 24 * 120),
-  },
-  {
-    id: "6",
-    name: "Yusuf Mansour",
-    email: "yusuf.m@email.com",
-    avatar: "YM",
-    totalInvested: 12000,
-    projectCount: 2,
-    lastInvestment: new Date(Date.now() - 1000 * 60 * 60 * 24 * 7),
-    status: "active",
-    projects: ["solarEnergy"],
-    joinDate: new Date(Date.now() - 1000 * 60 * 60 * 24 * 45),
-  },
-];
+interface InvestorSummary {
+  id: string;
+  name: string;
+  email: string;
+  avatar: string;
+  totalInvested: number;
+  projectCount: number;
+  lastInvestment: Date;
+  status: "active" | "premium";
+  projects: string[];
+  joinDate: Date;
+}
+
+const premiumInvestmentThreshold = 25000;
 
 const InvestorsPage = () => {
   const { t } = useTranslation();
@@ -135,7 +75,7 @@ const InvestorsPage = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<"recent" | "amount" | "name">("recent");
   const [filterStatus, setFilterStatus] = useState<"all" | "active" | "premium">("all");
-  const [selectedInvestor, setSelectedInvestor] = useState<typeof mockInvestors[0] | null>(null);
+  const [selectedInvestor, setSelectedInvestor] = useState<InvestorSummary | null>(null);
 
   const projectsQuery = useQuery({
     queryKey: ["dashboard", "entrepreneur", "projects"],
@@ -150,7 +90,67 @@ const InvestorsPage = () => {
   const projects = projectsQuery.data?.results ?? [];
   const investments = investmentsQuery.data?.results ?? [];
 
-  const filteredInvestors = mockInvestors.filter((investor) => {
+  const investors = useMemo<InvestorSummary[]>(() => {
+    const ownedProjectIds = new Set(projects.map((project) => project.id));
+    const grouped = new Map<string, {
+      name: string;
+      email: string;
+      totalInvested: number;
+      projectNames: Map<string, string>;
+      firstInvestment: Date;
+      lastInvestment: Date;
+    }>();
+
+    investments
+      .filter((investment) => ownedProjectIds.has(investment.project_detail?.id ?? investment.project))
+      .filter((investment) => !["failed", "cancelled", "refunded"].includes(investment.status))
+      .forEach((investment) => {
+        const identity = investment.investor.trim();
+        const investedAt = new Date(investment.investment_date);
+        const validDate = Number.isNaN(investedAt.getTime()) ? new Date(0) : investedAt;
+        const existing = grouped.get(identity);
+        const projectId = investment.project_detail?.id ?? investment.project;
+        const projectName = investment.project_detail?.title ?? projectId;
+        if (!existing) {
+          grouped.set(identity, {
+            name: identity,
+            email: identity.includes("@") ? identity : "",
+            totalInvested: Number(investment.amount || 0),
+            projectNames: new Map([[projectId, projectName]]),
+            firstInvestment: validDate,
+            lastInvestment: validDate,
+          });
+          return;
+        }
+        existing.totalInvested += Number(investment.amount || 0);
+        existing.projectNames.set(projectId, projectName);
+        if (validDate < existing.firstInvestment) existing.firstInvestment = validDate;
+        if (validDate > existing.lastInvestment) existing.lastInvestment = validDate;
+      });
+
+    return Array.from(grouped.entries()).map(([id, investor]) => {
+      const avatar = investor.name
+        .split(/\s+|@/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((part) => part[0]?.toUpperCase())
+        .join("") || "I";
+      return {
+        id,
+        name: investor.name,
+        email: investor.email,
+        avatar,
+        totalInvested: investor.totalInvested,
+        projectCount: investor.projectNames.size,
+        lastInvestment: investor.lastInvestment,
+        status: investor.totalInvested >= premiumInvestmentThreshold ? "premium" : "active",
+        projects: Array.from(investor.projectNames.values()),
+        joinDate: investor.firstInvestment,
+      };
+    });
+  }, [investments, projects]);
+
+  const filteredInvestors = investors.filter((investor) => {
     const matchesSearch = 
       investor.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       investor.email.toLowerCase().includes(searchQuery.toLowerCase());

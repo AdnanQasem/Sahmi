@@ -1,15 +1,19 @@
+from decimal import Decimal
+
 from django.db import transaction
 from django.db.models import Sum
+from django.utils import timezone
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 
-from .models import Investment, Milestone, Repayment
+from .models import Investment, Milestone, ProjectFundingAccount, Repayment, WithdrawalRequest
+from .payments import get_payment_provider
 from .permissions import InvestmentPermission, MilestonePermission, RepaymentPermission
-from .serializers import InvestmentSerializer, MilestoneSerializer, RepaymentSerializer
-from .services import sync_project_totals
+from .serializers import InvestmentSerializer, MilestoneSerializer, RepaymentSerializer, WithdrawalRequestSerializer
+from .services import FUNDED_INVESTMENT_STATUSES, expire_pending_investments, sync_project_totals
 from apps.projects.models import Project
 
 
@@ -44,6 +48,7 @@ class InvestmentViewSet(viewsets.ModelViewSet):
                 raise ValidationError(
                     {"project": "Project is not currently accepting investments."}
                 )
+            expire_pending_investments(project)
             reserved = (
                 Investment.objects.filter(
                     project=project,
@@ -84,11 +89,25 @@ class InvestmentViewSet(viewsets.ModelViewSet):
             )
 
     def perform_update(self, serializer):
-        old_project_id = serializer.instance.project_id
-        new_project = serializer.validated_data.get("project", serializer.instance.project)
-        if not self.request.user.is_staff and new_project.pk != old_project_id:
-            raise PermissionDenied("Project reassignment is administrator-controlled.")
         with transaction.atomic():
+            locked = Investment.objects.select_for_update().select_related("project").get(pk=serializer.instance.pk)
+            old_project_id = locked.project_id
+            new_project = serializer.validated_data.get("project", locked.project)
+            if not self.request.user.is_staff:
+                if locked.status != Investment.Status.PENDING:
+                    raise PermissionDenied("Only pending investments can be edited.")
+                if new_project.pk != old_project_id:
+                    raise PermissionDenied("Project reassignment is administrator-controlled.")
+            if locked.status == Investment.Status.PENDING:
+                project = Project.objects.select_for_update().get(pk=new_project.pk)
+                requested_amount = serializer.validated_data.get("amount", locked.amount)
+                reserved = Investment.objects.filter(
+                    project=project,
+                    status__in=[Investment.Status.PENDING, Investment.Status.CONFIRMED],
+                ).exclude(pk=locked.pk).aggregate(total=Sum("amount"))["total"] or 0
+                if requested_amount > project.goal_amount - reserved:
+                    raise ValidationError({"amount": f"Exceeding value. Remaining funding is {max(project.goal_amount - reserved, 0)}."})
+            serializer.instance = locked
             investment = serializer.save()
             sync_project_totals(old_project_id)
             if investment.project_id != old_project_id:
@@ -117,6 +136,12 @@ class InvestmentViewSet(viewsets.ModelViewSet):
             investment.status = Investment.Status.CANCELED
             investment.save(update_fields=["status", "updated_at"])
             sync_project_totals(investment.project_id)
+            from apps.audit.services import log as audit_log
+            audit_log(
+                action="investment.status_changed", actor=request.user, target_type="investment",
+                target_id=str(investment.id), metadata={"before": Investment.Status.PENDING, "after": investment.status},
+                request=request,
+            )
         from apps.notifications.models import Notification
         from apps.notifications.services import notify_on_commit
 
@@ -150,10 +175,26 @@ class InvestmentViewSet(viewsets.ModelViewSet):
                 raise ValidationError(
                     "Only pending investments can be confirmed by an administrator."
                 )
+            if project.status != Project.Status.ACTIVE:
+                raise ValidationError("This project is no longer accepting investment confirmations.")
+            if investment.pending_expires_at and investment.pending_expires_at <= timezone.now():
+                investment.status = Investment.Status.FAILED
+                investment.save(update_fields=["status", "updated_at"])
+                from apps.audit.services import log as audit_log
+                audit_log(
+                    action="investment.status_changed", actor=request.user, target_type="investment",
+                    target_id=str(investment.id),
+                    metadata={"before": Investment.Status.PENDING, "after": investment.status, "reason": "pending_expired"},
+                    request=request,
+                )
+                return Response(
+                    {"detail": "This pending investment has expired."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             confirmed_total = (
                 Investment.objects.filter(
                     project=project,
-                    status=Investment.Status.CONFIRMED,
+                    status__in=FUNDED_INVESTMENT_STATUSES,
                 ).aggregate(total=Sum("amount"))["total"]
                 or 0
             )
@@ -165,6 +206,12 @@ class InvestmentViewSet(viewsets.ModelViewSet):
             investment.status = Investment.Status.CONFIRMED
             investment.save(update_fields=["status", "updated_at"])
             sync_project_totals(investment.project_id)
+            from apps.audit.services import log as audit_log
+            audit_log(
+                action="investment.status_changed", actor=request.user, target_type="investment",
+                target_id=str(investment.id), metadata={"before": Investment.Status.PENDING, "after": investment.status},
+                request=request,
+            )
         from apps.notifications.models import Notification
         from apps.notifications.services import notify_on_commit
 
@@ -232,6 +279,264 @@ class MilestoneViewSet(viewsets.ModelViewSet):
                 target_id=str(milestone.id),
             )
 
+    @staticmethod
+    def _validate_completion_evidence(file):
+        if file.size > 10 * 1024 * 1024:
+            raise ValidationError({"completion_evidence": "Completion evidence may not exceed 10 MB."})
+        extension = file.name.rsplit(".", 1)[-1].lower() if "." in file.name else ""
+        if extension not in {"pdf", "png", "jpg", "jpeg", "webp"}:
+            raise ValidationError({"completion_evidence": "Completion evidence must be a PDF or image file."})
+
+    @action(detail=True, methods=["post"], url_path="submit-completion")
+    @transaction.atomic
+    def submit_completion(self, request, pk=None):
+        milestone = Milestone.objects.select_for_update().select_related(
+            "project", "project__entrepreneur"
+        ).get(pk=self.get_object().pk)
+        project = Project.objects.select_for_update().get(pk=milestone.project_id)
+        if project.entrepreneur_id != request.user.id:
+            raise PermissionDenied("Only the project entrepreneur can submit milestone completion evidence.")
+        if project.status != Project.Status.IMPLEMENTATION:
+            raise ValidationError({"project": "Milestone completion can only be submitted during implementation."})
+        if milestone.status not in {Milestone.Status.IN_PROGRESS, Milestone.Status.DELAYED}:
+            raise ValidationError({"milestone": "Only the current in-progress milestone can be submitted for completion."})
+        if milestone.completion_status in {
+            Milestone.CompletionStatus.SUBMITTED,
+            Milestone.CompletionStatus.UNDER_REVIEW,
+            Milestone.CompletionStatus.APPROVED,
+        }:
+            raise ValidationError({"completion_status": "This milestone already has an active completion review."})
+        if project.milestones.filter(order__lt=milestone.order).exclude(
+            status=Milestone.Status.COMPLETED
+        ).exists():
+            raise ValidationError({"milestone": "Complete the previous milestone first."})
+        allocation = (
+            project.funded_amount * milestone.percentage_of_project / 100
+        ).quantize(Decimal("0.01"))
+        if milestone.funding_released < allocation:
+            raise ValidationError({
+                "milestone": f"The full milestone allocation ({allocation}) must be released before completion can be submitted."
+            })
+        summary = str(request.data.get("completion_summary", "")).strip()
+        if len(summary) < 10:
+            raise ValidationError({"completion_summary": "Describe the completed work in at least 10 characters."})
+        evidence = request.FILES.get("completion_evidence")
+        if evidence:
+            self._validate_completion_evidence(evidence)
+        elif not milestone.completion_evidence:
+            raise ValidationError({"completion_evidence": "Upload final milestone evidence or an invoice."})
+        before = milestone.completion_status
+        milestone.completion_summary = summary
+        if evidence:
+            milestone.completion_evidence = evidence
+        milestone.completion_status = Milestone.CompletionStatus.SUBMITTED
+        milestone.completion_submitted_at = timezone.now()
+        milestone.completion_review_notes = ""
+        milestone.completion_reviewed_by = None
+        milestone.completion_reviewed_at = None
+        milestone.save(update_fields=[
+            "completion_summary", "completion_evidence", "completion_status",
+            "completion_submitted_at", "completion_review_notes",
+            "completion_reviewed_by", "completion_reviewed_at", "updated_at",
+        ])
+        from apps.audit.services import log as audit_log
+        from apps.notifications.models import Notification
+        from apps.notifications.services import notify_on_commit
+        audit_log(
+            action="milestone.completion_submitted",
+            actor=request.user,
+            target_type="milestone",
+            target_id=str(milestone.id),
+            metadata={"before": before, "after": milestone.completion_status, "project_id": str(project.id)},
+            request=request,
+        )
+        for admin in type(request.user).objects.filter(is_staff=True, is_active=True):
+            notify_on_commit(
+                recipient=admin,
+                notification_type=Notification.NotificationType.MILESTONE_UPDATED,
+                title="Milestone completion submitted",
+                body=f"Completion evidence for “{milestone.title}” on “{project.title}” is ready for review.",
+                actor=request.user,
+                target_type="milestone",
+                target_id=str(milestone.id),
+            )
+        return Response(self.get_serializer(milestone).data)
+
+    def _completion_review_transition(self, request, milestone, next_status, allowed, *, require_notes=False):
+        with transaction.atomic():
+            milestone = Milestone.objects.select_for_update().select_related(
+                "project", "project__entrepreneur"
+            ).get(pk=milestone.pk)
+            if milestone.completion_status not in allowed:
+                raise ValidationError({
+                    "completion_status": f"A {milestone.completion_status} submission cannot become {next_status}."
+                })
+            notes = str(request.data.get("review_notes", "")).strip()
+            if require_notes and not notes:
+                raise ValidationError({"review_notes": "Review notes are required."})
+            before = milestone.completion_status
+            milestone.completion_status = next_status
+            milestone.completion_review_notes = notes
+            milestone.completion_reviewed_by = request.user
+            milestone.completion_reviewed_at = timezone.now()
+            milestone.save(update_fields=[
+                "completion_status", "completion_review_notes", "completion_reviewed_by",
+                "completion_reviewed_at", "updated_at",
+            ])
+            from apps.audit.services import log as audit_log
+            from apps.notifications.models import Notification
+            from apps.notifications.services import notify_on_commit
+            audit_log(
+                action=f"milestone.completion_{next_status}",
+                actor=request.user,
+                target_type="milestone",
+                target_id=str(milestone.id),
+                metadata={"before": before, "after": next_status, "project_id": str(milestone.project_id)},
+                request=request,
+            )
+            notify_on_commit(
+                recipient=milestone.project.entrepreneur,
+                notification_type=Notification.NotificationType.MILESTONE_UPDATED,
+                title="Milestone completion updated",
+                body=f"Your completion submission for “{milestone.title}” is now {milestone.get_completion_status_display().lower()}.",
+                actor=request.user,
+                target_type="milestone",
+                target_id=str(milestone.id),
+            )
+        return milestone
+
+    @action(detail=True, methods=["post"], permission_classes=[IsAdminUser], url_path="review-completion")
+    def review_completion(self, request, pk=None):
+        milestone = self._completion_review_transition(
+            request, self.get_object(), Milestone.CompletionStatus.UNDER_REVIEW,
+            {Milestone.CompletionStatus.SUBMITTED},
+        )
+        return Response(self.get_serializer(milestone).data)
+
+    @action(detail=True, methods=["post"], permission_classes=[IsAdminUser], url_path="request-completion-revision")
+    def request_completion_revision(self, request, pk=None):
+        milestone = self._completion_review_transition(
+            request, self.get_object(), Milestone.CompletionStatus.REVISION_REQUIRED,
+            {Milestone.CompletionStatus.UNDER_REVIEW}, require_notes=True,
+        )
+        return Response(self.get_serializer(milestone).data)
+
+    @action(detail=True, methods=["post"], permission_classes=[IsAdminUser], url_path="reject-completion")
+    def reject_completion(self, request, pk=None):
+        milestone = self._completion_review_transition(
+            request, self.get_object(), Milestone.CompletionStatus.REJECTED,
+            {Milestone.CompletionStatus.UNDER_REVIEW}, require_notes=True,
+        )
+        return Response(self.get_serializer(milestone).data)
+
+    @action(detail=True, methods=["post"], permission_classes=[IsAdminUser], url_path="approve-completion")
+    @transaction.atomic
+    def approve_completion(self, request, pk=None):
+        milestone = Milestone.objects.select_for_update().select_related(
+            "project", "project__entrepreneur"
+        ).get(pk=self.get_object().pk)
+        if milestone.completion_status != Milestone.CompletionStatus.UNDER_REVIEW:
+            raise ValidationError({"completion_status": "Only a completion under review can be approved."})
+        project = Project.objects.select_for_update().get(pk=milestone.project_id)
+        allocation = (
+            project.funded_amount * milestone.percentage_of_project / 100
+        ).quantize(Decimal("0.01"))
+        if milestone.funding_released < allocation:
+            raise ValidationError({"milestone": "The milestone allocation has not been fully released."})
+        if project.milestones.filter(order__lt=milestone.order).exclude(
+            status=Milestone.Status.COMPLETED
+        ).exists():
+            raise ValidationError({"milestone": "Earlier milestones must be completed first."})
+        now = timezone.now()
+        milestone.completion_status = Milestone.CompletionStatus.APPROVED
+        milestone.completion_review_notes = str(request.data.get("review_notes", "")).strip()
+        milestone.completion_reviewed_by = request.user
+        milestone.completion_reviewed_at = now
+        milestone.status = Milestone.Status.COMPLETED
+        milestone.actual_completion_date = timezone.localdate()
+        milestone.save(update_fields=[
+            "completion_status", "completion_review_notes", "completion_reviewed_by",
+            "completion_reviewed_at", "status", "actual_completion_date", "updated_at",
+        ])
+        from apps.audit.services import log as audit_log
+        next_milestone = project.milestones.select_for_update().filter(
+            order__gt=milestone.order,
+            status=Milestone.Status.PENDING,
+        ).order_by("order").first()
+        if next_milestone:
+            next_milestone.status = Milestone.Status.IN_PROGRESS
+            next_milestone.save(update_fields=["status", "updated_at"])
+            audit_log(
+                action="milestone.status_changed",
+                actor=request.user,
+                target_type="milestone",
+                target_id=str(next_milestone.id),
+                metadata={"before": Milestone.Status.PENDING, "after": Milestone.Status.IN_PROGRESS, "reason": "previous_milestone_completed"},
+                request=request,
+            )
+        all_complete = not project.milestones.exclude(status=Milestone.Status.COMPLETED).exists()
+        account = ProjectFundingAccount.objects.select_for_update().filter(project=project).first()
+        project_completed = all_complete and bool(account) and account.available == 0
+        if project_completed:
+            previous_project_status = project.status
+            project.status = Project.Status.CLOSED
+            project.save(update_fields=["status", "updated_at"])
+            completed_ids = list(Investment.objects.filter(
+                project=project,
+                status=Investment.Status.CONFIRMED,
+            ).values_list("id", flat=True))
+            Investment.objects.filter(id__in=completed_ids).update(
+                status=Investment.Status.COMPLETED,
+                updated_at=now,
+            )
+            from apps.audit.models import AuditLog
+            AuditLog.objects.bulk_create([
+                AuditLog(
+                    actor=request.user,
+                    action="investment.status_changed",
+                    target_type="investment",
+                    target_id=str(investment_id),
+                    metadata={
+                        "before": Investment.Status.CONFIRMED,
+                        "after": Investment.Status.COMPLETED,
+                        "reason": "project_completed",
+                    },
+                )
+                for investment_id in completed_ids
+            ])
+            audit_log(
+                action="project.status_changed",
+                actor=request.user,
+                target_type="project",
+                target_id=str(project.id),
+                metadata={"before": previous_project_status, "after": project.status},
+                request=request,
+            )
+        audit_log(
+            action="milestone.completion_approved",
+            actor=request.user,
+            target_type="milestone",
+            target_id=str(milestone.id),
+            metadata={"project_id": str(project.id), "project_completed": project_completed},
+            request=request,
+        )
+        from apps.notifications.models import Notification
+        from apps.notifications.services import notify_on_commit
+        recipients = {project.entrepreneur_id: project.entrepreneur}
+        for investment in project.investments.filter(status__in=FUNDED_INVESTMENT_STATUSES).select_related("investor"):
+            recipients[investment.investor_id] = investment.investor
+        for recipient in recipients.values():
+            notify_on_commit(
+                recipient=recipient,
+                notification_type=Notification.NotificationType.MILESTONE_UPDATED,
+                title="Milestone completed",
+                body=f"Milestone “{milestone.title}” for “{project.title}” was verified and completed.",
+                actor=request.user,
+                target_type="milestone",
+                target_id=str(milestone.id),
+            )
+        return Response(self.get_serializer(milestone).data)
+
 
 class RepaymentViewSet(viewsets.ModelViewSet):
     queryset = Repayment.objects.select_related("investment", "investment__investor", "investment__project")
@@ -283,3 +588,206 @@ class RepaymentViewSet(viewsets.ModelViewSet):
                 target_type="repayment",
                 target_id=str(repayment.id),
             )
+
+
+class WithdrawalRequestViewSet(viewsets.ModelViewSet):
+    serializer_class = WithdrawalRequestSerializer
+    permission_classes = [IsAuthenticated]
+    filterset_fields = ["project", "milestone", "status"]
+    ordering_fields = ["created_at", "amount", "status"]
+    http_method_names = ["get", "post", "head", "options"]
+
+    def get_queryset(self):
+        queryset = WithdrawalRequest.objects.select_related(
+            "project", "project__entrepreneur", "milestone", "requested_by", "reviewed_by", "released_by"
+        )
+        if self.request.user.is_staff:
+            return queryset
+        return queryset.filter(project__entrepreneur=self.request.user)
+
+    def perform_create(self, serializer):
+        with transaction.atomic():
+            milestone = Milestone.objects.select_for_update().select_related("project").get(
+                pk=serializer.validated_data["milestone"].pk
+            )
+            project = Project.objects.select_for_update().get(pk=milestone.project_id)
+            if project.status != Project.Status.IMPLEMENTATION:
+                raise ValidationError({"project": "This project is not in implementation."})
+            if WithdrawalRequest.objects.filter(
+                milestone=milestone,
+                status__in=[WithdrawalRequest.Status.REQUESTED, WithdrawalRequest.Status.UNDER_REVIEW, WithdrawalRequest.Status.APPROVED],
+            ).exists():
+                raise ValidationError({"milestone": "This milestone already has an open withdrawal request."})
+            earlier = project.milestones.select_for_update().filter(order__lt=milestone.order)
+            if earlier.exclude(status=Milestone.Status.COMPLETED).exists():
+                raise ValidationError({"milestone": "Complete earlier milestones before requesting this release."})
+            account = ProjectFundingAccount.objects.select_for_update().filter(project=project).first()
+            available = account.available if account else 0
+            amount = serializer.validated_data["amount"]
+            allocation = (
+                project.funded_amount * milestone.percentage_of_project / 100
+            ).quantize(Decimal("0.01"))
+            released_for_milestone = WithdrawalRequest.objects.filter(
+                milestone=milestone,
+                status=WithdrawalRequest.Status.RELEASED,
+            ).aggregate(total=Sum("amount"))["total"] or Decimal("0")
+            if amount + released_for_milestone > allocation:
+                raise ValidationError({"amount": "This request exceeds the milestone allocation."})
+            if amount > available:
+                raise ValidationError({"amount": f"Only {available} remains available."})
+            serializer.validated_data["milestone"] = milestone
+            withdrawal = serializer.save(project=project, requested_by=self.request.user)
+            from apps.audit.services import log as audit_log
+            from apps.notifications.models import Notification
+            from apps.notifications.services import notify_on_commit
+            audit_log(
+                action="withdrawal.requested", actor=self.request.user, target_type="withdrawal",
+                target_id=str(withdrawal.id), metadata={"project_id": str(project.id), "amount": str(withdrawal.amount)},
+                request=self.request,
+            )
+            for admin in type(self.request.user).objects.filter(is_staff=True, is_active=True):
+                notify_on_commit(
+                    recipient=admin,
+                    notification_type=Notification.NotificationType.WITHDRAWAL_UPDATED,
+                    title="Fund release requested",
+                    body=f"{project.entrepreneur} requested {withdrawal.amount} for “{milestone.title}” on “{project.title}”.",
+                    actor=self.request.user,
+                    target_type="withdrawal",
+                    target_id=str(withdrawal.id),
+                )
+
+    @transaction.atomic
+    def _admin_transition(self, request, withdrawal, next_status, allowed, *, require_notes=False):
+        with transaction.atomic():
+            withdrawal = WithdrawalRequest.objects.select_for_update().select_related(
+                "project", "project__entrepreneur", "milestone"
+            ).get(pk=withdrawal.pk)
+            if withdrawal.status not in allowed:
+                raise ValidationError({"status": f"A {withdrawal.status} request cannot become {next_status}."})
+            notes = str(request.data.get("review_notes", "")).strip()
+            if require_notes and not notes:
+                raise ValidationError({"review_notes": "Review notes are required."})
+            withdrawal.status = next_status
+            withdrawal.review_notes = notes
+            withdrawal.reviewed_by = request.user
+            withdrawal.reviewed_at = timezone.now()
+            withdrawal.save(update_fields=["status", "review_notes", "reviewed_by", "reviewed_at", "updated_at"])
+        from apps.audit.services import log as audit_log
+        from apps.notifications.models import Notification
+        from apps.notifications.services import notify_on_commit
+        audit_log(
+            action=f"withdrawal.{next_status}", actor=request.user, target_type="withdrawal",
+            target_id=str(withdrawal.id), metadata={"project_id": str(withdrawal.project_id), "amount": str(withdrawal.amount)},
+            request=request,
+        )
+        notify_on_commit(
+            recipient=withdrawal.project.entrepreneur,
+            notification_type=Notification.NotificationType.WITHDRAWAL_UPDATED,
+            title=f"Withdrawal {withdrawal.get_status_display().lower()}",
+            body=f"Your {withdrawal.amount} withdrawal request for “{withdrawal.milestone.title}” is {withdrawal.get_status_display().lower()}.",
+            actor=request.user, target_type="withdrawal", target_id=str(withdrawal.id),
+        )
+        return Response(self.get_serializer(withdrawal).data)
+
+    @action(detail=True, methods=["post"], permission_classes=[IsAdminUser])
+    def review(self, request, pk=None):
+        return self._admin_transition(request, self.get_object(), WithdrawalRequest.Status.UNDER_REVIEW, {WithdrawalRequest.Status.REQUESTED})
+
+    @action(detail=True, methods=["post"], permission_classes=[IsAdminUser])
+    def approve(self, request, pk=None):
+        return self._admin_transition(request, self.get_object(), WithdrawalRequest.Status.APPROVED, {WithdrawalRequest.Status.UNDER_REVIEW})
+
+    @action(detail=True, methods=["post"], permission_classes=[IsAdminUser])
+    def reject(self, request, pk=None):
+        return self._admin_transition(request, self.get_object(), WithdrawalRequest.Status.REJECTED, {WithdrawalRequest.Status.UNDER_REVIEW}, require_notes=True)
+
+    @action(detail=True, methods=["post"], permission_classes=[IsAdminUser], url_path="request-revision")
+    def request_revision(self, request, pk=None):
+        return self._admin_transition(request, self.get_object(), WithdrawalRequest.Status.REVISION_REQUIRED, {WithdrawalRequest.Status.UNDER_REVIEW}, require_notes=True)
+
+    @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated])
+    def cancel(self, request, pk=None):
+        with transaction.atomic():
+            withdrawal = WithdrawalRequest.objects.select_for_update().select_related("project").get(pk=self.get_object().pk)
+            if withdrawal.requested_by_id != request.user.id:
+                raise PermissionDenied("Only the entrepreneur who requested this withdrawal can cancel it.")
+            if withdrawal.status not in {WithdrawalRequest.Status.REQUESTED, WithdrawalRequest.Status.REVISION_REQUIRED}:
+                raise ValidationError({"status": "Only requested or revision-required withdrawals can be cancelled."})
+            previous = withdrawal.status
+            withdrawal.status = WithdrawalRequest.Status.CANCELLED
+            withdrawal.save(update_fields=["status", "updated_at"])
+            from apps.audit.services import log as audit_log
+            audit_log(
+                action="withdrawal.cancelled", actor=request.user, target_type="withdrawal",
+                target_id=str(withdrawal.id), metadata={"before": previous, "after": withdrawal.status}, request=request,
+            )
+        return Response(self.get_serializer(withdrawal).data)
+
+    @action(detail=True, methods=["post"], permission_classes=[IsAdminUser])
+    @transaction.atomic
+    def release(self, request, pk=None):
+        withdrawal = WithdrawalRequest.objects.select_for_update().select_related(
+            "project", "project__entrepreneur", "milestone"
+        ).get(pk=self.get_object().pk)
+        project = Project.objects.select_for_update().get(pk=withdrawal.project_id)
+        milestone = Milestone.objects.select_for_update().get(pk=withdrawal.milestone_id)
+        account = ProjectFundingAccount.objects.select_for_update().filter(project=project).first()
+        if withdrawal.status != WithdrawalRequest.Status.APPROVED:
+            raise ValidationError({"status": "Only approved withdrawals can be released."})
+        if project.status != Project.Status.IMPLEMENTATION:
+            raise ValidationError({"project": "Funds can only be released during implementation."})
+        if milestone.status == Milestone.Status.COMPLETED:
+            raise ValidationError({"milestone": "This milestone is already complete."})
+        earlier = project.milestones.select_for_update().filter(order__lt=milestone.order)
+        if earlier.exclude(status=Milestone.Status.COMPLETED).exists():
+            raise ValidationError({"milestone": "Earlier milestones must be completed first."})
+        if account is None or withdrawal.amount > account.available:
+            raise ValidationError({"amount": "The available secured balance is insufficient."})
+        allocation = (project.funded_amount * milestone.percentage_of_project / 100).quantize(Decimal("0.01"))
+        released_for_milestone = WithdrawalRequest.objects.filter(
+            milestone=milestone, status=WithdrawalRequest.Status.RELEASED,
+        ).aggregate(total=Sum("amount"))["total"] or Decimal("0")
+        if released_for_milestone + withdrawal.amount > allocation:
+            raise ValidationError({"amount": "This release exceeds the milestone allocation."})
+        payout = get_payment_provider().release(
+            withdrawal_id=str(withdrawal.id), amount=withdrawal.amount,
+            recipient_id=str(project.entrepreneur_id),
+            metadata={"project_id": str(project.id), "milestone_id": str(milestone.id)},
+        )
+        now = timezone.now()
+        before = {"secured": str(account.secured), "released": str(account.released), "refunded": str(account.refunded)}
+        account.secured -= withdrawal.amount
+        account.released += withdrawal.amount
+        account.save(update_fields=["secured", "released", "updated_at"])
+        withdrawal.status = WithdrawalRequest.Status.RELEASED
+        withdrawal.released_by = request.user
+        withdrawal.released_at = now
+        withdrawal.simulated_transaction_id = payout.transaction_id
+        withdrawal.save(update_fields=["status", "released_by", "released_at", "simulated_transaction_id", "updated_at"])
+        milestone.funding_released = WithdrawalRequest.objects.filter(
+            milestone=milestone, status=WithdrawalRequest.Status.RELEASED,
+        ).aggregate(total=Sum("amount"))["total"] or Decimal("0")
+        milestone.save(update_fields=["funding_released", "updated_at"])
+        from apps.audit.services import log as audit_log
+        from apps.notifications.models import Notification
+        from apps.notifications.services import notify_on_commit
+        audit_log(
+            action="withdrawal.released", actor=request.user, target_type="withdrawal", target_id=str(withdrawal.id),
+            metadata={
+                "project_id": str(project.id), "amount": str(withdrawal.amount),
+                "balances_before": before,
+                "balances_after": {"secured": str(account.secured), "released": str(account.released), "refunded": str(account.refunded), "available": str(account.available)},
+                "provider_transaction_id": payout.transaction_id,
+            }, request=request,
+        )
+        recipients = {project.entrepreneur_id: project.entrepreneur}
+        for investment in project.investments.filter(status__in=FUNDED_INVESTMENT_STATUSES).select_related("investor"):
+            recipients[investment.investor_id] = investment.investor
+        for recipient in recipients.values():
+            notify_on_commit(
+                recipient=recipient, notification_type=Notification.NotificationType.FUNDS_RELEASED,
+                title="Milestone funds released",
+                body=f"{withdrawal.amount} was released for “{project.title}” milestone “{milestone.title}”.",
+                actor=request.user, target_type="withdrawal", target_id=str(withdrawal.id),
+            )
+        return Response(self.get_serializer(withdrawal).data)

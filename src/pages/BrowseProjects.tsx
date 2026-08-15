@@ -1,36 +1,47 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import ProjectCard from "@/components/ProjectCard";
 import { Search, SlidersHorizontal } from "lucide-react";
-import projectsService, { Project } from "@/services/projectsService";
+import projectsService from "@/services/projectsService";
 import { useTranslation } from "react-i18next";
-import i18n from "@/i18n";
+import { toProjectCard } from "@/lib/mappers";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-const fallbackImage = "/placeholder.svg";
-
-const toProjectCard = (project: Project) => ({
-  id: project.id,
-  slug: project.slug,
-  title: project.title,
-  description: project.short_description || project.description,
-  category: project.category_detail?.name ?? i18n.t("projects.projectFallback"),
-  founder: project.entrepreneur?.business_name || project.entrepreneur?.full_name || i18n.t("projects.founderFallback"),
-  image: project.cover_image || fallbackImage,
-  goal: Number(project.goal_amount),
-  raised: Number(project.funded_amount),
-  investors: project.investor_count,
-  daysLeft: project.days_left ?? 0,
-  repaymentStatus: project.repayment_status,
-  verified: project.is_verified,
-});
+const PAGE_SIZE = 9;
+const FUNDED_PAGE_SIZE = 6;
+const validSorts = new Set(["trending", "newest", "most-funded", "ending-soon"]);
+const positivePage = (value: string | null) => Math.max(1, Number.parseInt(value ?? "1", 10) || 1);
 
 const BrowseProjects = () => {
   const { t } = useTranslation();
-  const [search, setSearch] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("All");
-  const [sortBy, setSortBy] = useState("trending");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlSearch = searchParams.get("search") ?? "";
+  const [search, setSearch] = useState(urlSearch);
+  const selectedCategory = searchParams.get("category") ?? "all";
+  const requestedSort = searchParams.get("sort") ?? "trending";
+  const sortBy = validSorts.has(requestedSort) ? requestedSort : "trending";
+  const page = positivePage(searchParams.get("page"));
+  const fundedPage = positivePage(searchParams.get("funded_page"));
+
+  const updateParams = (updates: Record<string, string | number | null>, replace = false) => {
+    const next = new URLSearchParams(searchParams);
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value === null || value === "" || value === "all" || value === "trending" || value === 1) next.delete(key);
+      else next.set(key, String(value));
+    });
+    setSearchParams(next, { replace });
+  };
+
+  useEffect(() => setSearch(urlSearch), [urlSearch]);
+
+  useEffect(() => {
+    if (search === urlSearch) return;
+    const timeout = window.setTimeout(() => updateParams({ search: search.trim() || null, page: null }, true), 300);
+    return () => window.clearTimeout(timeout);
+  }, [search, urlSearch]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const categoriesQuery = useQuery({
     queryKey: ["project-categories"],
@@ -44,33 +55,35 @@ const BrowseProjects = () => {
     "-investor_count";
 
   const activeProjectsQuery = useQuery({
-    queryKey: ["projects", "active", { search, selectedCategory, ordering }],
+    queryKey: ["projects", "active", { search: urlSearch, selectedCategory, ordering, page }],
     queryFn: () => projectsService.listProjects({
-      search: search || undefined,
-      category: selectedCategory === "All" ? undefined : selectedCategory,
+      search: urlSearch || undefined,
+      category: selectedCategory === "all" ? undefined : selectedCategory,
       ordering,
-      status: "active",
-      page_size: 100,
+      status: "fundraising",
+      page,
+      page_size: PAGE_SIZE,
     }),
   });
 
   const fundedProjectsQuery = useQuery({
-    queryKey: ["projects", "successful"],
+    queryKey: ["projects", "successful", fundedPage],
     queryFn: () => projectsService.listProjects({
       ordering: "-funded_amount",
-      page_size: 100,
+      page: fundedPage,
+      page_size: FUNDED_PAGE_SIZE,
     }),
   });
 
   const categories = ["All", ...(categoriesQuery.data?.map((category) => category.name) ?? [])];
   const categorySlugByName = new Map(categoriesQuery.data?.map((category) => [category.name, category.slug]) ?? []);
-  const selectedCategorySlug = selectedCategory === "All" ? "All" : categorySlugByName.get(selectedCategory) ?? selectedCategory;
+  const selectedCategorySlug = selectedCategory;
   const activeProjects = activeProjectsQuery.data?.results
-    .filter((project) => project.status === "active" && Number(project.funded_amount) < Number(project.goal_amount))
+    .filter((project) => project.status === "fundraising" && Number(project.funded_amount) < Number(project.goal_amount))
     .map(toProjectCard) ?? [];
   const fundedProjects = fundedProjectsQuery.data?.results
     .filter((project) => (
-      project.status === "successful"
+      ["fully_funded", "implementation", "completed"].includes(project.status)
       || (Number(project.goal_amount) > 0 && Number(project.funded_amount) >= Number(project.goal_amount))
     ))
     .map(toProjectCard) ?? [];
@@ -97,16 +110,15 @@ const BrowseProjects = () => {
               className="ps-10"
             />
           </div>
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
-            className="h-10 rounded-lg border border-input bg-background px-3 text-sm text-foreground"
-          >
-            <option value="trending">{t("projects.trending")}</option>
-            <option value="newest">{t("projects.newest")}</option>
-            <option value="most-funded">{t("projects.mostFunded")}</option>
-            <option value="ending-soon">{t("projects.endingSoon")}</option>
-          </select>
+          <Select value={sortBy} onValueChange={(value) => updateParams({ sort: value, page: null })}>
+            <SelectTrigger className="w-full md:w-48" aria-label={t("projects.sortBy")}><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="trending">{t("projects.trending")}</SelectItem>
+              <SelectItem value="newest">{t("projects.newest")}</SelectItem>
+              <SelectItem value="most-funded">{t("projects.mostFunded")}</SelectItem>
+              <SelectItem value="ending-soon">{t("projects.endingSoon")}</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Category chips */}
@@ -114,9 +126,9 @@ const BrowseProjects = () => {
           {categories.map((cat) => (
             <button
               key={cat === "All" ? t("projects.allCategories") : cat}
-              onClick={() => setSelectedCategory(cat === "All" ? "All" : categorySlugByName.get(cat) ?? cat)}
+              onClick={() => updateParams({ category: cat === "All" ? null : categorySlugByName.get(cat) ?? cat, page: null })}
               className={`rounded-full px-4 py-2 text-sm font-medium transition-all ${
-                selectedCategorySlug === (cat === "All" ? "All" : categorySlugByName.get(cat))
+                selectedCategorySlug === (cat === "All" ? "all" : categorySlugByName.get(cat))
                   ? "bg-primary text-primary-foreground"
                   : "border border-border bg-card text-muted-foreground hover:border-primary hover:text-primary"
               }`}
@@ -153,9 +165,13 @@ const BrowseProjects = () => {
               <SlidersHorizontal className="mx-auto mb-4 h-10 w-10 text-muted-foreground" />
               <h3 className="mb-2 text-lg font-semibold text-foreground">{t("projects.noResults")}</h3>
               <p className="text-sm text-muted-foreground">{t("projects.noResults")}</p>
-              <Button variant="outline" className="mt-4" onClick={() => { setSearch(""); setSelectedCategory("All"); }}>{t("projects.clearFilters")}</Button>
+              <Button variant="outline" className="mt-4" onClick={() => { setSearch(""); setSearchParams({}); }}>{t("projects.clearFilters")}</Button>
             </div>
           )}
+          {(activeProjectsQuery.data?.previous || activeProjectsQuery.data?.next) && <div className="mt-8 flex items-center justify-between gap-4">
+            <p className="text-sm text-muted-foreground">{t("common.paginationSummary", { first: (page - 1) * PAGE_SIZE + 1, last: Math.min(page * PAGE_SIZE, activeProjectsQuery.data.count), count: activeProjectsQuery.data.count })}</p>
+            <div className="flex gap-2"><Button variant="outline" disabled={!activeProjectsQuery.data.previous} onClick={() => updateParams({ page: page - 1 })}>{t("common.previous")}</Button><Button variant="outline" disabled={!activeProjectsQuery.data.next} onClick={() => updateParams({ page: page + 1 })}>{t("common.next")}</Button></div>
+          </div>}
         </section>
 
         {/* Successfully funded projects */}
@@ -194,6 +210,7 @@ const BrowseProjects = () => {
               {t("projects.noSuccessfullyFundedProjects")}
             </p>
           )}
+          {(fundedProjectsQuery.data?.previous || fundedProjectsQuery.data?.next) && <div className="mt-8 flex items-center justify-end gap-2"><Button variant="outline" disabled={!fundedProjectsQuery.data.previous} onClick={() => updateParams({ funded_page: fundedPage - 1 })}>{t("common.previous")}</Button><Button variant="outline" disabled={!fundedProjectsQuery.data.next} onClick={() => updateParams({ funded_page: fundedPage + 1 })}>{t("common.next")}</Button></div>}
         </section>
       </div>
     </div>

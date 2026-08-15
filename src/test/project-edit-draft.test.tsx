@@ -10,6 +10,9 @@ const projectServiceMocks = vi.hoisted(() => ({
   listCategories: vi.fn(),
   updateProject: vi.fn(),
 }));
+const authState = vi.hoisted(() => ({
+  user: { id: "owner-1", user_type: "entrepreneur", is_staff: false },
+}));
 
 vi.mock("@/services/projectsService", async () => {
   const actual = await vi.importActual<typeof import("@/services/projectsService")>(
@@ -28,7 +31,7 @@ vi.mock("@/services/projectsService", async () => {
 
 vi.mock("@/hooks/useAuth", () => ({
   useAuth: () => ({
-    user: { id: "owner-1", user_type: "entrepreneur", is_staff: false },
+    user: authState.user,
   }),
 }));
 
@@ -79,6 +82,7 @@ afterEach(() => {
   cleanup();
   focusManager.setFocused(undefined);
   vi.clearAllMocks();
+  authState.user = { id: "owner-1", user_type: "entrepreneur", is_staff: false };
 });
 
 describe("project edit draft preservation", () => {
@@ -111,6 +115,27 @@ describe("project edit draft preservation", () => {
     await waitFor(() => expect(projectServiceMocks.getProject).toHaveBeenCalledTimes(2));
 
     expect(titleInput).toHaveValue("My unsaved title");
+    queryClient.clear();
+  });
+
+  it("redirects a non-staff user who does not own the project", async () => {
+    authState.user = { id: "different-owner", user_type: "entrepreneur", is_staff: false };
+    projectServiceMocks.getProject.mockResolvedValue(project("Private project"));
+    projectServiceMocks.listCategories.mockResolvedValue([]);
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={["/projects/green-workshop/edit"]}>
+          <Routes>
+            <Route path="/projects/:id/edit" element={<EditProject />} />
+            <Route path="/projects" element={<div>Projects index</div>} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByText("Projects index")).toBeInTheDocument();
     queryClient.clear();
   });
 });

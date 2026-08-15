@@ -65,6 +65,10 @@ export interface AdminProject {
   location_governorate: string;
   goal_amount: string;
   funded_amount: string;
+  funding_account: import("./projectsService").ProjectFundingAccount;
+  funding_reached_at: string | null;
+  pending_payment_deadline: string | null;
+  funding_finalized_at: string | null;
   minimum_investment: string;
   expected_roi: string;
   cost_items: ProjectCostItem[];
@@ -73,7 +77,7 @@ export interface AdminProject {
   funding_period_days: number;
   start_date: string;
   end_date: string | null;
-  status: "draft" | "active" | "closed" | "successful" | "failed" | "paused";
+  status: Project["status"];
   is_verified: boolean;
   verified_by: string | null;
   verified_by_detail: AdminProjectUser | null;
@@ -265,11 +269,20 @@ const adminProjectsService = {
       verification_notes: verificationNotes,
     }),
 
+  reviewProjectEditImage: async (
+    id: string,
+    payload: { image_key: string; status: import("./projectsService").EditImageReviewStatus; review_notes: string },
+  ): Promise<AdminProject> =>
+    await api.post("admin/projects/" + id + "/review-edit-image/", payload),
+
   setProjectStatus: async (
     id: string,
     payload: ProjectModerationPayload,
   ): Promise<AdminProject> =>
     await api.post("admin/projects/" + id + "/set-status/", payload),
+
+  finalizeFunding: async (id: string): Promise<AdminProject> =>
+    await api.post("admin/projects/" + id + "/finalize-funding/", {}),
 
   listOwners: async (): Promise<AdminProjectUser[]> => {
     return await listAll<AdminProjectUser>("admin/users/", { ordering: "email" });

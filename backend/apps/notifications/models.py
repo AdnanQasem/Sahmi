@@ -18,6 +18,9 @@ class Notification(UUIDTimestampModel):
         )
         MILESTONE_UPDATED = "milestone_updated", "Milestone updated"
         REPAYMENT_UPDATED = "repayment_updated", "Repayment updated"
+        FUNDING_GOAL_REACHED = "funding_goal_reached", "Funding goal reached"
+        WITHDRAWAL_UPDATED = "withdrawal_updated", "Withdrawal updated"
+        FUNDS_RELEASED = "funds_released", "Funds released"
         SYSTEM = "system", "System"
 
     class DeliveryStatus(models.TextChoices):

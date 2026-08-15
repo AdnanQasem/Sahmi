@@ -187,7 +187,9 @@ const AdminInvestmentsPage = () => {
                   <SelectItem value="pending">{t("status.pending")}</SelectItem>
                   <SelectItem value="confirmed">{t("status.confirmed")}</SelectItem>
                   <SelectItem value="completed">{t("status.completed")}</SelectItem>
-                  <SelectItem value="canceled">{t("status.canceled")}</SelectItem>
+                  <SelectItem value="failed">{t("status.failed")}</SelectItem>
+                  <SelectItem value="cancelled">{t("status.cancelled")}</SelectItem>
+                  <SelectItem value="refunded">{t("status.refunded")}</SelectItem>
                 </SelectContent>
               </Select>
               <Select

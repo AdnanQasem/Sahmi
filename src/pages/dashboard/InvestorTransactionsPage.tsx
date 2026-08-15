@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
+import { dashboardPollingOptions } from "@/lib/dashboardPolling";
 import DashboardLayout from "./DashboardLayout";
 import EmptyState from "@/components/dashboard/EmptyState";
 import StatusBadge from "@/components/dashboard/StatusBadge";
@@ -44,7 +45,7 @@ const InvestorTransactionsPage = () => {
   const investmentsQuery = useQuery({
     queryKey: ["dashboard", "investor", "transactions"],
     queryFn: investmentsService.listInvestments,
-    refetchInterval: 5000,
+    ...dashboardPollingOptions,
   });
 
   const transactions = investmentsQuery.data?.results ?? [];

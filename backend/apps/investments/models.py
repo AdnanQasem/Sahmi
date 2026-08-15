@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.db import models
+from django.utils import timezone
 
 from apps.core.models import UUIDTimestampModel
 from apps.projects.models import Project
@@ -9,8 +10,10 @@ class Investment(UUIDTimestampModel):
     class Status(models.TextChoices):
         PENDING = "pending", "Pending"
         CONFIRMED = "confirmed", "Confirmed"
-        CANCELED = "canceled", "Canceled"
         COMPLETED = "completed", "Completed"
+        FAILED = "failed", "Failed"
+        CANCELED = "cancelled", "Cancelled"
+        REFUNDED = "refunded", "Refunded"
 
     class PaymentMethod(models.TextChoices):
         CARD = "card", "Card"
@@ -23,6 +26,7 @@ class Investment(UUIDTimestampModel):
     quantity = models.PositiveIntegerField(default=1)
     investment_date = models.DateTimeField(auto_now_add=True)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    pending_expires_at = models.DateTimeField(blank=True, null=True)
     transaction_id = models.CharField(max_length=120, blank=True)
     payment_method = models.CharField(max_length=20, choices=PaymentMethod.choices, default=PaymentMethod.BANK_TRANSFER)
     expected_return = models.DecimalField(max_digits=12, decimal_places=2, default=0)
@@ -38,9 +42,73 @@ class Investment(UUIDTimestampModel):
         ]
 
     def save(self, *args, **kwargs):
+        if self.status == self.Status.PENDING and not self.pending_expires_at:
+            self.pending_expires_at = timezone.now() + timezone.timedelta(hours=24)
         if self.project_id and self.amount and not self.expected_return:
             self.expected_return = self.amount * (self.project.expected_roi / 100)
         super().save(*args, **kwargs)
+
+
+class ProjectFundingAccount(UUIDTimestampModel):
+    """Server-owned ledger totals for project funds; never client editable."""
+
+    project = models.OneToOneField(
+        Project,
+        on_delete=models.CASCADE,
+        related_name="funding_account",
+    )
+    secured = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    released = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    refunded = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+
+    @property
+    def available(self):
+        return self.secured
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(condition=models.Q(secured__gte=0), name="funding_account_secured_nonnegative"),
+            models.CheckConstraint(condition=models.Q(released__gte=0), name="funding_account_released_nonnegative"),
+            models.CheckConstraint(condition=models.Q(refunded__gte=0), name="funding_account_refunded_nonnegative"),
+        ]
+
+
+class WithdrawalRequest(UUIDTimestampModel):
+    class Status(models.TextChoices):
+        REQUESTED = "requested", "Requested"
+        UNDER_REVIEW = "under_review", "Under Review"
+        APPROVED = "approved", "Approved"
+        RELEASED = "released", "Released"
+        REJECTED = "rejected", "Rejected"
+        REVISION_REQUIRED = "revision_required", "Revision Required"
+        CANCELLED = "cancelled", "Cancelled"
+
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="withdrawal_requests")
+    milestone = models.ForeignKey("Milestone", on_delete=models.PROTECT, related_name="withdrawal_requests")
+    requested_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="withdrawal_requests")
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    evidence_description = models.TextField()
+    planned_expenses = models.TextField()
+    evidence_file = models.FileField(upload_to="withdrawal-evidence/%Y/%m/", blank=True, null=True)
+    status = models.CharField(max_length=24, choices=Status.choices, default=Status.REQUESTED)
+    review_notes = models.TextField(blank=True)
+    reviewed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, blank=True, null=True, related_name="reviewed_withdrawals")
+    reviewed_at = models.DateTimeField(blank=True, null=True)
+    released_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, blank=True, null=True, related_name="released_withdrawals")
+    released_at = models.DateTimeField(blank=True, null=True)
+    simulated_transaction_id = models.CharField(max_length=120, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [models.Index(fields=["project", "status", "created_at"])]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["milestone"],
+                condition=models.Q(status__in=["requested", "under_review", "approved"]),
+                name="one_open_withdrawal_per_milestone",
+            ),
+            models.CheckConstraint(condition=models.Q(amount__gt=0), name="withdrawal_amount_positive"),
+        ]
 
 
 class Milestone(UUIDTimestampModel):
@@ -49,6 +117,14 @@ class Milestone(UUIDTimestampModel):
         IN_PROGRESS = "in_progress", "In progress"
         COMPLETED = "completed", "Completed"
         DELAYED = "delayed", "Delayed"
+
+    class CompletionStatus(models.TextChoices):
+        NOT_SUBMITTED = "not_submitted", "Not Submitted"
+        SUBMITTED = "submitted", "Submitted"
+        UNDER_REVIEW = "under_review", "Under Review"
+        REVISION_REQUIRED = "revision_required", "Revision Required"
+        REJECTED = "rejected", "Rejected"
+        APPROVED = "approved", "Approved"
 
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="milestones")
     title = models.CharField(max_length=120)
@@ -60,6 +136,27 @@ class Milestone(UUIDTimestampModel):
     percentage_of_project = models.DecimalField(max_digits=5, decimal_places=2)
     funding_released = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     order = models.PositiveIntegerField(default=0)
+    completion_status = models.CharField(
+        max_length=24,
+        choices=CompletionStatus.choices,
+        default=CompletionStatus.NOT_SUBMITTED,
+    )
+    completion_summary = models.TextField(blank=True)
+    completion_evidence = models.FileField(
+        upload_to="milestone-completion-evidence/%Y/%m/",
+        blank=True,
+        null=True,
+    )
+    completion_submitted_at = models.DateTimeField(blank=True, null=True)
+    completion_review_notes = models.TextField(blank=True)
+    completion_reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="reviewed_milestone_completions",
+    )
+    completion_reviewed_at = models.DateTimeField(blank=True, null=True)
 
     class Meta:
         ordering = ["project", "order"]

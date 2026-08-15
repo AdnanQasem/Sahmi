@@ -2,12 +2,13 @@ from decimal import Decimal
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 
 from apps.notifications.models import Notification
 from apps.projects.models import Project, ProjectCategory
 
-from .models import Investment, Milestone
+from .models import Investment, Milestone, ProjectFundingAccount, WithdrawalRequest
 
 
 class InvestmentConfirmationSignalTests(TestCase):
@@ -292,3 +293,286 @@ class InvestmentSecurityAndTotalsTests(TestCase):
         self.assertEqual(public_schedule.status_code, status.HTTP_200_OK)
         self.assertEqual(public_schedule.data[0]["amount"], 10.0)
         self.assertNotIn("investor", public_schedule.data[0])
+
+
+class SecuredFundingWorkflowTests(TestCase):
+    def setUp(self):
+        from rest_framework.test import APIClient
+        User = get_user_model()
+        self.owner = User.objects.create_user(username="fund-owner", email="fund-owner@example.com", full_name="Owner", password="password", user_type=User.UserType.ENTREPRENEUR)
+        self.investor = User.objects.create_user(username="fund-investor", email="fund-investor@example.com", full_name="Investor", password="password")
+        self.admin = User.objects.create_user(username="fund-admin", email="fund-admin@example.com", full_name="Admin", password="password", is_staff=True)
+        category = ProjectCategory.objects.create(name="Secured", slug="secured")
+        self.project = Project.objects.create(
+            entrepreneur=self.owner, title="Secured Project", slug="secured-project", description="d",
+            short_description="s", category=category, location="Gaza", goal_amount=Decimal("10000"),
+            minimum_investment=Decimal("100"), expected_roi=Decimal("5"), is_verified=True,
+            status=Project.Status.ACTIVE,
+        )
+        self.first = Milestone.objects.create(
+            project=self.project, title="Materials", description="Buy materials", target_date="2027-01-01",
+            percentage_of_project=Decimal("30"), order=1,
+        )
+        self.second = Milestone.objects.create(
+            project=self.project, title="Build", description="Build premises", target_date="2027-02-01",
+            percentage_of_project=Decimal("40"), order=2,
+        )
+        self.third = Milestone.objects.create(
+            project=self.project, title="Open", description="Open business", target_date="2027-03-01",
+            percentage_of_project=Decimal("30"), order=3,
+        )
+        with patch("redis.Redis.from_url"):
+            with self.captureOnCommitCallbacks(execute=True):
+                self.investment = Investment.objects.create(
+                    investor=self.investor, project=self.project, amount=Decimal("10000"),
+                    status=Investment.Status.CONFIRMED,
+                )
+        self.project.refresh_from_db()
+        self.client = APIClient()
+
+    def test_goal_finalization_and_first_milestone_release(self):
+        from rest_framework import status
+        self.assertEqual(self.project.status, Project.Status.SUCCESSFUL)
+        self.assertEqual(self.project.funded_amount, Decimal("10000"))
+        self.assertIsNotNone(self.project.funding_reached_at)
+
+        self.client.force_authenticate(self.investor)
+        blocked = self.client.post("/api/v1/investments/", {
+            "project": str(self.project.id), "amount": "100", "payment_method": "bank_transfer",
+        }, format="json")
+        self.assertEqual(blocked.status_code, status.HTTP_400_BAD_REQUEST)
+
+        self.client.force_authenticate(self.admin)
+        with self.captureOnCommitCallbacks(execute=True):
+            finalized = self.client.post(f"/api/v1/admin/projects/{self.project.id}/finalize-funding/", {}, format="json")
+        self.assertEqual(finalized.status_code, status.HTTP_200_OK)
+        self.project.refresh_from_db()
+        self.investment.refresh_from_db()
+        self.first.refresh_from_db()
+        self.assertEqual(self.project.status, Project.Status.IMPLEMENTATION)
+        self.assertEqual(self.first.status, Milestone.Status.IN_PROGRESS)
+        account = ProjectFundingAccount.objects.get(project=self.project)
+        self.assertEqual(account.secured, Decimal("10000"))
+        self.assertEqual(account.available, Decimal("10000"))
+        self.assertEqual(account.released, Decimal("0"))
+        self.assertEqual(account.refunded, Decimal("0"))
+        self.assertEqual(self.investment.status, Investment.Status.CONFIRMED)
+
+        tamper = self.client.patch(
+            f"/api/v1/admin/projects/{self.project.id}/",
+            {"funding_account": {"secured": "0.00", "released": "10000.00"}},
+            format="json",
+        )
+        self.assertEqual(tamper.status_code, status.HTTP_200_OK)
+        account.refresh_from_db()
+        self.assertEqual(account.secured, Decimal("10000"))
+        self.assertEqual(account.released, Decimal("0"))
+
+        self.client.force_authenticate(self.owner)
+        requested = self.client.post("/api/v1/withdrawals/", {
+            "milestone": str(self.first.id), "amount": "3000.00",
+            "evidence_description": "Supplier quotations and material list",
+            "planned_expenses": "Purchase solar panels and mounting materials",
+        }, format="json")
+        self.assertEqual(requested.status_code, status.HTTP_201_CREATED)
+        withdrawal_id = requested.data["id"]
+
+        blocked_second = self.client.post("/api/v1/withdrawals/", {
+            "milestone": str(self.second.id), "amount": "4000.00",
+            "evidence_description": "Construction evidence package",
+            "planned_expenses": "Pay contractors and construction invoices",
+        }, format="json")
+        self.assertEqual(blocked_second.status_code, status.HTTP_400_BAD_REQUEST)
+
+        self.client.force_authenticate(self.admin)
+        premature_approval = self.client.post(f"/api/v1/withdrawals/{withdrawal_id}/approve/")
+        self.assertEqual(premature_approval.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(self.client.post(f"/api/v1/withdrawals/{withdrawal_id}/review/").status_code, status.HTTP_200_OK)
+        self.assertEqual(self.client.post(f"/api/v1/withdrawals/{withdrawal_id}/approve/").status_code, status.HTTP_200_OK)
+        with self.captureOnCommitCallbacks(execute=True):
+            released = self.client.post(f"/api/v1/withdrawals/{withdrawal_id}/release/")
+        self.assertEqual(released.status_code, status.HTTP_200_OK)
+        account.refresh_from_db()
+        self.first.refresh_from_db()
+        self.assertEqual(account.secured, Decimal("7000"))
+        self.assertEqual(account.available, Decimal("7000"))
+        self.assertEqual(account.released, Decimal("3000"))
+        self.assertEqual(self.first.funding_released, Decimal("3000"))
+        self.assertTrue(released.data["simulated_transaction_id"].startswith("SIM-"))
+
+        duplicate = self.client.post(f"/api/v1/withdrawals/{withdrawal_id}/release/")
+        self.assertEqual(duplicate.status_code, status.HTTP_400_BAD_REQUEST)
+        account.refresh_from_db()
+        self.assertEqual(account.secured, Decimal("7000"))
+        self.assertEqual(account.released, Decimal("3000"))
+
+    def test_milestones_unlock_in_order_and_final_completion_closes_project(self):
+        from rest_framework import status
+
+        self.client.force_authenticate(self.admin)
+        finalized = self.client.post(
+            f"/api/v1/admin/projects/{self.project.id}/finalize-funding/", {}, format="json"
+        )
+        self.assertEqual(finalized.status_code, status.HTTP_200_OK)
+        self.first.refresh_from_db()
+        self.assertEqual(self.first.status, Milestone.Status.IN_PROGRESS)
+
+        locked = self.client.patch(
+            f"/api/v1/admin/milestones/{self.second.id}/",
+            {"status": Milestone.Status.IN_PROGRESS},
+            format="json",
+        )
+        self.assertEqual(locked.status_code, status.HTTP_400_BAD_REQUEST)
+
+        Milestone.objects.filter(pk=self.first.pk).update(funding_released=Decimal("3000"))
+        blocked_completion = self.client.patch(
+            f"/api/v1/admin/milestones/{self.first.id}/",
+            {"status": Milestone.Status.COMPLETED, "actual_completion_date": "2027-01-01"},
+            format="json",
+        )
+        self.assertEqual(blocked_completion.status_code, status.HTTP_400_BAD_REQUEST)
+
+        self.client.force_authenticate(self.owner)
+        submitted = self.client.post(
+            f"/api/v1/milestones/{self.first.id}/submit-completion/",
+            {
+                "completion_summary": "Materials were purchased, delivered, and inspected.",
+                "completion_evidence": SimpleUploadedFile(
+                    "materials.pdf", b"completed milestone evidence", content_type="application/pdf"
+                ),
+            },
+            format="multipart",
+        )
+        self.assertEqual(submitted.status_code, status.HTTP_200_OK, submitted.data)
+        self.assertEqual(submitted.data["completion_status"], Milestone.CompletionStatus.SUBMITTED)
+
+        self.client.force_authenticate(self.admin)
+        premature = self.client.post(f"/api/v1/milestones/{self.first.id}/approve-completion/", {}, format="json")
+        self.assertEqual(premature.status_code, status.HTTP_400_BAD_REQUEST)
+        reviewed = self.client.post(f"/api/v1/milestones/{self.first.id}/review-completion/", {}, format="json")
+        self.assertEqual(reviewed.status_code, status.HTTP_200_OK, reviewed.data)
+        completed_first = self.client.post(
+            f"/api/v1/milestones/{self.first.id}/approve-completion/",
+            {"review_notes": "Evidence verified."},
+            format="json",
+        )
+        self.assertEqual(completed_first.status_code, status.HTTP_200_OK, completed_first.data)
+        self.assertEqual(completed_first.data["status"], Milestone.Status.COMPLETED)
+        self.second.refresh_from_db()
+        self.assertEqual(self.second.status, Milestone.Status.IN_PROGRESS)
+
+        self.client.force_authenticate(self.owner)
+        next_request = self.client.post("/api/v1/withdrawals/", {
+            "milestone": str(self.second.id), "amount": "4000.00",
+            "evidence_description": "Verified plans for the second milestone",
+            "planned_expenses": "Construction labor and installation materials",
+        }, format="json")
+        self.assertEqual(next_request.status_code, status.HTTP_201_CREATED, next_request.data)
+        self.assertEqual(
+            self.client.post(f"/api/v1/withdrawals/{next_request.data['id']}/cancel/").status_code,
+            status.HTTP_200_OK,
+        )
+        self.client.force_authenticate(self.admin)
+
+        Milestone.objects.filter(pk=self.second.pk).update(
+            status=Milestone.Status.COMPLETED,
+            completion_status=Milestone.CompletionStatus.APPROVED,
+            actual_completion_date="2027-02-01",
+            funding_released=Decimal("4000"),
+        )
+        Milestone.objects.filter(pk=self.third.pk).update(
+            status=Milestone.Status.IN_PROGRESS,
+            completion_status=Milestone.CompletionStatus.APPROVED,
+            funding_released=Decimal("3000"),
+        )
+        account = ProjectFundingAccount.objects.get(project=self.project)
+        account.secured = Decimal("0")
+        account.released = Decimal("10000")
+        account.save(update_fields=["secured", "released", "updated_at"])
+
+        completed_final = self.client.patch(
+            f"/api/v1/admin/milestones/{self.third.id}/",
+            {"status": Milestone.Status.COMPLETED, "actual_completion_date": "2027-03-01"},
+            format="json",
+        )
+        self.assertEqual(completed_final.status_code, status.HTTP_200_OK, completed_final.data)
+        self.project.refresh_from_db()
+        self.investment.refresh_from_db()
+        self.assertEqual(self.project.status, Project.Status.CLOSED)
+        self.assertEqual(self.investment.status, Investment.Status.COMPLETED)
+
+    def test_real_percentage_is_not_capped_while_balance_uses_funded_statuses(self):
+        from apps.investments.services import sync_project_totals
+        Investment.objects.create(
+            investor=self.investor, project=self.project, amount=Decimal("3100"),
+            status=Investment.Status.CONFIRMED,
+        )
+        snapshot = sync_project_totals(self.project.id)
+        self.assertEqual(snapshot["funding_percent"], 131.0)
+
+    def test_failed_project_preserves_unreleased_funds(self):
+        from rest_framework import status
+
+        self.client.force_authenticate(self.admin)
+        finalized = self.client.post(
+            f"/api/v1/admin/projects/{self.project.id}/finalize-funding/", {}, format="json"
+        )
+        self.assertEqual(finalized.status_code, status.HTTP_200_OK)
+
+        self.client.force_authenticate(self.owner)
+        requested = self.client.post("/api/v1/withdrawals/", {
+            "milestone": str(self.first.id), "amount": "1000.00",
+            "evidence_description": "Supplier invoices for the first milestone",
+            "planned_expenses": "Purchase the approved milestone materials",
+        }, format="json")
+        self.assertEqual(requested.status_code, status.HTTP_201_CREATED)
+
+        self.client.force_authenticate(self.admin)
+        withdrawal_id = requested.data["id"]
+        self.assertEqual(
+            self.client.post(f"/api/v1/withdrawals/{withdrawal_id}/review/").status_code,
+            status.HTTP_200_OK,
+        )
+        self.assertEqual(
+            self.client.post(f"/api/v1/withdrawals/{withdrawal_id}/approve/").status_code,
+            status.HTTP_200_OK,
+        )
+        Project.objects.filter(pk=self.project.pk).update(status=Project.Status.FAILED)
+        blocked = self.client.post(f"/api/v1/withdrawals/{withdrawal_id}/release/")
+        self.assertEqual(blocked.status_code, status.HTTP_400_BAD_REQUEST)
+        account = ProjectFundingAccount.objects.get(project=self.project)
+        self.assertEqual(account.secured, Decimal("10000"))
+        self.assertEqual(account.released, Decimal("0"))
+
+    def test_entrepreneur_can_cancel_a_requested_withdrawal(self):
+        from apps.audit.models import AuditLog
+        from rest_framework import status
+
+        self.client.force_authenticate(self.admin)
+        self.assertEqual(
+            self.client.post(f"/api/v1/admin/projects/{self.project.id}/finalize-funding/", {}).status_code,
+            status.HTTP_200_OK,
+        )
+        self.client.force_authenticate(self.owner)
+        requested = self.client.post("/api/v1/withdrawals/", {
+            "milestone": str(self.first.id), "amount": "1000.00",
+            "evidence_description": "Supplier invoices for the first milestone",
+            "planned_expenses": "Purchase the approved milestone materials",
+        }, format="json")
+        cancelled = self.client.post(f"/api/v1/withdrawals/{requested.data['id']}/cancel/")
+        self.assertEqual(cancelled.status_code, status.HTTP_200_OK)
+        self.assertEqual(cancelled.data["status"], WithdrawalRequest.Status.CANCELLED)
+        self.assertTrue(AuditLog.objects.filter(action="withdrawal.cancelled", target_id=requested.data["id"]).exists())
+
+    def test_mock_payment_provider_returns_simulated_reference(self):
+        from .payments import MockPaymentProvider, get_payment_provider
+
+        provider = get_payment_provider()
+        self.assertIsInstance(provider, MockPaymentProvider)
+        payout = provider.release(
+            withdrawal_id="withdrawal-id",
+            amount=Decimal("25.00"),
+            recipient_id=str(self.owner.id),
+        )
+        self.assertEqual(payout.status, "released")
+        self.assertTrue(payout.transaction_id.startswith("SIM-"))

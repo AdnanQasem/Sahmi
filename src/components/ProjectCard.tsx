@@ -19,6 +19,7 @@ export interface ProjectData {
   raised: number;
   investors: number;
   daysLeft: number;
+  status?: "draft" | "fundraising" | "fully_funded" | "implementation" | "completed" | "failed" | "paused" | "cancelled";
   repaymentStatus?: "on_track" | "delayed" | "completed";
   verified: boolean;
 }
@@ -32,6 +33,13 @@ const ProjectCard = ({ project, successfullyFunded = false }: ProjectCardProps) 
   const { t } = useTranslation();
   const percentFunded = calculateFundingPercent(project.raised, project.goal);
   const progressColor = fundingProgressColor(percentFunded);
+  const projectStatus = project.status ?? (percentFunded >= 100 ? "fully_funded" : "fundraising");
+  const postFundingStatus = ["fully_funded", "implementation", "completed"].includes(projectStatus);
+  const statusLabel = projectStatus === "implementation"
+    ? t("projects.badges.inImplementation")
+    : projectStatus === "completed"
+      ? t("projects.badges.projectCompleted")
+      : t("projects.badges.fullyFunded");
 
   return (
     <motion.div 
@@ -54,13 +62,13 @@ const ProjectCard = ({ project, successfullyFunded = false }: ProjectCardProps) 
             {project.category}
           </Badge>
         </div>
-        {successfullyFunded && (
+        {(successfullyFunded || postFundingStatus) && (
           <Badge
             variant="outline"
             className="absolute end-3 top-3 gap-1 border-success/30 bg-card/95 text-success backdrop-blur-sm"
           >
             <CheckCircle2 className="h-3.5 w-3.5" />
-            {t("projects.successfullyFundedBadge")}
+            {statusLabel}
           </Badge>
         )}
       </div>
@@ -108,13 +116,9 @@ const ProjectCard = ({ project, successfullyFunded = false }: ProjectCardProps) 
               <Users className="h-3.5 w-3.5" />
               {formatNumber(project.investors)} {t("projects.investors")}
             </span>
-            {percentFunded >= 100 ? (
+            {postFundingStatus || percentFunded >= 100 ? (
               <span className="max-w-[70%] text-end font-semibold text-success">
-                {t(
-                  project.repaymentStatus === "completed"
-                    ? "projects.fundingAndRepaymentsCompleted"
-                    : "projects.fundingCompleted",
-                )}
+                {statusLabel}
               </span>
             ) : (
               <span className="flex items-center gap-1">

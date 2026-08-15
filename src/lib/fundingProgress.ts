@@ -1,6 +1,6 @@
 export const calculateFundingPercent = (raisedAmount: number, fundingGoal: number) => {
   if (!Number.isFinite(raisedAmount) || !Number.isFinite(fundingGoal) || fundingGoal <= 0) return 0;
-  return Math.min(Math.max((raisedAmount / fundingGoal) * 100, 0), 100);
+  return Math.max((raisedAmount / fundingGoal) * 100, 0);
 };
 
 export const fundingProgressBarWidth = (percent: number) => Math.min(Math.max(percent, 0), 100);

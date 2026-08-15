@@ -6,9 +6,9 @@ import {
 } from "@/lib/fundingProgress";
 
 describe("funding progress", () => {
-  it("caps overfunded percentages at 100", () => {
-    expect(calculateFundingPercent(13100, 10000)).toBe(100);
-    expect(calculateFundingPercent(13125, 10000)).toBe(100);
+  it("keeps the real overfunded percentage", () => {
+    expect(calculateFundingPercent(13100, 10000)).toBe(131);
+    expect(calculateFundingPercent(13125, 10000)).toBe(131.25);
   });
 
   it("caps the visual bar width", () => {

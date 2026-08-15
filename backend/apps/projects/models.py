@@ -34,11 +34,13 @@ class ProjectCategory(UUIDTimestampModel):
 class Project(UUIDTimestampModel):
     class Status(models.TextChoices):
         DRAFT = "draft", "Draft"
-        ACTIVE = "active", "Active"
-        CLOSED = "closed", "Closed"
-        SUCCESSFUL = "successful", "Successful"
+        ACTIVE = "fundraising", "Fundraising"
+        SUCCESSFUL = "fully_funded", "Fully Funded"
+        IMPLEMENTATION = "implementation", "Implementation"
+        CLOSED = "completed", "Completed"
         FAILED = "failed", "Failed"
         PAUSED = "paused", "Paused"
+        CANCELLED = "cancelled", "Cancelled"
 
     class RepaymentStatus(models.TextChoices):
         ON_TRACK = "on_track", "On track"
@@ -55,6 +57,13 @@ class Project(UUIDTimestampModel):
     location_governorate = models.CharField(max_length=120, blank=True)
     goal_amount = models.DecimalField(max_digits=12, decimal_places=2)
     funded_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    funding_reached_at = models.DateTimeField(blank=True, null=True)
+    pending_payment_deadline = models.DateTimeField(blank=True, null=True)
+    funding_finalized_at = models.DateTimeField(blank=True, null=True)
+    funding_finalized_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, blank=True, null=True,
+        related_name="finalized_project_funding",
+    )
     minimum_investment = models.DecimalField(max_digits=10, decimal_places=2, default=100)
     expected_roi = models.DecimalField(max_digits=5, decimal_places=2, default=0)
     cost_items = models.JSONField(default=list, blank=True)
@@ -135,6 +144,7 @@ class ProjectEditRequest(UUIDTimestampModel):
     )
     payload = models.JSONField(default=dict)
     changes = models.JSONField(default=dict, blank=True)
+    image_reviews = models.JSONField(default=dict, blank=True)
     cover_image = models.ImageField(upload_to="project-edit-images/", blank=True, null=True)
     business_plan = models.FileField(
         upload_to=project_document_upload_path,

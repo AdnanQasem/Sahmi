@@ -11,6 +11,7 @@ import { useTranslation } from "react-i18next";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { formatDate } from "@/i18n/format";
 import { translateNotificationType, translateSystemNotificationBody } from "@/i18n/labels";
+import { dashboardPollingOptions } from "@/lib/dashboardPolling";
 import {
   LayoutDashboard,
   Bell,
@@ -35,6 +36,7 @@ import {
   Tags,
   Flag,
   HandCoins,
+  LockKeyhole,
 } from "lucide-react";
 
 type UserRole = "investor" | "entrepreneur" | "admin";
@@ -111,6 +113,12 @@ const navItems: NavItem[] = [
     icon: HandCoins,
     roles: ["admin"],
   },
+  {
+    label: "Funds",
+    href: "/funds",
+    icon: LockKeyhole,
+    roles: ["admin", "entrepreneur"],
+  },
   // Investor routes
   {
     label: "Watched Projects",
@@ -147,7 +155,7 @@ const navItems: NavItem[] = [
     label: "Messages",
     href: "/messages",
     icon: MessageSquare,
-    roles: ["investor", "entrepreneur"],
+    roles: ["investor", "entrepreneur", "admin"],
   },
   {
     label: "Settings",
@@ -162,7 +170,7 @@ const navLabelKeys: Record<string, string> = {
   Categories: "projects.category", Investments: "dashboard.myInvestments", Milestones: "settings.milestones",
   Repayments: "transactions.title", "Watched Projects": "dashboard.watched", Transactions: "dashboard.transactions",
   Project: "dashboard.project", Analytics: "dashboard.analytics", Investors: "dashboard.investors",
-  Messages: "dashboard.messages", Settings: "dashboard.settings",
+  Messages: "dashboard.messages", Settings: "dashboard.settings", Funds: "funds.nav",
 };
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -176,8 +184,8 @@ const DashboardLayout = ({ children, roleBase }: DashboardLayoutProps) => {
   const location = useLocation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const notificationsQuery = useQuery({ queryKey: ["notifications"], queryFn: () => notificationService.list(), refetchInterval: 30_000 });
-  const unreadQuery = useQuery({ queryKey: ["notification-unread"], queryFn: notificationService.unreadCount, refetchInterval: 30_000 });
+  const notificationsQuery = useQuery({ queryKey: ["notifications"], queryFn: () => notificationService.list(), ...dashboardPollingOptions });
+  const unreadQuery = useQuery({ queryKey: ["notification-unread"], queryFn: notificationService.unreadCount, ...dashboardPollingOptions });
   const markRead = useMutation({ mutationFn: notificationService.markRead, onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ["notifications"] }); void queryClient.invalidateQueries({ queryKey: ["notification-unread"] }); } });
   const markAllRead = useMutation({ mutationFn: notificationService.markAllRead, onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ["notifications"] }); void queryClient.invalidateQueries({ queryKey: ["notification-unread"] }); } });
   useEffect(() => notificationService.subscribe(() => {
@@ -194,7 +202,9 @@ const DashboardLayout = ({ children, roleBase }: DashboardLayoutProps) => {
   );
   const visibleNotifications: RecentNotification[] = (notificationsQuery.data?.results ?? []).map((notification) => ({
     id: notification.id,
-    title: notification.title === "Investment confirmed" ? notification.title : translateNotificationType(t, notification.notification_type),
+    title: notification.title === t("notifications.investmentConfirmedTitle", { lng: "en" })
+      ? t("notifications.investmentConfirmedTitle")
+      : translateNotificationType(t, notification.notification_type),
     description: translateSystemNotificationBody(t, notification.notification_type, notification.body),
     time: formatDate(notification.created_at, { dateStyle: "medium", timeStyle: "short" }, isRtl ? "ar" : "en"), icon: Info, tone: "info",
     unread: !notification.read_at, roles: role ? [role] : [],

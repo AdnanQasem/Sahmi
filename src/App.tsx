@@ -28,6 +28,7 @@ import AdminCategoriesPage from "./pages/dashboard/admin/AdminCategoriesPage";
 import AdminUsersPage from "./pages/dashboard/admin/AdminUsersPage";
 import AdminInvestmentsPage from "./pages/dashboard/admin/AdminInvestmentsPage";
 import AdminMilestonesPage from "./pages/dashboard/admin/AdminMilestonesPage";
+import FundsPage from "./pages/dashboard/FundsPage";
 import AdminRepaymentsPage from "./pages/dashboard/admin/AdminRepaymentsPage";
 import AdminProjectEditPage from "./pages/dashboard/admin/AdminProjectEditPage";
 import InvestorDashboard from "./pages/dashboard/InvestorDashboard";
@@ -40,6 +41,7 @@ import InvestorsPage from "./pages/dashboard/InvestorsPage";
 import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
 import TermsPage from "./pages/TermsPage";
 import NotificationsPage from "./pages/dashboard/NotificationsPage";
+import RouteTitle from "@/components/RouteTitle";
 
 const queryClient = new QueryClient();
 
@@ -50,6 +52,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <ScrollToTop />
+        <RouteTitle />
         <AuthProvider>
           <Routes>
             {/* Dashboard routes — full-page layout with sidebar, no Navbar/Footer */}
@@ -66,6 +69,8 @@ const App = () => (
               <Route path="/dashboard/admin/investments" element={<AdminInvestmentsPage />} />
               <Route path="/dashboard/admin/milestones" element={<AdminMilestonesPage />} />
               <Route path="/dashboard/admin/repayments" element={<AdminRepaymentsPage />} />
+              <Route path="/dashboard/admin/funds" element={<FundsPage />} />
+              <Route path="/dashboard/admin/messages" element={<MessagesPage />} />
               <Route path="/dashboard/admin/settings" element={<SettingsPage />} />
               <Route path="/dashboard/admin/notifications" element={<NotificationsPage />} />
             </Route>
@@ -82,6 +87,7 @@ const App = () => (
               <Route path="/dashboard/entrepreneur/settings" element={<SettingsPage />} />
               <Route path="/dashboard/entrepreneur/messages" element={<MessagesPage />} />
               <Route path="/dashboard/entrepreneur/investors" element={<InvestorsPage />} />
+              <Route path="/dashboard/entrepreneur/funds" element={<FundsPage />} />
               <Route path="/dashboard/entrepreneur/notifications" element={<NotificationsPage />} />
             </Route>
 

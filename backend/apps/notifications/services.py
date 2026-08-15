@@ -43,6 +43,9 @@ def _allowed(pref: NotificationPreference, notification_type: str) -> bool:
         Notification.NotificationType.INVESTMENT_STATUS_CHANGED: pref.investment_notifications,
         Notification.NotificationType.MILESTONE_UPDATED: pref.milestone_notifications,
         Notification.NotificationType.REPAYMENT_UPDATED: pref.repayment_notifications,
+        Notification.NotificationType.FUNDING_GOAL_REACHED: pref.project_notifications,
+        Notification.NotificationType.WITHDRAWAL_UPDATED: pref.milestone_notifications,
+        Notification.NotificationType.FUNDS_RELEASED: pref.milestone_notifications,
     }
     return bool(category_map.get(notification_type, True))
 

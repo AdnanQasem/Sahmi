@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -57,6 +57,35 @@ const EditProject = () => {
     queryKey: ["project-categories"],
     queryFn: projectsService.listCategories,
   });
+
+  const isDirty = useMemo(() => {
+    const original = projectQuery.data;
+    if (!original || initializedProjectId.current !== original.id) return false;
+    const scalarFields: Array<keyof ProjectCreatePayload> = [
+      "title", "category", "short_description", "description", "location",
+      "location_governorate", "goal_amount", "minimum_investment", "expected_roi",
+      "funding_period_days", "video_url",
+    ];
+    const scalarChanged = scalarFields.some((field) =>
+      String(form[field] ?? "") !== String(original[field as keyof typeof original] ?? ""),
+    );
+    const collectionChanged = (["cost_items", "milestones", "faqs"] as const).some((field) =>
+      JSON.stringify(form[field]) !== JSON.stringify(original[field] ?? []),
+    );
+    const fileChanged = (["cover_image", "business_plan", "financial_projections", "ownership_proof"] as const)
+      .some((field) => form[field] instanceof File);
+    return scalarChanged || collectionChanged || fileChanged;
+  }, [form, projectQuery.data]);
+
+  useEffect(() => {
+    const warnBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!isDirty) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warnBeforeUnload);
+    return () => window.removeEventListener("beforeunload", warnBeforeUnload);
+  }, [isDirty]);
 
   useEffect(() => {
     if (!projectQuery.data || initializedProjectId.current === projectQuery.data.id) return;
@@ -137,6 +166,10 @@ const EditProject = () => {
   }
 
   if (projectQuery.isError || !projectQuery.data) {
+    return <Navigate to="/projects" replace />;
+  }
+
+  if (!user?.is_staff && projectQuery.data.entrepreneur?.id !== user?.id) {
     return <Navigate to="/projects" replace />;
   }
 

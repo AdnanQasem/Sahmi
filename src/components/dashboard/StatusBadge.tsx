@@ -10,7 +10,12 @@ type ProjectStatus =
   | "closed"
   | "failed"
   | "paused"
-  | "successful";
+  | "successful"
+  | "fundraising"
+  | "fully_funded"
+  | "implementation"
+  | "completed"
+  | "cancelled";
 
 interface StatusBadgeProps {
   status: ProjectStatus | string;
@@ -36,6 +41,24 @@ const statusConfig: Record<
     className:
       "bg-success/15 text-success border-success/30",
     pulse: true,
+  },
+  fundraising: {
+    label: "Fundraising",
+    className: "bg-success/15 text-success border-success/30",
+    pulse: true,
+  },
+  fully_funded: {
+    label: "Fully Funded",
+    className: "bg-success/20 text-success border-success/40",
+  },
+  implementation: {
+    label: "Implementation",
+    className: "bg-primary/15 text-primary border-primary/30",
+    pulse: true,
+  },
+  cancelled: {
+    label: "Cancelled",
+    className: "bg-destructive/15 text-destructive border-destructive/30",
   },
   approved: {
     label: "Approved",

@@ -1,0 +1,15 @@
+stateDiagram-v2
+  [*] --> Draft: entrepreneur creates
+  Draft --> Fundraising: staff verifies
+  Draft --> Failed: staff rejects
+  Fundraising --> FullyFunded: confirmed/completed total >= goal
+  FullyFunded --> Fundraising: reconciliation drops below goal before finalization
+  FullyFunded --> Implementation: staff finalizes after pending-payment period/reconciliation
+  Implementation --> Completed: all milestones approved complete and secured available = 0
+  Draft --> Paused: staff status action
+  Fundraising --> Paused: staff status action
+  Paused --> Fundraising: staff status action + verified rule
+  Draft --> Cancelled: staff status action
+  Fundraising --> Cancelled: staff status action
+  Implementation --> Failed: staff status action
+  Completed --> [*]

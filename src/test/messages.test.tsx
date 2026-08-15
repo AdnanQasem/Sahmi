@@ -1,6 +1,7 @@
 import React from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { changeLanguage } from "@/i18n";
 
@@ -12,7 +13,7 @@ vi.mock("@/pages/dashboard/DashboardLayout", () => ({ default: ({ children }: { 
 import MessagesPage from "@/pages/dashboard/MessagesPage";
 
 const conversation = { id: "c1", kind: "direct", title: "", project: null, created_by: { id: "me", full_name: "Me", user_type: "investor" }, participants: [{ id: "p1", user: { id: "other", full_name: "Other User", user_type: "entrepreneur" }, joined_at: "2026-01-01", last_read_at: null, is_muted: false, is_archived: false }], last_message_preview: null, unread_count: 1, last_message_at: null, created_at: "2026-01-01" };
-const renderPage = () => render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })}><MessagesPage /></QueryClientProvider>);
+const renderPage = () => render(<MemoryRouter><QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })}><MessagesPage /></QueryClientProvider></MemoryRouter>);
 
 beforeEach(async () => { await changeLanguage("en"); vi.clearAllMocks(); mocks.markRead.mockResolvedValue({ marked_read: true }); mocks.listMessages.mockResolvedValue({ count: 0, results: [] }); mocks.searchUsers.mockResolvedValue([]); });
 

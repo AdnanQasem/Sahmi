@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -49,16 +49,75 @@ const initialForm: ProjectCreatePayload = {
   ownership_proof: null,
 };
 
+const START_PROJECT_DRAFT_KEY = "sahmi:start-project-draft:v1";
+type StoredProjectForm = Omit<ProjectCreatePayload, "cover_image" | "business_plan" | "financial_projections" | "ownership_proof">;
+interface StartProjectDraft {
+  form: StoredProjectForm;
+  currentStep: number;
+  fundingBreakdown: string;
+  risks: string;
+  acceptedTerms: boolean;
+  acceptedUpdates: boolean;
+}
+
+const withoutFiles = (form: ProjectCreatePayload): StoredProjectForm => {
+  const stored = { ...form };
+  delete stored.cover_image;
+  delete stored.business_plan;
+  delete stored.financial_projections;
+  delete stored.ownership_proof;
+  return stored;
+};
+
+const readDraft = (): StartProjectDraft | null => {
+  try {
+    const value = sessionStorage.getItem(START_PROJECT_DRAFT_KEY);
+    return value ? JSON.parse(value) as StartProjectDraft : null;
+  } catch {
+    return null;
+  }
+};
+
 const StartProject = () => {
   const { t } = useTranslation();
-  const [currentStep, setCurrentStep] = useState(0);
-  const [form, setForm] = useState<ProjectCreatePayload>(initialForm);
-  const [fundingBreakdown, setFundingBreakdown] = useState("");
-  const [risks, setRisks] = useState("");
-  const [acceptedTerms, setAcceptedTerms] = useState(false);
-  const [acceptedUpdates, setAcceptedUpdates] = useState(false);
+  const [restoredDraft] = useState(readDraft);
+  const [currentStep, setCurrentStep] = useState(restoredDraft?.currentStep ?? 0);
+  const [form, setForm] = useState<ProjectCreatePayload>(() => restoredDraft?.form
+    ? { ...initialForm, ...restoredDraft.form }
+    : initialForm);
+  const [fundingBreakdown, setFundingBreakdown] = useState(restoredDraft?.fundingBreakdown ?? "");
+  const [risks, setRisks] = useState(restoredDraft?.risks ?? "");
+  const [acceptedTerms, setAcceptedTerms] = useState(restoredDraft?.acceptedTerms ?? false);
+  const [acceptedUpdates, setAcceptedUpdates] = useState(restoredDraft?.acceptedUpdates ?? false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const navigate = useNavigate();
+  const hasFiles = [form.cover_image, form.business_plan, form.financial_projections, form.ownership_proof].some((value) => value instanceof File);
+  const isDirty = hasFiles || JSON.stringify({
+    form: withoutFiles(form), currentStep, fundingBreakdown, risks, acceptedTerms, acceptedUpdates,
+  }) !== JSON.stringify({
+    form: withoutFiles(initialForm), currentStep: 0, fundingBreakdown: "", risks: "", acceptedTerms: false, acceptedUpdates: false,
+  });
+
+  useEffect(() => {
+    if (!isDirty) {
+      sessionStorage.removeItem(START_PROJECT_DRAFT_KEY);
+      return;
+    }
+    const draft: StartProjectDraft = {
+      form: withoutFiles(form), currentStep, fundingBreakdown, risks, acceptedTerms, acceptedUpdates,
+    };
+    sessionStorage.setItem(START_PROJECT_DRAFT_KEY, JSON.stringify(draft));
+  }, [acceptedTerms, acceptedUpdates, currentStep, form, fundingBreakdown, isDirty, risks]);
+
+  useEffect(() => {
+    const warnBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!isDirty) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warnBeforeUnload);
+    return () => window.removeEventListener("beforeunload", warnBeforeUnload);
+  }, [isDirty]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const categoriesQuery = useQuery({
     queryKey: ["project-categories"],
@@ -75,6 +134,7 @@ const StartProject = () => {
       ].join(""),
     }),
     onSuccess: (project) => {
+      sessionStorage.removeItem(START_PROJECT_DRAFT_KEY);
       toast.success(t("projects.submittedReview"));
       navigate("/dashboard/entrepreneur");
     },

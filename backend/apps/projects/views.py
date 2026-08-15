@@ -43,7 +43,7 @@ class ProjectCategoryViewSet(viewsets.ModelViewSet):
 
 
 class ProjectViewSet(viewsets.ModelViewSet):
-    queryset = Project.objects.select_related("entrepreneur", "category").prefetch_related(
+    queryset = Project.objects.select_related("entrepreneur", "category", "funding_account").prefetch_related(
         "images", "supporting_documents", "milestones", "edit_requests"
     )
     serializer_class = ProjectSerializer
@@ -52,7 +52,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
     search_fields = ["title", "short_description", "description", "location"]
     ordering_fields = ["created_at", "goal_amount", "funded_amount", "expected_roi", "investor_count"]
     lookup_field = "slug"
-    public_statuses = (Project.Status.ACTIVE, Project.Status.SUCCESSFUL)
+    public_statuses = (
+        Project.Status.ACTIVE, Project.Status.SUCCESSFUL,
+        Project.Status.IMPLEMENTATION, Project.Status.CLOSED,
+    )
 
     def get_permissions(self):
         if self.action == "create":
@@ -126,6 +129,32 @@ class ProjectViewSet(viewsets.ModelViewSet):
             return str(value.pk)
         return value
 
+    @staticmethod
+    def _milestone_edit_values(value):
+        """Return only entrepreneur-editable milestone fields for diffing.
+
+        The serializer representation also contains server-managed progress fields
+        (status, actual completion date, and released funding). Those fields are
+        intentionally absent from an edit submission and must not make an
+        otherwise unchanged implementation timeline look edited.
+        """
+        editable_fields = (
+            "id",
+            "title",
+            "description",
+            "target_date",
+            "deliverables",
+            "percentage_of_project",
+            "order",
+        )
+        return [
+            {
+                field: ProjectViewSet._json_value(milestone.get(field))
+                for field in editable_fields
+            }
+            for milestone in (value or [])
+        ]
+
     @transaction.atomic
     def _stage_approved_project_edit(self, request, partial):
         project = self.get_object()
@@ -149,7 +178,21 @@ class ProjectViewSet(viewsets.ModelViewSet):
         changes = {}
         for field, after in payload.items():
             before = self._json_value(current.get(field))
-            if before != after:
+            if field == "category":
+                before_id, after_id = str(before), str(after)
+                if before_id != after_id:
+                    category_names = {
+                        str(category.id): category.name
+                        for category in ProjectCategory.objects.filter(id__in=[before_id, after_id])
+                    }
+                    changes[field] = {
+                        "before": {"id": before_id, "name": category_names.get(before_id, before_id)},
+                        "after": {"id": after_id, "name": category_names.get(after_id, after_id)},
+                    }
+            elif field == "milestones":
+                if self._milestone_edit_values(before) != self._milestone_edit_values(after):
+                    changes[field] = {"before": before, "after": after}
+            elif before != after:
                 changes[field] = {"before": before, "after": after}
         for field in staged_files:
             current_file = getattr(project, field)
@@ -160,6 +203,17 @@ class ProjectViewSet(viewsets.ModelViewSet):
         pending.payload = payload
         pending.changes = changes
         pending.review_notes = ""
+        if "cover_image" in staged_files:
+            image_reviews = dict(pending.image_reviews or {})
+            uploaded_cover = staged_files["cover_image"]
+            image_reviews["cover_image"] = {
+                "status": "needs_revision",
+                "review_notes": "",
+                "file_name": uploaded_cover.name,
+                "size": uploaded_cover.size,
+                "uploaded_at": timezone.now().isoformat(),
+            }
+            pending.image_reviews = image_reviews
         for field, uploaded_file in staged_files.items():
             setattr(pending, field, uploaded_file)
         pending.save()
@@ -361,9 +415,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(entrepreneur=request.user)
         page = self.paginate_queryset(queryset)
         if page is not None:
-            serializer = ProjectListSerializer(page, many=True, context={"request": request})
+            serializer = ProjectSerializer(page, many=True, context={"request": request})
             return self.get_paginated_response(serializer.data)
-        serializer = ProjectListSerializer(queryset, many=True, context={"request": request})
+        serializer = ProjectSerializer(queryset, many=True, context={"request": request})
         return Response(serializer.data)
 
     @action(detail=True, methods=["get"], permission_classes=[permissions.IsAuthenticated])
@@ -375,7 +429,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         a public investor name (the user's stored ``full_name`` or username).
         """
         project = self.get_object()
-        confirmed = project.investments.filter(status="confirmed").select_related("investor").order_by("-investment_date")
+        confirmed = project.investments.filter(status__in=["confirmed", "completed"]).select_related("investor").order_by("-investment_date")
         audit_log(
             action="project.payments.view",
             actor=request.user,

@@ -1,3 +1,4 @@
+import base64
 import json
 import tempfile
 from unittest.mock import patch
@@ -13,6 +14,7 @@ from rest_framework.test import APITestCase
 from apps.investments.models import Milestone
 
 from .models import Project, ProjectCategory, ProjectEditRequest
+from .serializers import ProjectSerializer
 
 
 User = get_user_model()
@@ -648,8 +650,8 @@ class ProjectModerationTests(ProjectAPITestCase):
         for project_status in (
             Project.Status.PAUSED,
             Project.Status.ACTIVE,
-            Project.Status.CLOSED,
-            Project.Status.SUCCESSFUL,
+            Project.Status.FAILED,
+            Project.Status.CANCELLED,
         ):
             with self.subTest(project_status=project_status):
                 response = self.client.post(
@@ -765,6 +767,168 @@ class ProjectEditApprovalTests(ProjectAPITestCase):
             self.project.edit_requests.get().status,
             ProjectEditRequest.Status.REJECTED,
         )
+
+    def test_category_diff_uses_names_and_ignores_the_same_selection(self):
+        other_category = ProjectCategory.objects.create(name="Technology", slug="technology")
+        self.client.force_authenticate(self.entrepreneur)
+        unchanged = self.client.patch(
+            reverse("project-detail", args=[self.project.slug]),
+            {"category": str(self.category.id)},
+            format="json",
+        )
+        self.assertEqual(unchanged.status_code, status.HTTP_202_ACCEPTED)
+
+        self.client.force_authenticate(self.staff)
+        queued = self.client.get(reverse("admin-project-detail", args=[self.project.id]))
+        self.assertNotIn("category", queued.data["pending_edit_request"]["changes"])
+
+        self.client.force_authenticate(self.entrepreneur)
+        changed = self.client.patch(
+            reverse("project-detail", args=[self.project.slug]),
+            {"category": str(other_category.id)},
+            format="json",
+        )
+        self.assertEqual(changed.status_code, status.HTTP_202_ACCEPTED)
+        self.client.force_authenticate(self.staff)
+        queued = self.client.get(reverse("admin-project-detail", args=[self.project.id]))
+        category_change = queued.data["pending_edit_request"]["changes"]["category"]
+        self.assertEqual(category_change, {"before": "Agriculture", "after": "Technology"})
+
+    def test_unchanged_implementation_timeline_is_not_marked_as_edited(self):
+        milestone = Milestone.objects.create(
+            project=self.project,
+            title="Prepare the site",
+            description="Prepare the location before equipment installation.",
+            target_date="2027-01-15",
+            deliverables="Site preparation report",
+            percentage_of_project=Decimal("100.00"),
+            order=1,
+        )
+        self.client.force_authenticate(self.entrepreneur)
+        response = self.client.patch(
+            reverse("project-detail", args=[self.project.slug]),
+            {
+                "milestones": [
+                    {
+                        "id": str(milestone.id),
+                        "title": milestone.title,
+                        "description": milestone.description,
+                        "target_date": str(milestone.target_date),
+                        "deliverables": milestone.deliverables,
+                        "percentage_of_project": "100.00",
+                    }
+                ]
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_202_ACCEPTED, response.data)
+        pending = ProjectEditRequest.objects.get(
+            project=self.project,
+            status=ProjectEditRequest.Status.PENDING,
+        )
+        self.assertNotIn("milestones", pending.changes)
+
+        changed_response = self.client.patch(
+            reverse("project-detail", args=[self.project.slug]),
+            {
+                "milestones": [
+                    {
+                        "id": str(milestone.id),
+                        "title": "Prepare and secure the site",
+                        "description": milestone.description,
+                        "target_date": str(milestone.target_date),
+                        "deliverables": milestone.deliverables,
+                        "percentage_of_project": "100.00",
+                    }
+                ]
+            },
+            format="json",
+        )
+        self.assertEqual(changed_response.status_code, status.HTTP_202_ACCEPTED, changed_response.data)
+        pending.refresh_from_db()
+        self.assertIn("milestones", pending.changes)
+        self.assertEqual(
+            pending.changes["milestones"]["after"][0]["title"],
+            "Prepare and secure the site",
+        )
+
+    def test_admin_hides_legacy_false_positive_timeline_diff(self):
+        milestone = Milestone.objects.create(
+            project=self.project,
+            title="Prepare the site",
+            description="Prepare the location before equipment installation.",
+            target_date="2027-01-15",
+            deliverables="Site preparation report",
+            percentage_of_project=Decimal("100.00"),
+            order=1,
+        )
+        before = ProjectSerializer(self.project).data["milestones"]
+        after = [
+            {
+                "id": str(milestone.id),
+                "title": milestone.title,
+                "description": milestone.description,
+                "target_date": str(milestone.target_date),
+                "deliverables": milestone.deliverables,
+                "percentage_of_project": "100.00",
+                "order": 1,
+            }
+        ]
+        ProjectEditRequest.objects.create(
+            project=self.project,
+            submitted_by=self.entrepreneur,
+            payload={"milestones": after},
+            changes={"milestones": {"before": before, "after": after}},
+        )
+
+        self.client.force_authenticate(self.staff)
+        queued = self.client.get(reverse("admin-project-detail", args=[self.project.id]))
+
+        self.assertEqual(queued.status_code, status.HTTP_200_OK, queued.data)
+        self.assertNotIn("milestones", queued.data["pending_edit_request"]["changes"])
+
+    def test_admin_can_review_edit_request_picture_metadata(self):
+        gif = base64.b64decode("R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==")
+        self.client.force_authenticate(self.entrepreneur)
+        staged = self.client.patch(
+            reverse("project-detail", args=[self.project.slug]),
+            {"cover_image": SimpleUploadedFile("updated-cover.gif", gif, content_type="image/gif")},
+            format="multipart",
+        )
+        self.assertEqual(staged.status_code, status.HTTP_202_ACCEPTED, staged.data)
+
+        self.client.force_authenticate(self.staff)
+        queued = self.client.get(reverse("admin-project-detail", args=[self.project.id]))
+        images = queued.data["pending_edit_request"]["images"]
+        self.assertEqual(len(images), 1)
+        self.assertEqual(images[0]["file_name"], "updated-cover.gif")
+        self.assertGreater(images[0]["size"], 0)
+        self.assertIsNotNone(images[0]["upload_date"])
+        self.assertEqual(images[0]["status"], "needs_revision")
+
+        reviewed = self.client.post(
+            reverse("admin-project-review-edit-image", args=[self.project.id]),
+            {
+                "image_key": "cover_image",
+                "status": "approved",
+                "review_notes": "Sharp image, relevant to the project, with no visible issues.",
+            },
+            format="json",
+        )
+        self.assertEqual(reviewed.status_code, status.HTTP_200_OK, reviewed.data)
+        image = reviewed.data["pending_edit_request"]["images"][0]
+        self.assertEqual(image["status"], "approved")
+        self.assertIn("Sharp image", image["review_notes"])
+        self.assertEqual(image["reviewed_by"], self.staff.full_name)
+
+        self.client.force_authenticate(self.entrepreneur)
+        forbidden = self.client.post(
+            reverse("admin-project-review-edit-image", args=[self.project.id]),
+            {"image_key": "cover_image", "status": "rejected", "review_notes": "Not relevant."},
+            format="json",
+        )
+        self.assertEqual(forbidden.status_code, status.HTTP_403_FORBIDDEN)
 
 
 class PublicProjectPrivacyTests(ProjectAPITestCase):

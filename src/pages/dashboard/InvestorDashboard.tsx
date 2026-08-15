@@ -1,10 +1,12 @@
 import { useTranslation } from "react-i18next";
+import i18n from "@/i18n";
 import { formatNumber } from "@/i18n/format";
 import { formatDate } from "@/i18n/format";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
+import { dashboardPollingOptions } from "@/lib/dashboardPolling";
 import {
   Area,
   AreaChart,
@@ -67,12 +69,12 @@ const buildPerformance = (investments: Investment[]) => {
     return acc;
   }, {});
   const rows = Object.entries(byMonth).map(([month, value]) => ({ month, value }));
-  return rows.length ? rows : [{ month: "Now", value: 0 }];
+  return rows.length ? rows : [{ month: i18n.t("dashboard.now"), value: 0 }];
 };
 
 const buildAllocation = (investments: Investment[]) => {
   const byCategory = investments.reduce<Record<string, number>>((acc, investment) => {
-    const category = investment.project_detail?.category_detail?.name ?? "Other";
+    const category = investment.project_detail?.category_detail?.name ?? i18n.t("dashboard.other");
     acc[category] = (acc[category] ?? 0) + amountOf(investment);
     return acc;
   }, {});
@@ -104,12 +106,12 @@ const InvestorDashboard = () => {
   const investmentsQuery = useQuery({
     queryKey: ["dashboard", "investor", "investments"],
     queryFn: investmentsService.listInvestments,
-    refetchInterval: 5000,
+    ...dashboardPollingOptions,
   });
   const projectsQuery = useQuery({
     queryKey: ["dashboard", "investor", "available-projects"],
     queryFn: () => projectsService.listProjects({ page_size: 3, ordering: "-created_at" }),
-    refetchInterval: 5000,
+    ...dashboardPollingOptions,
   });
 
   const investments = investmentsQuery.data?.results ?? [];

@@ -1,3 +1,7 @@
+from copy import deepcopy
+from pathlib import Path
+from uuid import UUID
+
 from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.utils import timezone
@@ -10,6 +14,22 @@ from .serializers import ProjectSerializer
 
 
 User = get_user_model()
+
+
+def _milestone_edit_values(value):
+    editable_fields = (
+        "id",
+        "title",
+        "description",
+        "target_date",
+        "deliverables",
+        "percentage_of_project",
+        "order",
+    )
+    return [
+        {field: milestone.get(field) for field in editable_fields}
+        for milestone in (value or [])
+    ]
 
 
 class AdminRelatedUserSerializer(serializers.ModelSerializer):
@@ -111,6 +131,11 @@ class AdminProjectSerializer(ProjectSerializer):
             "location_governorate",
             "goal_amount",
             "funded_amount",
+            "funding_account",
+            "funding_reached_at",
+            "pending_payment_deadline",
+            "funding_finalized_at",
+            "funding_finalized_by",
             "minimum_investment",
             "expected_roi",
             "cost_items",
@@ -155,6 +180,12 @@ class AdminProjectSerializer(ProjectSerializer):
         ]
         read_only_fields = [
             "id",
+            "funded_amount",
+            "funding_account",
+            "funding_reached_at",
+            "pending_payment_deadline",
+            "funding_finalized_at",
+            "funding_finalized_by",
             "entrepreneur_detail",
             "category_detail",
             "verified_by_detail",
@@ -181,7 +212,7 @@ class AdminProjectSerializer(ProjectSerializer):
             if file:
                 url = file.url
                 file_urls[field] = request.build_absolute_uri(url) if request else url
-        changes = pending.changes
+        changes = deepcopy(pending.changes)
         if not changes:
             current = ProjectSerializer(obj, context=self.context).data
             changes = {
@@ -189,11 +220,78 @@ class AdminProjectSerializer(ProjectSerializer):
                 for field, after in pending.payload.items()
                 if current.get(field) != after
             }
+        category_change = changes.get("category")
+        if category_change:
+            def category_value(value):
+                if isinstance(value, dict):
+                    return str(value.get("id", "")), str(value.get("name", ""))
+                return str(value), ""
+
+            before_id, before_label = category_value(category_change.get("before"))
+            after_id, after_label = category_value(category_change.get("after"))
+            if before_id == after_id:
+                changes.pop("category", None)
+            else:
+                valid_ids = []
+                for category_pk in (before_id, after_id):
+                    try:
+                        valid_ids.append(UUID(category_pk))
+                    except (TypeError, ValueError):
+                        pass
+                names = {
+                    str(item.id): item.name
+                    for item in ProjectCategory.objects.filter(id__in=valid_ids)
+                }
+                changes["category"] = {
+                    "before": names.get(before_id, before_label or before_id),
+                    "after": names.get(after_id, after_label or after_id),
+                }
+
+        milestone_change = changes.get("milestones")
+        if milestone_change and _milestone_edit_values(
+            milestone_change.get("before")
+        ) == _milestone_edit_values(milestone_change.get("after")):
+            changes.pop("milestones", None)
+
+        image_reviews = pending.image_reviews or {}
+        images = []
+
+        def append_image(key, kind, file, uploaded_at):
+            if not file:
+                return
+            try:
+                size = file.size
+            except (OSError, ValueError):
+                size = None
+            url = file.url
+            review = image_reviews.get(key, {})
+            images.append({
+                "key": key,
+                "kind": kind,
+                "url": request.build_absolute_uri(url) if request else url,
+                "file_name": review.get("file_name") or Path(file.name).name,
+                "upload_date": review.get("uploaded_at") or uploaded_at,
+                "size": review.get("size", size),
+                "review_notes": review.get("review_notes", ""),
+                "status": review.get("status", "needs_revision"),
+                "reviewed_by": review.get("reviewed_by"),
+                "reviewed_at": review.get("reviewed_at"),
+            })
+
+        if pending.cover_image:
+            append_image("cover_image", "proposed_cover", pending.cover_image, pending.updated_at)
+        else:
+            append_image("project_cover", "current_cover", obj.cover_image, obj.updated_at)
+        for project_image in obj.images.all():
+            append_image(
+                f"project_image:{project_image.id}", "gallery", project_image.image, project_image.created_at,
+            )
         return {
             "id": str(pending.id),
             "payload": pending.payload,
             "changes": changes,
             "files": file_urls,
+            "images": images,
             "submitted_by": str(pending.submitted_by_id),
             "created_at": pending.created_at,
         }

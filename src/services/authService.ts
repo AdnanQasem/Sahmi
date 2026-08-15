@@ -15,6 +15,10 @@ export interface User {
   timezone?: string;
   bio?: string;
   business_name?: string;
+  business_registration_number?: string;
+  business_established_date?: string | null;
+  business_address?: string;
+  risk_preference?: "low" | "medium" | "high";
   profile_picture?: string | null;
   is_verified?: boolean;
   is_kyc_verified?: boolean;

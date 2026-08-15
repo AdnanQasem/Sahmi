@@ -40,6 +40,12 @@ class NotificationSerializer(serializers.ModelSerializer):
             from apps.investments.models import Repayment
             repayment = Repayment.objects.select_related("investment__project").filter(pk=obj.target_id).first()
             return f"/projects/{repayment.investment.project.slug}" if repayment else dashboard
+        if obj.target_type == "withdrawal":
+            if user.is_staff or role == "entrepreneur":
+                return f"{dashboard}/funds"
+            from apps.investments.models import WithdrawalRequest
+            withdrawal = WithdrawalRequest.objects.select_related("project").filter(pk=obj.target_id).first()
+            return f"/projects/{withdrawal.project.slug}" if withdrawal else dashboard
         if obj.target_type == "user":
             return "/dashboard/admin/users" if user.is_staff else f"{dashboard}/settings"
         return dashboard
