@@ -5,8 +5,8 @@ import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { changeLanguage } from "@/i18n";
 
-const mocks = vi.hoisted(() => ({ listConversations: vi.fn(), listMessages: vi.fn(), sendMessage: vi.fn(), markRead: vi.fn(), searchUsers: vi.fn(), createDirectConversation: vi.fn() }));
-vi.mock("@/services/messagingService", () => ({ default: { listConversations: mocks.listConversations, listMessages: mocks.listMessages, sendMessage: mocks.sendMessage, markRead: mocks.markRead, searchUsers: mocks.searchUsers, createDirectConversation: mocks.createDirectConversation, unreadCount: vi.fn() } }));
+const mocks = vi.hoisted(() => ({ listConversations: vi.fn(), listMessages: vi.fn(), sendMessage: vi.fn(), downloadAttachment: vi.fn(), markRead: vi.fn(), searchUsers: vi.fn(), createDirectConversation: vi.fn() }));
+vi.mock("@/services/messagingService", () => ({ default: { listConversations: mocks.listConversations, listMessages: mocks.listMessages, sendMessage: mocks.sendMessage, downloadAttachment: mocks.downloadAttachment, markRead: mocks.markRead, searchUsers: mocks.searchUsers, createDirectConversation: mocks.createDirectConversation, unreadCount: vi.fn() } }));
 vi.mock("@/hooks/useAuth", () => ({ useAuth: () => ({ user: { id: "me", full_name: "Me", user_type: "investor" } }) }));
 vi.mock("@/pages/dashboard/DashboardLayout", () => ({ default: ({ children }: { children: React.ReactNode }) => <div>{children}</div> }));
 
@@ -49,6 +49,20 @@ describe("MessagesPage", () => {
     expect(mocks.sendMessage).toHaveBeenCalledWith("c1", "Hello");
     finish({ id: "m1", body: "Hello" });
     await waitFor(() => expect(input).toHaveValue(""));
+  });
+  it("sends a picture with an optional message", async () => {
+    mocks.listConversations.mockResolvedValue({ count: 1, results: [conversation] });
+    mocks.sendMessage.mockResolvedValue({ id: "m-picture", body: "New picture" });
+    const { container } = renderPage();
+    fireEvent.click(await screen.findByText("Other User"));
+    const picture = new File(["image"], "update.png", { type: "image/png" });
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(fileInput, { target: { files: [picture] } });
+    fireEvent.change(screen.getByLabelText("Message"), { target: { value: "New picture" } });
+    fireEvent.click(screen.getByLabelText("Send message"));
+
+    await waitFor(() => expect(mocks.sendMessage).toHaveBeenCalledWith("c1", "New picture", picture));
+    expect(screen.queryByText("update.png")).not.toBeInTheDocument();
   });
   it("searches for a user and starts a direct conversation", async () => {
     mocks.listConversations.mockResolvedValue({ count: 0, results: [] });

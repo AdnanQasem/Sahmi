@@ -74,6 +74,19 @@ const TransactionDetailsDialog = ({ investment, onOpenChange }: TransactionDetai
   const { t } = useTranslation();
   const project = investment?.project_detail;
   const projectHref = project?.slug ? `/projects/${project.slug}` : undefined;
+  const actualReturnValue = investment && actualOf(investment) > 0
+    ? currency(actualOf(investment))
+    : investment?.status === "refunded"
+      ? t("transactionDetails.returnState.refunded")
+      : investment?.status === "failed" || investment?.status === "cancelled"
+        ? t("transactionDetails.returnState.notEligible")
+        : project?.status === "fundraising"
+          ? t("transactionDetails.returnState.fundraising")
+          : project?.status === "fully_funded" || project?.status === "implementation"
+            ? t("transactionDetails.returnState.implementing")
+            : project?.status === "completed"
+              ? t("transactionDetails.returnState.awaitingRepayment")
+              : t("transactionDetails.returnState.awaitingCompletion");
 
   return (
     <Dialog open={!!investment} onOpenChange={onOpenChange}>
@@ -114,7 +127,7 @@ const TransactionDetailsDialog = ({ investment, onOpenChange }: TransactionDetai
               <DetailItem icon={Hash} label={t("transactionDetails.transactionId")} value={investment.transaction_id ? <bdi dir="ltr">{investment.transaction_id}</bdi> : t("transactionDetails.notProvided")} />
               <DetailItem icon={Package} label={t("transactionDetails.units")} value={formatNumber(investment.quantity)} />
               <DetailItem icon={TrendingUp} label={t("transactionDetails.expectedReturn")} value={currency(expectedOf(investment))} />
-              <DetailItem icon={Banknote} label={t("transactionDetails.actualReturn")} value={currency(actualOf(investment))} />
+              <DetailItem icon={Banknote} label={t("transactionDetails.actualReturn")} value={actualReturnValue} />
               <DetailItem
                 icon={CheckCircle2}
                 label={t("transactionDetails.returnReceived")}

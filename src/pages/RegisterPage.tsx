@@ -1,11 +1,12 @@
 import { useTranslation } from "react-i18next";
 import { useState, useRef } from "react";
-import { Link, Navigate, useNavigate } from "react-router-dom";
+import { Link, Navigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import SahmiLogo from "@/components/SahmiLogo";
 import { useAuth } from "@/hooks/useAuth";
 import { getFieldErrors } from "@/services/api";
@@ -24,6 +25,7 @@ import {
   Loader2,
   Check,
   Rocket,
+  AlertCircle,
 } from "lucide-react";
 
 // Animation Variants
@@ -59,8 +61,18 @@ const passwordRequirements = [
 ];
 const RegisterPage = () => {
   const { t } = useTranslation();
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  const location = useLocation();
+  const navigationState = location.state && typeof location.state === "object"
+    ? location.state as Record<string, unknown>
+    : {};
+  const rawPrefill = navigationState.contactPrefill && typeof navigationState.contactPrefill === "object"
+    ? navigationState.contactPrefill as Record<string, unknown>
+    : {};
+  const prefilledName = typeof rawPrefill.name === "string" ? rawPrefill.name.slice(0, 150) : "";
+  const prefilledEmail = typeof rawPrefill.email === "string" ? rawPrefill.email.slice(0, 254) : "";
+  const cameFromContact = navigationState.contactLoginRequired === true;
+  const [name, setName] = useState(prefilledName);
+  const [email, setEmail] = useState(prefilledEmail);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -72,7 +84,6 @@ const RegisterPage = () => {
   const [showSuccess, setShowSuccess] = useState(false);
 
   const { register, isAuthenticated } = useAuth();
-  const navigate = useNavigate();
 
   const heroRef = useRef(null);
   const { scrollYProgress } = useScroll({
@@ -101,7 +112,6 @@ const RegisterPage = () => {
         user_type: userType,
       });
       setShowSuccess(true);
-      navigate("/projects", { replace: true });
     } catch (error) {
       setFieldErrors(getFieldErrors(error));
     } finally {
@@ -110,7 +120,7 @@ const RegisterPage = () => {
   };
 
   return (
-    <div className="min-h-screen flex">
+    <div ref={heroRef} className="min-h-screen flex">
       {/* Left Side - Visual */}
       <motion.div
         className="hidden lg:flex lg:w-1/2 relative overflow-hidden"
@@ -263,8 +273,8 @@ const RegisterPage = () => {
                 >
                   <Check className="h-10 w-10 text-success" />
                 </motion.div>
-                <h2 className="text-2xl font-bold text-foreground mb-2">{t("auth.accountCreated")}</h2>
-                <p className="text-muted-foreground">{t("auth.redirecting")}</p>
+                <h2 className="text-2xl font-bold text-foreground mb-2">{t("auth.checkEmail")}</h2>
+                <p className="text-muted-foreground">{t("auth.checkEmailToCreateAccount")}</p>
               </motion.div>
             ) : (
               <motion.div
@@ -293,6 +303,12 @@ const RegisterPage = () => {
                   className="rounded-2xl border border-border bg-card/50 backdrop-blur-sm p-8 shadow-lg"
                   variants={fadeInUp}
                 >
+                  {cameFromContact && (
+                    <Alert className="mb-6 border-primary/30 bg-primary/5 [&>svg]:text-primary">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>{t("contact.registrationReminder")}</AlertDescription>
+                    </Alert>
+                  )}
                   {/* Account Type Toggle */}
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}

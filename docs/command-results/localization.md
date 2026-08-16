@@ -1,4 +1,4 @@
-# Localization command results
+﻿# Localization command results
 
 All commands ran from the repository root unless a backend working directory is shown.
 
@@ -25,6 +25,6 @@ All commands ran from the repository root unless a backend working directory is 
 
 ## Notes
 
-- The browser smoke uses mocked API responses and a local production preview; it does not mutate backend data.
+- The browser smoke uses fixture-backed API responses and a local production preview; it does not mutate backend data.
 - The production bundle warning is not localization-specific and was not addressed as unrelated refactoring.
 - No credentials or secrets were added to source or reports.

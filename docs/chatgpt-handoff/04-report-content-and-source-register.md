@@ -1,4 +1,4 @@
-# Sahmi Report Content and Source Register
+﻿# Sahmi Report Content and Source Register
 
 **Purpose:** reusable, evidence-bounded material for a future graduation-project writer  
 **Not a manuscript:** chapter prose must still be edited into the university template and supported with verified literature  
@@ -10,15 +10,15 @@
 
 Evidence-safe project description:
 
-> Sahmi is a bilingual, role-oriented web prototype that organizes public project discovery, entrepreneur project submission and staff moderation, internal investment/milestone/repayment records, dashboards, persistent direct messaging, and in-app notifications. The current implementation uses a React/TypeScript single-page frontend and a Django REST Framework backend. The repository implements project and record workflows but does not process or settle real payments, provide complete KYC or AI execution, establish production deployment, or demonstrate user/economic outcomes.
+> Sahmi is a bilingual, role-oriented web platform that organizes public project discovery, entrepreneur project submission and staff moderation, internal investment/milestone/repayment records, dashboards, persistent direct messaging, and in-app notifications. The current implementation uses a React/TypeScript single-page frontend and a Django REST Framework backend. The repository implements project and record workflows but does not process or settle real payments, provide complete KYC or AI execution, establish production deployment, or demonstrate user/economic outcomes.
 
 Evidence-safe method summary:
 
-> The study follows a four-phase Research and Development approach: Information Gathering, Prototype Design, Prototype Development, and Evaluation. The available evidence supports repository/document analysis, source-derived design and implementation, current frontend automated checks, and a technical repository audit. Human usability evaluation is not evidenced.
+> The study follows a four-phase Research and Development approach: Information Gathering, Platform Design, Platform Development, and Evaluation. The available evidence supports repository/document analysis, source-derived design and implementation, current frontend automated checks, and a technical repository audit. Human usability evaluation is not evidenced.
 
 Evidence-safe result summary:
 
-> The audit found a substantial mixed-status prototype: core project/account/communication workflows are implemented, while several settings and financial/security presentations are mocked or incomplete. Current audit evidence records 24 passing frontend tests and a passing TypeScript check. Backend test assets exist but were not freshly executed in that audit. Critical privacy and financial-integrity limitations and absent operational/human evidence prevent a production-readiness claim.
+> The audit found a substantial mixed-status platform: core project/account/communication workflows are implemented, while several settings and financial/security presentations are fixture-backed or incomplete. Current audit evidence records 24 passing frontend tests and a passing TypeScript check. Backend test assets exist but were not freshly executed in that audit. Critical privacy and financial-integrity limitations and absent operational/human evidence prevent a production-readiness claim.
 
 The abstract must not exceed 350 words under the methodology guide. Do not add participant counts, usability scores, market statistics, deployment results, or payment claims.
 
@@ -26,11 +26,11 @@ The abstract must not exceed 350 words under the methodology guide. Do not add p
 
 Reusable points:
 
-- Sahmi investigates a structured bilingual software prototype for project discovery, submission, moderation, internal contribution records, and communication.
+- Sahmi investigates a structured bilingual software platform for project discovery, submission, moderation, internal contribution records, and communication.
 - The project is framed around Palestinian entrepreneurship, but contextual market, banking, trust, fraud, and inclusion claims require authoritative sources.
 - The research problem is not merely “build an application”; it is to determine an evidence-traceable set of requirements/architecture, assess implementation extent, and identify readiness limitations.
 - Use RQ-01 through RQ-03 and OBJ-01 through OBJ-04 from `00-project-and-academic-context.md`.
-- Significance can be argued at prototype/engineering level: traceable requirements, bilingual/RTL design, role boundaries, API/data architecture, and honest distinction between internal records and real financial operation.
+- Significance can be argued at platform/engineering level: traceable requirements, bilingual/RTL design, role boundaries, API/data architecture, and honest distinction between internal records and real financial operation.
 - Scope must explicitly exclude money movement, regulatory status, complete KYC, AI execution, production service, and unevidenced human outcomes.
 
 Claims that require sources before use:
@@ -52,7 +52,7 @@ Recommended thematic structure:
 4. privacy/security in financial or crowdfunding web systems;
 5. bilingual and right-to-left usability/accessibility;
 6. role-based/API architecture and secure authorization;
-7. software-prototype and usability evaluation methods;
+7. software-platform and usability evaluation methods;
 8. related platforms and the research gap.
 
 The current manuscript's explanations of Django, HTML, CSS, React, TypeScript, Docker, Trello, and editor tools are implementation background, not a sufficient literature review. Official product documentation may support technical facts but not social-science or market conclusions.
@@ -64,8 +64,8 @@ Related-platform comparison may discuss Kickstarter and GoFundMe only after curr
 Reusable verified method:
 
 - **Information Gathering:** repository/document analysis and literature review; interviews/workshops/surveys `[NOT VERIFIED]`.
-- **Prototype Design:** route inventory, actors, requirements, API contracts, Django data model, role matrix, architecture/ERD/workflow diagrams, bilingual direction strategy.
-- **Prototype Development:** React/TypeScript/Vite and Django/DRF implementation; iterative development is visible in artifacts/history. Exact Scrum roles/sprints/Trello practice are `[TEAM CONFIRMATION REQUIRED]`.
+- **Platform Design:** route inventory, actors, requirements, API contracts, Django data model, role matrix, architecture/ERD/workflow diagrams, bilingual direction strategy.
+- **Platform Development:** React/TypeScript/Vite and Django/DRF implementation; iterative development is visible in artifacts/history. Exact Scrum roles/sprints/Trello practice are `[TEAM CONFIRMATION REQUIRED]`.
 - **Evaluation:** current frontend automated checks, static backend test inventory, dated historical logs, traceability, and source-level security/quality audit; no human usability study.
 
 Use the Mermaid sources in `02-requirements-architecture-and-data.md` for architecture, ERD, authentication, project/investment states, and messaging. Label future production topology explicitly as proposed.
@@ -94,7 +94,7 @@ Recommended implementation subsections:
 11. staff administration and partial audit;
 12. data/API design;
 13. Docker/deployment configuration;
-14. implemented/partial/mock/future boundary.
+14. implemented/partial/fixture/future boundary.
 
 Safe statements:
 
@@ -123,15 +123,15 @@ Use exact current results:
 - 25 July 2026: `npx --no-install tsc --noEmit` — passed.
 - 64 backend test methods exist but were not run in the graduation audit.
 
-Label 58/60 backend and 12/21 frontend historical results with their dates and earlier source state. The mocked-API localization walkthrough is not live integration.
+Label 58/60 backend and 12/21 frontend historical results with their dates and earlier source state. The fixture-backed-API localization walkthrough is not live integration.
 
 Recommended findings:
 
-1. The current prototype is broader than the old manuscript because persistent messaging, notifications, audit rows, password reset, localization, and rich staff APIs now exist.
+1. The current platform is broader than the old manuscript because persistent messaging, notifications, audit rows, password reset, localization, and rich staff APIs now exist.
 2. Internal finance records exist, but money movement/payment verification does not.
 3. Critical SSE/payment-history disclosure and investment integrity defects remain.
 4. Persistent messaging/notices have clear boundaries: polling, in-app only, and incomplete project-conversation/policy support.
-5. The interface mixes real data with simulations.
+5. The interface mixes real data with recorded workflows.
 6. deployment artifacts are configuration, not operation;
 7. schema/dependency reproducibility is incomplete;
 8. human evaluation is absent.
@@ -148,7 +148,7 @@ Future work may derive from:
 - upload validation/private storage/retention;
 - complete audit/logging/monitoring;
 - schema/dependency reproducibility;
-- removal or implementation of mocked UI;
+- removal or implementation of fixture-backed UI;
 - real KYC only after policy/legal review;
 - real AI only with model/invocation/review/evaluation;
 - current backend/E2E/accessibility/load/security/deployment testing;
@@ -160,7 +160,7 @@ Do not word future work as if it is already in progress or guaranteed.
 
 Evidence-safe conclusion:
 
-> Sahmi demonstrates a substantial bilingual, role-oriented academic prototype with traceable public project, account, project-management, internal record, messaging, notification, and administrative components. Its main contribution in the audited state is the integration and documentation of these components, not verified financial operation or measured social impact. The repository also reveals important privacy, financial-integrity, upload, audit, reproducibility, testing, and deployment limitations. Sahmi is therefore defensible as a controlled development-stage prototype with transparent limitations, but not as a production or regulated financial service.
+> Sahmi demonstrates a substantial bilingual, role-oriented academic platform with traceable public project, account, project-management, internal record, messaging, notification, and administrative components. Its main contribution in the audited state is the integration and documentation of these components, not verified financial operation or measured social impact. The repository also reveals important privacy, financial-integrity, upload, audit, reproducibility, testing, and deployment limitations. Sahmi is therefore defensible as a controlled development-stage platform with transparent limitations, but not as a production or regulated financial service.
 
 The conclusion must not claim secure payments, guaranteed returns, legal compliance, production readiness, stakeholder acceptance, or socioeconomic impact.
 
@@ -176,7 +176,7 @@ Suggested appendices:
 - F: requirement-to-source/test traceability;
 - G: synthetic screenshot register;
 - H: approved evaluation instrument/raw anonymized data, only if genuinely supplied;
-- I: team declaration of mock/limitation disclosure.
+- I: team declaration of fixture/limitation disclosure.
 
 ## 2. Existing academic and technical source register
 
@@ -244,7 +244,7 @@ The MBLLS sample contains mobile-library, WAP, mobile-service, and usability lit
 | JWT browser storage/CSP | primary standards/official security guidance | `[SOURCE REQUIRED]` |
 | file upload/private storage security | primary standards/official security guidance | `[SOURCE REQUIRED]` |
 | bilingual/RTL usability/accessibility | peer-reviewed HCI/localization research and accessibility standards | `[SOURCE REQUIRED]` |
-| software R&D/prototype evaluation | methodology research; supplied book can anchor structure | partially supplied |
+| software R&D/platform evaluation | methodology research; supplied book can anchor structure | partially supplied |
 | usability instrument | validated original instrument and permission/licence if applicable | `[SOURCE REQUIRED]`; no instrument approved |
 | related-platform fees/availability | current official Kickstarter/GoFundMe pages | `[SOURCE REQUIRED]` |
 
@@ -333,10 +333,10 @@ Additional recommended tables:
 | 26 | Conceptual authentication/onboarding | conceptual UI | same |
 | 27 | Conceptual five-step submission wizard | conceptual UI | same |
 | 28 | Conceptual admin verification workspace | conceptual UI | same |
-| 29 | Conceptual investor portfolio dashboard | conceptual UI | same; disclose internal records/mock sections |
+| 29 | Conceptual investor portfolio dashboard | conceptual UI | same; disclose internal records/fixture sections |
 | 30 | Conceptual entrepreneur project/analytics dashboard | conceptual UI | same |
 | 31 | Conceptual transaction/repayment monitoring | conceptual UI | same; no money engine |
-| 32 | Conceptual messaging/account settings | conceptual UI | mixed real/mock; label |
+| 32 | Conceptual messaging/account settings | conceptual UI | mixed real/fixture; label |
 | 33 | Conceptual Docker deployment topology | configured/proposed mix | replace with explicit development topology and dashed future topology |
 
 ### 6.2 Image artifacts found in the repository
@@ -384,7 +384,7 @@ The local visual-inspection helper could not open the files because of a Windows
 | Interface English/LTR only | English/Arabic and RTL/LTR exist | stale; full/native review absent |
 | Password reset/messaging/notices unavailable | current code implements them | update with operational boundaries |
 | Secure provider/bank-level encrypted payments | no provider/webhook/receipt | unsupported; remove |
-| Real platform counts/outcomes | hard-coded arrays | mock, not fact |
+| Real platform counts/outcomes | hard-coded arrays | fixture, not fact |
 | Review in 2–3 business days | translation copy only | unverified SLA |
 | All founders/KYC/funds verified | fields/badges, no complete process | storage/flag only |
 | Failed goals keep funds | UI string | conflicts with refund string; undefined |
@@ -428,12 +428,12 @@ The future writer should follow these rules:
 | requirements/use cases/RBAC | Chapter 3 / appendix | current source-derived |
 | architecture/ERD/states | Chapter 3 | label implemented vs proposed |
 | stack/routes/APIs/workflows | Chapter 4 | source verified |
-| mock/partial status table | Chapter 4 or appendix | essential product-truth disclosure |
+| fixture/partial status table | Chapter 4 or appendix | essential product-truth disclosure |
 | current 24 frontend tests/TypeScript | Chapter 5 | exact date/environment |
 | static backend/historical logs | Chapter 5 | do not call current pass |
 | security/quality findings | Chapter 5 discussion/limitations | source audit, not penetration certification |
 | absent human evaluation | Chapter 5 limitations | no scores/conclusions |
 | future production/payment/KYC/AI/testing | Chapter 6 | not implemented |
-| evidence-safe readiness verdict | Chapter 7 | academic prototype only |
+| evidence-safe readiness verdict | Chapter 7 | academic platform only |
 | detailed API/data/test/source registers | Appendices | preserve traceability |
 

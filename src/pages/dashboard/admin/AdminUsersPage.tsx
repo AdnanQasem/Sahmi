@@ -12,10 +12,8 @@ import {
   KeyRound,
   MoreHorizontal,
   Pencil,
-  Plus,
   RefreshCw,
   Search,
-  Shield,
   ShieldCheck,
   Trash2,
   UserCheck,
@@ -77,7 +75,7 @@ import adminUsersService, {
 type UserTypeFilter = "all" | AdminUserType;
 type ActiveFilter = "all" | "active" | "inactive";
 type VerificationFilter = "all" | "verified" | "unverified";
-type AccessFilter = "all" | "staff" | "superuser" | "standard";
+type AccessFilter = "all" | "staff" | "standard";
 type ConfirmAction = { type: "deactivate" | "delete"; user: AdminUser };
 
 const PAGE_SIZE = 15;
@@ -112,11 +110,7 @@ const AccessBadges = ({ user }: { user: AdminUser }) => {
     >
       {t(user.is_active ? "adminForm.active" : "adminForm.inactive")}
     </span>
-    {user.is_superuser ? (
-      <span className="rounded-full bg-accent/15 px-2 py-1 text-[11px] font-semibold text-amber-700 dark:text-amber-300">
-        {t("adminForm.superuser")}
-      </span>
-    ) : user.is_staff ? (
+    {user.is_staff ? (
       <span className="rounded-full bg-primary/10 px-2 py-1 text-[11px] font-semibold text-primary">{t("admin.staff")}</span>
     ) : null}
   </div>
@@ -216,7 +210,6 @@ const AdminUsersPage = () => {
     if (activeFilter !== "all") nextParams.is_active = activeFilter === "active";
     if (verificationFilter !== "all") nextParams.is_verified = verificationFilter === "verified";
     if (accessFilter === "staff") nextParams.is_staff = true;
-    if (accessFilter === "superuser") nextParams.is_superuser = true;
     if (accessFilter === "standard") nextParams.is_staff = false;
     return nextParams;
   }, [accessFilter, activeFilter, page, search, userType, verificationFilter]);
@@ -225,13 +218,6 @@ const AdminUsersPage = () => {
     queryKey: ["admin", "users", params],
     queryFn: () => adminUsersService.listUsers(params),
     staleTime: 20_000,
-  });
-
-  const currentUserQuery = useQuery({
-    queryKey: ["admin", "users", "current", authenticatedUser?.id],
-    queryFn: () => adminUsersService.getUser(authenticatedUser!.id),
-    enabled: !!authenticatedUser?.id,
-    staleTime: 60_000,
   });
 
   const accounts = useMemo(
@@ -332,12 +318,6 @@ const AdminUsersPage = () => {
     setPage(1);
   };
 
-  const openCreateDialog = () => {
-    setEditingUser(null);
-    setUserFieldErrors({});
-    setUserDialogOpen(true);
-  };
-
   const openEditDialog = (account: AdminUser) => {
     setEditingUser(account);
     setUserFieldErrors({});
@@ -376,12 +356,6 @@ const AdminUsersPage = () => {
                 <Users className="h-3.5 w-3.5" />{t("admin.userAdministration")}</div>
               <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">{t("admin.manageAccounts")}</h1>
               <p className="mt-3 max-w-xl text-sm leading-relaxed text-muted-foreground sm:text-base">{t("admin.userAdministrationText")}</p>
-            </div>
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <Button variant="outline" className="bg-card/80" onClick={() => void usersQuery.refetch()} disabled={usersQuery.isFetching}>
-                <RefreshCw className={`h-4 w-4 ${usersQuery.isFetching ? "animate-spin" : ""}`} />{t("admin.refresh")}</Button>
-              <Button onClick={openCreateDialog}>
-                <Plus className="h-4 w-4" />{t("admin.createUser")}</Button>
             </div>
           </div>
         </motion.section>
@@ -450,7 +424,6 @@ const AdminUsersPage = () => {
                   <SelectItem value="all">{t("admin.anyAccess")}</SelectItem>
                   <SelectItem value="standard">{t("admin.standardUsers")}</SelectItem>
                   <SelectItem value="staff">{t("admin.staff")}</SelectItem>
-                  <SelectItem value="superuser">{t("admin.superusers")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -469,12 +442,6 @@ const AdminUsersPage = () => {
                 {usersQuery.isLoading ? t("admin.loadingUsers") : t("admin.accountsFound", { count: resultCount })}
               </p>
             </div>
-            {currentUserQuery.data?.is_superuser && (
-              <span className="hidden items-center gap-1.5 rounded-full bg-accent/15 px-2.5 py-1 text-xs font-semibold text-amber-700 dark:text-amber-300 sm:inline-flex">
-                <Shield className="h-3.5 w-3.5" />
-                {t("adminForm.superuserSession")}
-              </span>
-            )}
           </div>
 
           {usersQuery.isError ? (
@@ -608,12 +575,11 @@ const AdminUsersPage = () => {
               <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary"><UserRound className="h-5 w-5" /></div>
               <h3 className="mt-4 font-semibold text-foreground">{t(hasFilters ? "admin.noUsersMatch" : "admin.noAccountsYet")}</h3>
               <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
-                {t(hasFilters ? "admin.tryBroaderUserSearch" : "admin.createFirstUser")}
+                {t(hasFilters ? "admin.tryBroaderUserSearch" : "admin.noAccountsYet")}
               </p>
-              <Button size="sm" className="mt-4" variant={hasFilters ? "outline" : "default"} onClick={hasFilters ? clearFilters : openCreateDialog}>
-                {hasFilters ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-                {hasFilters ? t("projects.clearFilters") : t("admin.createUser")}
-              </Button>
+              {hasFilters && <Button size="sm" className="mt-4" variant="outline" onClick={clearFilters}>
+                <X className="h-4 w-4" />{t("projects.clearFilters")}
+              </Button>}
             </div>
           )}
 

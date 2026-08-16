@@ -28,7 +28,7 @@ from apps.audit.services import log as audit_log
 from apps.core.throttling import AdminVerificationRateThrottle, ProjectTranslationRateThrottle
 from apps.notifications.models import Notification
 from apps.notifications.services import notify_on_commit
-from .translation import translate_project_content
+from .translation import translate_project_content, translate_project_edit_content
 
 
 User = get_user_model()
@@ -261,6 +261,18 @@ class ProjectViewSet(viewsets.ModelViewSet):
         if language not in {"ar", "en"}:
             return Response({"language": ["Choose either 'ar' or 'en'."]}, status=400)
         try:
+            edit_request_id = request.query_params.get("edit_request")
+            if edit_request_id:
+                if not request.user.is_authenticated or not request.user.is_staff:
+                    return Response({"detail": "Administrator access is required."}, status=403)
+                edit_request = ProjectEditRequest.objects.filter(
+                    id=edit_request_id,
+                    project=project,
+                    status=ProjectEditRequest.Status.PENDING,
+                ).first()
+                if edit_request is None:
+                    return Response({"detail": "Pending edit request not found."}, status=404)
+                return Response(translate_project_edit_content(edit_request, language))
             return Response(translate_project_content(project, language))
         except (OSError, ValueError, TypeError, json.JSONDecodeError):
             return Response(
@@ -449,21 +461,31 @@ class ProjectViewSet(viewsets.ModelViewSet):
         ]
         return Response(data)
 
-    @action(detail=True, methods=["get"], permission_classes=[permissions.AllowAny])
+    @action(detail=True, methods=["get"], permission_classes=[permissions.IsAuthenticated])
     def repayments(self, request, slug=None):
-        """Publish a privacy-safe Return of Investment schedule for completed projects."""
+        """Return the caller's authorized schedule for a completed project."""
         project = self.get_object()
-        milestones = project.milestones.all()
-        implementation_complete = milestones.exists() and not milestones.exclude(
-            status="completed", actual_completion_date__isnull=False,
-        ).exists()
-        if project.funded_amount < project.goal_amount or not implementation_complete:
+        if project.status != Project.Status.CLOSED:
             return Response([])
-        records = (
-            project.investments.filter(status="confirmed")
-            .prefetch_related("repayments")
-            .order_by("id")
+        from apps.investments.services import refresh_open_repayment_statuses
+        refresh_open_repayment_statuses()
+        repayments = project.investments.filter(status="completed").values_list(
+            "repayments", flat=True
         )
+        from apps.investments.models import Repayment
+        records = Repayment.objects.filter(pk__in=repayments)
+        if request.user.is_staff:
+            pass
+        elif request.user.id == project.entrepreneur_id:
+            records = records.filter(investment__project__entrepreneur=request.user)
+        elif request.user.user_type == "investor":
+            if not project.investments.filter(investor=request.user).exists():
+                from rest_framework.exceptions import PermissionDenied
+                raise PermissionDenied("You do not have access to this repayment schedule.")
+            records = records.filter(investment__investor=request.user)
+        else:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("You do not have access to this repayment schedule.")
         return Response([
             {
                 "id": str(repayment.id),
@@ -473,8 +495,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 "status": repayment.status,
                 "payment_method": repayment.payment_method,
             }
-            for investment in records
-            for repayment in investment.repayments.all()
+            for repayment in records.select_related("investment").order_by("scheduled_date")
         ])
 
     @action(detail=True, methods=["get"], permission_classes=[permissions.AllowAny])

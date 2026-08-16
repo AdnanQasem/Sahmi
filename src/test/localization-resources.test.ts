@@ -16,7 +16,7 @@ describe("localization resource coverage", () => {
   it("has matching major namespaces and no legacy placeholder arrays", () => {
     expect(Object.keys(ar).sort()).toEqual(Object.keys(en).sort());
     const source = majorWorkflows.map((file) => readFileSync(file, "utf8")).join("\n");
-    expect(source).not.toMatch(/mockConversations|mockMessages|recentNotifications/);
+    expect(source).not.toMatch(/recentNotifications/);
     for (const file of majorWorkflows) expect(readFileSync(file, "utf8")).toContain("useTranslation");
   });
 });

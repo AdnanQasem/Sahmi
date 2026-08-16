@@ -21,6 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import investmentsService, { Investment } from "@/services/investmentsService";
+import { calculateInvestmentTotals } from "@/lib/investmentTotals";
 import {
   ArrowRight,
   Banknote,
@@ -34,7 +35,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 
-const statusFilters = ["all", "pending", "confirmed", "completed", "canceled"] as const;
+const statusFilters = ["all", "pending", "confirmed", "completed", "cancelled", "refunded", "failed"] as const;
 
 const InvestorTransactionsPage = () => {
   const { t } = useTranslation();
@@ -69,13 +70,10 @@ const InvestorTransactionsPage = () => {
     });
   }, [transactions, searchQuery, statusFilter]);
 
-  const totalPaid = transactions.reduce((sum, transaction) => sum + amountOf(transaction), 0);
-  const confirmedPaid = transactions
-    .filter((transaction) => ["confirmed", "completed"].includes(transaction.status))
-    .reduce((sum, transaction) => sum + amountOf(transaction), 0);
-  const expectedReturns = transactions.reduce((sum, transaction) => sum + expectedOf(transaction), 0);
-  // The expectedReturns from the backend represents the net profit, so ROI is simply (profit / paid) * 100
-  const totalROI = totalPaid > 0 ? (expectedReturns / totalPaid) * 100 : 0;
+  const investmentTotals = calculateInvestmentTotals(transactions);
+  const totalInvested = investmentTotals.principal;
+  const expectedReturns = investmentTotals.expectedProfit;
+  const totalROI = investmentTotals.expectedRoiPercent;
   const latestTransaction = transactions[0];
   const ledgerTransactions = filteredTransactions.filter((transaction) => transaction.id !== latestTransaction?.id);
   const latestProjectProgress = latestTransaction?.project_detail
@@ -118,7 +116,7 @@ const InvestorTransactionsPage = () => {
                       <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{t("transactions.title")}</h1>
                       <p className="mt-1 text-sm font-medium text-white/70 max-w-md">
                         {transactions.length > 0 
-                          ? t("transactions.activeSummary", { count: formatNumber(transactions.length), roi: formatPercent(totalROI) })
+                          ? t("transactions.activeSummary", { count: formatNumber(investmentTotals.funded.length), roi: formatPercent(totalROI) })
                           : t("transactions.explorePrompt")}
                       </p>
                     </div>
@@ -127,8 +125,8 @@ const InvestorTransactionsPage = () => {
                   <div className="flex flex-wrap items-center gap-3">
                     <div className="flex items-center gap-4 rounded-xl border border-white/10 bg-white/5 px-5 py-3 backdrop-blur-md">
                       <div>
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-white/60">{t("dashboard.totalPaid")}</p>
-                        <p className="text-xl font-bold">{currency(totalPaid)}</p>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-white/60">{t("dashboard.totalInvested")}</p>
+                        <p className="text-xl font-bold">{currency(totalInvested)}</p>
                       </div>
                       <div className="h-8 w-px bg-white/10" />
                       <div>

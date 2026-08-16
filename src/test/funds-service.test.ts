@@ -13,7 +13,7 @@ vi.mock("@/services/api", () => ({
 describe("fundsService", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("uses dedicated review and simulated-release endpoints", async () => {
+  it("uses dedicated review and payout-release endpoints", async () => {
     vi.mocked(api.post).mockResolvedValue({ id: "withdrawal-1" });
 
     await fundsService.review("withdrawal-1");

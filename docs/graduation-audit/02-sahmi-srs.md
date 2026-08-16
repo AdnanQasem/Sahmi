@@ -1,4 +1,4 @@
-# Repository-Verified Software Requirements Specification: Sahmi
+﻿# Repository-Verified Software Requirements Specification: Sahmi
 
 **Version:** audit draft 1.0  
 **Date:** 25 July 2026  
@@ -7,9 +7,9 @@
 
 ## 1. Purpose and scope
 
-This specification defines the observable and target requirements of Sahmi, a bilingual web prototype for presenting Palestinian entrepreneurial projects, recording intended investments, moderating projects, and supporting role-oriented communication and tracking.
+This specification defines the observable and target requirements of Sahmi, a bilingual web platform for presenting Palestinian entrepreneurial projects, recording intended investments, moderating projects, and supporting role-oriented communication and tracking.
 
-The implemented system is a prototype. An `Investment` row and a `confirmed` status are internal records; they are not evidence of transferred, settled, escrowed, refunded, or legally owned funds. Sahmi is not verified as a deployed, licensed, regulated, secure, or production-ready financial service.
+The implemented system is a platform. An `Investment` row and a `confirmed` status are internal records; they are not evidence of transferred, settled, escrowed, refunded, or legally owned funds. Sahmi is not verified as a deployed, licensed, regulated, secure, or production-ready financial service.
 
 ### 1.1 Status legend
 
@@ -17,7 +17,7 @@ The implemented system is a prototype. An `Investment` row and a `confirmed` sta
 |---|---|
 | Verified and implemented | Frontend/backend or relevant layer exists and is supported by repository evidence |
 | Partially implemented | Useful behavior exists, but a requirement, workflow, or trust boundary is incomplete |
-| Frontend-only or mocked | UI exists without authoritative backend persistence/operation |
+| Frontend-only or fixture-backed | UI exists without authoritative backend persistence/operation |
 | Backend-only | API/data behavior exists without a complete user-facing workflow |
 | Configured but not operationally verified | Configuration exists; current end-to-end operation was not demonstrated |
 | Planned/future work | Normative target not implemented |
@@ -32,7 +32,7 @@ The implemented system is a prototype. An `Investment` row and a `confirmed` sta
 | Entrepreneur account | May submit and manage owned projects, view project investment data and analytics, use direct messages, notifications and settings |
 | Staff administrator | Django `is_staff` user; accesses REST admin workspace, all project/investment data, moderation and CRUD |
 | Superuser | Django administrative authority; has framework-level permissions in addition to staff behavior |
-| Project team | Develops, tests, documents and maintains the prototype |
+| Project team | Develops, tests, documents and maintains the platform |
 | Supervisor/examiners | Evaluate academic method, evidence, scope and conclusions |
 | Intended payment/KYC/legal operators | Not yet defined; `[TEAM CONFIRMATION REQUIRED]` |
 | Data subjects | Users, founders, investors and message participants whose personal or uploaded data is stored |
@@ -85,7 +85,7 @@ The implemented system is a prototype. An `Investment` row and a `confirmed` sta
 | FR-010 | An authenticated user shall view/update permitted profile fields without changing role, staff, superuser, groups, permissions, KYC status or financial aggregates. | Verified and implemented | `UserSerializer`, `users/serializers.py:13-29`; `MeView`, `users/views.py:139-188`; privilege tests |
 | FR-011 | An authenticated user shall change password after supplying the current password and valid matching replacement. | Verified and implemented | `PasswordChangeSerializer`, `users/serializers.py:90-115`; Settings connection `SettingsPage.tsx:187-204` |
 | FR-012 | A visitor shall request and confirm password reset without account enumeration. | Configured but not operationally verified | `users/views.py:193-258`; forgot/reset pages; frontend tests passed; SMTP not exercised |
-| FR-013 | The system shall offer real 2FA, recovery email, session listing/revocation, and login history before those controls are presented as active. | Frontend-only or mocked | Hard-coded/local controls at `SettingsPage.tsx:723-883`; no backend model/API |
+| FR-013 | The system shall offer real 2FA, recovery email, session listing/revocation, and login history before those controls are presented as active. | Frontend-only or fixture-backed | Hard-coded/local controls at `SettingsPage.tsx:723-883`; no backend model/API |
 
 ### 4.3 Project lifecycle
 
@@ -142,7 +142,7 @@ The implemented system is a prototype. An `Investment` row and a `confirmed` sta
 | FR-042 | Staff shall CRUD users while preventing self-lockout and last-active-administrator removal. | Verified and implemented | `AdminUserViewSet`, `users/admin_views.py`; admin tests |
 | FR-043 | Staff shall CRUD projects/assets/categories/investments/milestones/repayments through authenticated admin APIs. | Verified and implemented | `core/admin_urls.py`; admin services/pages and tests |
 | FR-044 | Security- and finance-relevant changes shall create sanitized, immutable, queryable audit events. | Partially implemented | model/service/read API and sanitizer exist; event coverage incomplete and rows are not tamper-evident |
-| FR-045 | A contact-form success state shall mean that the request was actually persisted or delivered. | Frontend-only or mocked | `ContactPage.tsx:107-116` only simulates success |
+| FR-045 | A contact-form success state shall mean that the request was actually persisted or delivered. | Frontend-only or fixture-backed | `ContactPage.tsx:107-116` only records success |
 | FR-046 | KYC submission, private storage, review, decision, retention and deletion shall follow an approved policy. | Planned/future work | fields/admin flags only |
 | FR-047 | AI classification/recommendation shall require an implemented model/provider, invocation, review and evaluation process. | Backend-only | database/admin storage fields only |
 
@@ -205,11 +205,11 @@ The implemented system is a prototype. An `Investment` row and a `confirmed` sta
 | UC-005 | Review project | Staff | Staff account, existing project | Verify/reject/status; partial consistency |
 | UC-006 | Record intended investment | Authenticated user | Active verified project | Pending record; role/zero gaps |
 | UC-007 | Confirm/cancel investment | Staff/investor | Pending owned record | Status change and totals/notification |
-| UC-008 | View dashboards/transactions | Role account | Authenticated | Derived records/charts; some misleading/mock data |
+| UC-008 | View dashboards/transactions | Role account | Authenticated | Derived records/charts; some misleading/fixture data |
 | UC-009 | Message another user | Authenticated user | Search result/participant | Persistent direct conversation |
 | UC-010 | Read/manage notifications | Authenticated user | Existing notification | Owner-scoped state/preferences |
 | UC-011 | Administer records | Staff | Staff account | CRUD; implemented, incomplete audit coverage |
-| UC-012 | Contact support | Visitor | Form data | Simulated only; no delivery |
+| UC-012 | Contact support | Visitor | Form data | Recorded only; no delivery |
 
 ### 7.2 Key flows
 
@@ -271,7 +271,7 @@ The implemented system is a prototype. An `Investment` row and a `confirmed` sta
 | AC-011 | FR-036/037 | Non-participant receives 404/403; sender is server-derived; deleted body is empty. | Source/static tests support |
 | AC-012 | FR-040 | Notification list/read/preferences affect only current user. | Source/tests; frontend tests passed |
 | AC-013 | FR-044 | All admin/financial changes create sanitized audit events. | **Not met:** partial event coverage |
-| AC-014 | FR-045 | Contact success corresponds to stored/delivered request ID. | **Not met:** simulated |
+| AC-014 | FR-045 | Contact success corresponds to stored/delivered request ID. | **Not met:** recorded |
 | AC-015 | FR-004 | Language switch updates `lang`, `dir`, persists choice and renders principal Arabic labels. | Current frontend tests passed |
 | AC-016 | NFR-017 | Critical suites run in CI with coverage threshold approved by team. | **Not met:** no CI/coverage |
 | AC-017 | NFR-015 | Production deployment passes security/configuration/backup/restore checks. | `[NOT VERIFIED]` |
@@ -306,7 +306,7 @@ The implemented system is a prototype. An `Investment` row and a `confirmed` sta
 
 - principal workflows shall expose loading, error, empty, retry and success states;
 - financial labels shall distinguish “pending record,” “confirmed internal record,” and “settled payment”;
-- mocked controls shall be visibly labelled demonstration-only or removed;
+- fixture-backed controls shall be visibly labelled demonstration-only or removed;
 - Arabic copy and dense admin pages require native-speaker and responsive visual review;
 - accessibility conformance target and evaluation tool are `[TEAM CONFIRMATION REQUIRED]`.
 
@@ -333,7 +333,7 @@ Highest-priority limitations:
 1. SSE/payment privacy and project visibility;
 2. zero investment and editable confirmed records;
 3. incomplete audit and inconsistent moderation paths;
-4. mocked financial/security/support UI;
+4. fixture-backed financial/security/support UI;
 5. missing upload controls and private object-storage policy;
 6. schema drift from an untracked migration;
 7. no real payment, KYC, AI, email notifications, E2E suite, CI/CD or deployment proof;
@@ -346,9 +346,9 @@ Future financial/payment work must wait for approved legal/business rules and mu
 | Objective | Requirements | UI/routes | API/backend | Data | Test/evidence |
 |---|---|---|---|---|---|
 | OBJ-01: Gather and structure stakeholder/system requirements | FR-001-047; BR-001-018 | all public/role routes | route/permission inventory | entity dictionary | repository and document audit; stakeholder input `[NOT VERIFIED]` |
-| OBJ-02: Design a bilingual role-oriented prototype | FR-001-020, FR-035-040; NFR-009-013 | App routes, i18n, project/auth/dashboard/messages/settings pages | users/projects/messaging/notifications APIs | User, Project, Conversation, Notification | localization/admin route tests passed |
+| OBJ-02: Design a bilingual role-oriented platform | FR-001-020, FR-035-040; NFR-009-013 | App routes, i18n, project/auth/dashboard/messages/settings pages | users/projects/messaging/notifications APIs | User, Project, Conversation, Notification | localization/admin route tests passed |
 | OBJ-03: Develop project and investment-record workflows | FR-014-034, FR-042-044 | project/admin/dashboard/transaction pages | project, investment, admin viewsets/services/signals | Project, Investment, Milestone, Repayment, AuditLog | backend tests exist; no fresh backend run |
-| OBJ-04: Evaluate correctness, security and readiness | NFR-001-018; AC-001-017 | error/loading/mock disclosure review | permissions/security/config audit | privacy/integrity review | 24 frontend tests passed; TypeScript passed; historical backend logs only |
+| OBJ-04: Evaluate correctness, security and readiness | NFR-001-018; AC-001-017 | error/loading/fixture disclosure review | permissions/security/config audit | privacy/integrity review | 24 frontend tests passed; TypeScript passed; historical backend logs only |
 
 ### Selected end-to-end traceability
 

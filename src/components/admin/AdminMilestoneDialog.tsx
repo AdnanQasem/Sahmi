@@ -25,6 +25,8 @@ import type {
   AdminMilestonePayload,
   AdminProjectOption,
 } from "@/services/adminFinanceService";
+import DemoFillButton from "@/components/demo/DemoFillButton";
+import { formDemoData } from "@/demo/formDemoData";
 
 interface AdminMilestoneDialogProps {
   open: boolean;
@@ -111,6 +113,19 @@ const AdminMilestoneDialog = ({
             {t("adminForm.milestoneHelp")}
           </DialogDescription>
         </DialogHeader>
+        <DemoFillButton
+          disabled={pending || projects.length === 0}
+          onClick={() => setForm((current) => ({
+            ...current,
+            project: current.project || projects[0]?.id || "",
+            title: formDemoData.milestone.title,
+            description: formDemoData.milestone.description,
+            deliverables: formDemoData.milestone.deliverables,
+            target_date: current.target_date || new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10),
+            percentage_of_project: current.percentage_of_project === "0" ? "10.00" : current.percentage_of_project,
+            order: current.order || 1,
+          }))}
+        />
 
         <form className="space-y-5" onSubmit={submit}>
           <div className="grid gap-4 sm:grid-cols-2">

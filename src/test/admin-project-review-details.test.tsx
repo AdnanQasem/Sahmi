@@ -1,8 +1,14 @@
 import { render, screen } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { describe, expect, it } from "vitest";
 import AdminProjectReviewDetails from "@/components/admin/AdminProjectReviewDetails";
 import { matchesEditImageReviewFilters } from "@/components/admin/AdminEditImageReviews";
 import type { Project } from "@/services/projectsService";
+
+const renderReview = (ui: React.ReactElement) => {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(<QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>);
+};
 
 const project = {
   id: "project-1",
@@ -18,6 +24,7 @@ const project = {
   funding_account: { secured: "0.00", released: "0.00", refunded: "0.00", available: "0.00" },
   minimum_investment: "100.00",
   expected_roi: "10.00",
+  faqs: [{ question: "How is progress checked?", answer: "The admin reviews milestone evidence." }],
   cost_items: [{ name: "Solar panels", description: "550W panels", quantity: "20", unit_cost: "120" }],
   milestones: [{ id: "m1", title: "Install panels", description: "Complete installation", target_date: "2027-02-15", status: "in_progress", deliverables: "Installed array", percentage_of_project: "100", funding_released: "1200", order: 1 }],
   funding_period_days: 30,
@@ -45,13 +52,17 @@ const project = {
         before: [],
         after: [{ id: "m1", title: "Install panels", description: "Complete installation", target_date: "2027-02-15", status: "in_progress", deliverables: "Installed array", percentage_of_project: "100", funding_released: "1200", order: 1 }],
       },
+      faqs: {
+        before: [],
+        after: [{ question: "How is progress checked?", answer: "The admin reviews milestone evidence." }],
+      },
     },
   },
 } as Project;
 
 describe("editing request review details", () => {
   it("renders category names, calculated cost tables, and a readable timeline", () => {
-    render(<AdminProjectReviewDetails project={project} isEditReview />);
+    renderReview(<AdminProjectReviewDetails project={project} isEditReview />);
 
     expect(screen.getByText("Agriculture")).toBeInTheDocument();
     expect(screen.getAllByText("Technology").length).toBeGreaterThan(0);
@@ -60,6 +71,9 @@ describe("editing request review details", () => {
     expect(screen.getByText("Install panels")).toBeInTheDocument();
     expect(screen.getByText("In progress")).toBeInTheDocument();
     expect(screen.getByText(/Feb 15, 2027/)).toBeInTheDocument();
+    expect(screen.getByText("How is progress checked?")).toBeInTheDocument();
+    expect(screen.getByText("The admin reviews milestone evidence.")).toBeInTheDocument();
+    expect(screen.queryByText(/\"question\"/)).not.toBeInTheDocument();
   });
 
   it("filters picture reviews by project and review status", () => {

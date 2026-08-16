@@ -9,6 +9,7 @@ import SahmiLogo from "@/components/SahmiLogo";
 import { useAuth } from "@/hooks/useAuth";
 import { useTranslation } from "react-i18next";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
+import LogoutConfirmationDialog from "@/components/LogoutConfirmationDialog";
 import { formatDate } from "@/i18n/format";
 import { translateNotificationType, translateSystemNotificationBody } from "@/i18n/labels";
 import { dashboardPollingOptions } from "@/lib/dashboardPolling";
@@ -26,7 +27,6 @@ import {
   Wallet,
   BookMarked,
   Settings,
-  ExternalLink,
   MessageSquare,
   TrendingUp,
   CheckCircle2,
@@ -37,6 +37,7 @@ import {
   Flag,
   HandCoins,
   LockKeyhole,
+  ScrollText,
 } from "lucide-react";
 
 type UserRole = "investor" | "entrepreneur" | "admin";
@@ -111,13 +112,19 @@ const navItems: NavItem[] = [
     label: "Repayments",
     href: "/repayments",
     icon: HandCoins,
-    roles: ["admin"],
+    roles: ["admin", "investor", "entrepreneur"],
   },
   {
     label: "Funds",
     href: "/funds",
     icon: LockKeyhole,
     roles: ["admin", "entrepreneur"],
+  },
+  {
+    label: "Logs",
+    href: "/logs",
+    icon: ScrollText,
+    roles: ["admin"],
   },
   // Investor routes
   {
@@ -167,20 +174,21 @@ const navItems: NavItem[] = [
 
 const navLabelKeys: Record<string, string> = {
   Overview: "dashboard.overview", Users: "dashboard.users", Projects: "nav.projects",
-  Categories: "projects.category", Investments: "dashboard.myInvestments", Milestones: "settings.milestones",
-  Repayments: "transactions.title", "Watched Projects": "dashboard.watched", Transactions: "dashboard.transactions",
+  Categories: "projects.category", Investments: "admin.investments", Milestones: "settings.milestones",
+  Repayments: "repaymentDashboard.title", "Watched Projects": "dashboard.watched", Transactions: "dashboard.transactions",
   Project: "dashboard.project", Analytics: "dashboard.analytics", Investors: "dashboard.investors",
-  Messages: "dashboard.messages", Settings: "dashboard.settings", Funds: "funds.nav",
+  Messages: "dashboard.messages", Settings: "dashboard.settings", Funds: "funds.nav", Logs: "auditLogs.nav",
 };
 interface DashboardLayoutProps {
   children: ReactNode;
   roleBase: string; // e.g. "/dashboard/investor"
+  contentClassName?: string;
 }
 
-const DashboardLayout = ({ children, roleBase }: DashboardLayoutProps) => {
+const DashboardLayout = ({ children, roleBase, contentClassName = "" }: DashboardLayoutProps) => {
   const { t, i18n } = useTranslation();
   const isRtl = i18n.resolvedLanguage === "ar";
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -200,6 +208,13 @@ const DashboardLayout = ({ children, roleBase }: DashboardLayoutProps) => {
   const filteredNav = navItems.filter(
     (item) => role && item.roles.includes(role)
   );
+  const coreLabels = new Set(["Overview", "Messages"]);
+  const financeLabels = new Set(["Investments", "Milestones", "Repayments", "Funds", "Transactions"]);
+  const navSections = [
+    { key: "core", items: filteredNav.filter((item) => coreLabels.has(item.label)) },
+    { key: "management", items: filteredNav.filter((item) => item.label !== "Settings" && !coreLabels.has(item.label) && !financeLabels.has(item.label)) },
+    { key: "finance", items: filteredNav.filter((item) => financeLabels.has(item.label)) },
+  ].filter((section) => section.items.length > 0);
   const visibleNotifications: RecentNotification[] = (notificationsQuery.data?.results ?? []).map((notification) => ({
     id: notification.id,
     title: notification.title === t("notifications.investmentConfirmedTitle", { lng: "en" })
@@ -211,11 +226,6 @@ const DashboardLayout = ({ children, roleBase }: DashboardLayoutProps) => {
     targetUrl: notification.target_url || roleBase,
   }));
   const unreadCount = unreadQuery.data?.unread_count ?? visibleNotifications.filter((notification) => notification.unread).length;
-
-  const handleLogout = async () => {
-    await logout();
-    navigate("/");
-  };
 
   const SidebarContent = () => (
     <div className="flex h-full flex-col">
@@ -237,8 +247,8 @@ const DashboardLayout = ({ children, roleBase }: DashboardLayoutProps) => {
 
       {/* User Info */}
       {!collapsed && (
-        <div className="px-4 pt-4 pb-2">
-          <div className="rounded-xl bg-gradient-to-r from-primary/10 via-secondary/5 to-primary/10 border border-primary/20 p-3">
+        <div className="px-5 pb-2 pt-5">
+          <div className="rounded-2xl border border-border/60 bg-muted/35 p-4">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-secondary text-sm font-bold text-primary-foreground shadow-lg shadow-primary/20">
                 {user?.full_name?.[0]?.toUpperCase() || "U"}
@@ -269,8 +279,16 @@ const DashboardLayout = ({ children, roleBase }: DashboardLayoutProps) => {
       )}
 
       {/* Nav */}
-      <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
-        {filteredNav.map((item) => {
+      <nav className="flex-1 space-y-6 overflow-y-auto px-4 py-5">
+        {navSections.map((section) => (
+          <div key={section.key}>
+            {!collapsed && (
+              <p className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground/70">
+                {t(`dashboard.navSections.${section.key}`)}
+              </p>
+            )}
+            <div className="space-y-1.5">
+        {section.items.map((item) => {
           const fullHref =
             item.href === "" ? roleBase : (item.href.startsWith("#") ? `${roleBase}${item.href}` : `${roleBase}${item.href}`);
           const hasHash = !!location.hash;
@@ -312,9 +330,9 @@ const DashboardLayout = ({ children, roleBase }: DashboardLayoutProps) => {
               to={fullHref}
               onClick={handleClick}
               title={collapsed ? t(navLabelKeys[item.label], { defaultValue: item.label }) : undefined}
-              className={`group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 cursor-pointer ${isActive
-                  ? "bg-primary/10 text-primary"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              className={`group flex cursor-pointer items-center gap-3 rounded-full px-4 py-3 text-sm font-medium transition-all duration-200 ${isActive
+                  ? "bg-primary/10 text-primary shadow-sm ring-1 ring-primary/10"
+                  : "text-muted-foreground hover:bg-muted/70 hover:text-foreground"
                 } ${collapsed ? "justify-center" : ""}`}
             >
               <item.icon
@@ -325,28 +343,34 @@ const DashboardLayout = ({ children, roleBase }: DashboardLayoutProps) => {
             </Link>
           );
         })}
+            </div>
+          </div>
+        ))}
       </nav>
 
       {/* User footer */}
       <div className="border-t border-border p-3 space-y-1">
         <Link
-          to="/"
-          className={`group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-all duration-200 cursor-pointer ${collapsed ? "justify-center" : ""
-            }`}
-          title={collapsed ? t("dashboard.goToWebsite") : undefined}
+          to={`${roleBase}/settings`}
+          className={`group flex items-center gap-3 rounded-full px-4 py-3 text-sm font-medium transition-all duration-200 ${location.pathname.startsWith(`${roleBase}/settings`)
+              ? "bg-primary/10 text-primary shadow-sm ring-1 ring-primary/10"
+              : "text-muted-foreground hover:bg-muted/70 hover:text-foreground"
+            } ${collapsed ? "justify-center" : ""}`}
+          title={collapsed ? t("dashboard.settings") : undefined}
         >
-          <ExternalLink className="h-4 w-4 shrink-0" />
-          {!collapsed && <span>{t("dashboard.goToWebsite")}</span>}
+          <Settings className="h-4 w-4 shrink-0" />
+          {!collapsed && <span>{t("dashboard.settings")}</span>}
         </Link>
-        <button
-          onClick={handleLogout}
-          className={`group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-destructive/8 hover:text-destructive transition-all duration-200 cursor-pointer ${collapsed ? "justify-center" : ""
-            }`}
-          title={collapsed ? t("nav.logout") : undefined}
-        >
-          <LogOut className="h-4 w-4 shrink-0" />
-          {!collapsed && <span>{t("nav.logout")}</span>}
-        </button>
+        <LogoutConfirmationDialog onLoggedOut={() => navigate("/")}>
+          <button
+            className={`group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-destructive/8 hover:text-destructive transition-all duration-200 cursor-pointer ${collapsed ? "justify-center" : ""
+              }`}
+            title={collapsed ? t("nav.logout") : undefined}
+          >
+            <LogOut className="h-4 w-4 shrink-0" />
+            {!collapsed && <span>{t("nav.logout")}</span>}
+          </button>
+        </LogoutConfirmationDialog>
       </div>
     </div>
   );
@@ -355,7 +379,7 @@ const DashboardLayout = ({ children, roleBase }: DashboardLayoutProps) => {
     <div className="flex h-screen overflow-hidden bg-background">
       {/* Desktop Sidebar */}
       <aside
-        className={`hidden lg:flex flex-col border-r border-border bg-card transition-all duration-300 ease-in-out shrink-0 ${collapsed ? "w-[68px]" : "w-60"
+        className={`hidden lg:flex flex-col border-r border-border/70 bg-card transition-all duration-300 ease-in-out shrink-0 ${collapsed ? "w-[72px]" : "w-64"
           }`}
       >
         <SidebarContent />
@@ -363,7 +387,7 @@ const DashboardLayout = ({ children, roleBase }: DashboardLayoutProps) => {
         <button
           onClick={() => setCollapsed(!collapsed)}
           className="absolute top-20 z-20 hidden lg:flex h-6 w-6 items-center justify-center rounded-full border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted transition-all cursor-pointer shadow-sm"
-          style={{ [isRtl ? "right" : "left"]: collapsed ? "68px" : "240px", position: "fixed", transform: `translateX(${isRtl ? "50%" : "-50%"})` }}
+          style={{ [isRtl ? "right" : "left"]: collapsed ? "72px" : "256px", position: "fixed", transform: `translateX(${isRtl ? "50%" : "-50%"})` }}
           aria-label={collapsed ? t("common.expand", { defaultValue: "Expand sidebar" }) : t("common.collapse", { defaultValue: "Collapse sidebar" })}
         >
           {collapsed ? (
@@ -391,7 +415,7 @@ const DashboardLayout = ({ children, roleBase }: DashboardLayoutProps) => {
               animate={{ x: 0 }}
               exit={{ x: isRtl ? 280 : -280 }}
               transition={{ type: "spring", damping: 30, stiffness: 300 }}
-              className="fixed start-0 top-0 z-50 h-full w-72 border-r border-border bg-card shadow-xl lg:hidden"
+              className="fixed start-0 top-0 z-50 h-full w-80 max-w-[88vw] border-r border-border bg-card shadow-xl lg:hidden"
             >
               <button
                 onClick={() => setSidebarOpen(false)}
@@ -543,7 +567,7 @@ const DashboardLayout = ({ children, roleBase }: DashboardLayoutProps) => {
 
         {/* Scrollable content */}
         <main className="flex-1 overflow-y-auto">
-          <div className="mx-auto max-w-7xl p-4 md:p-6 lg:p-8">
+          <div className={`mx-auto p-4 md:p-6 lg:p-8 ${contentClassName || "max-w-7xl"}`}>
             {children}
           </div>
         </main>

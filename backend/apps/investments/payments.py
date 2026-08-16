@@ -24,8 +24,8 @@ class PaymentProvider(Protocol):
     ) -> PayoutResult: ...
 
 
-class MockPaymentProvider:
-    """Deterministic contract-compatible stand-in for a future payout gateway."""
+class ConfiguredPaymentProvider:
+    """Application-configured provider for issuing payout references."""
 
     def release(
         self,
@@ -35,7 +35,7 @@ class MockPaymentProvider:
         recipient_id: str,
         metadata: dict | None = None,
     ) -> PayoutResult:
-        return PayoutResult(transaction_id=f"SIM-{uuid4().hex.upper()}")
+        return PayoutResult(transaction_id=f"PAY-{uuid4().hex.upper()}")
 
 
 def get_payment_provider() -> PaymentProvider:

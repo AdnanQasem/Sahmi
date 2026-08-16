@@ -8,7 +8,7 @@ class IsEntrepreneur(BasePermission):
         user = request.user
         if not user or not user.is_authenticated:
             return False
-        return user.is_staff or getattr(user, "user_type", None) == "entrepreneur"
+        return getattr(user, "user_type", None) == "entrepreneur"
 
 
 class IsStaffOrReadOnly(BasePermission):

@@ -1,10 +1,18 @@
 from decimal import Decimal
 
+from django.utils import timezone
 from rest_framework import serializers
 
 from apps.projects.serializers import ProjectListSerializer
 
-from .models import Investment, Milestone, ProjectFundingAccount, Repayment, WithdrawalRequest
+from .models import (
+    Investment,
+    Milestone,
+    ProjectFundingAccount,
+    Repayment,
+    RepaymentTransfer,
+    WithdrawalRequest,
+)
 
 
 class InvestmentSerializer(serializers.ModelSerializer):
@@ -36,6 +44,15 @@ class InvestmentSerializer(serializers.ModelSerializer):
         ]
 
     def validate(self, attrs):
+        request = self.context.get("request")
+        if (
+            self.instance is None
+            and request
+            and (request.user.user_type != "investor" or request.user.is_staff)
+        ):
+            raise serializers.ValidationError(
+                "Only investor accounts can create investments."
+            )
         project = attrs.get("project")
         amount = attrs.get("amount")
         if project and amount and amount < project.minimum_investment:
@@ -85,7 +102,113 @@ class MilestoneSerializer(serializers.ModelSerializer):
         ]
 
 
+class RepaymentTransferSerializer(serializers.ModelSerializer):
+    agreement_accepted = serializers.BooleanField(write_only=True)
+    receipt = serializers.FileField(write_only=True)
+    receipt_url = serializers.SerializerMethodField()
+    submitted_by_name = serializers.CharField(source="submitted_by.full_name", read_only=True)
+
+    class Meta:
+        model = RepaymentTransfer
+        fields = [
+            "id", "repayment", "submitted_by", "submitted_by_name", "amount",
+            "currency", "inbound_reference", "inbound_transfer_date", "receipt",
+            "receipt_url", "source_of_funds_declaration", "agreement_version",
+            "agreement_accepted", "agreement_accepted_at", "status", "reviewed_by",
+            "reviewed_at", "review_notes", "outbound_reference", "disbursed_by",
+            "disbursed_at", "created_at", "updated_at",
+        ]
+        read_only_fields = [
+            "id", "submitted_by", "amount", "currency", "agreement_version",
+            "agreement_accepted_at", "status", "reviewed_by", "reviewed_at",
+            "review_notes", "outbound_reference", "disbursed_by", "disbursed_at",
+            "created_at", "updated_at",
+        ]
+
+    def get_receipt_url(self, obj):
+        request = self.context.get("request")
+        if not request or not obj.receipt:
+            return None
+        if not (request.user.is_staff or request.user.pk == obj.submitted_by_id):
+            return None
+        return request.build_absolute_uri(obj.receipt.url)
+
+    def validate_receipt(self, value):
+        if value.size > 10 * 1024 * 1024:
+            raise serializers.ValidationError("Transfer receipts may not exceed 10 MB.")
+        extension = value.name.rsplit(".", 1)[-1].lower() if "." in value.name else ""
+        if extension not in {"pdf", "png", "jpg", "jpeg", "webp"}:
+            raise serializers.ValidationError("The receipt must be a PDF or image file.")
+        return value
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        request = self.context["request"]
+        repayment = attrs.get("repayment")
+        if request.user.user_type != "entrepreneur" or request.user.is_staff:
+            raise serializers.ValidationError(
+                "Only the project entrepreneur can submit repayment funding."
+            )
+        if not request.user.is_kyc_verified:
+            raise serializers.ValidationError(
+                "KYC verification is required before submitting repayment funding."
+            )
+        if repayment.investment.project.entrepreneur_id != request.user.id:
+            raise serializers.ValidationError({
+                "repayment": "You can only fund repayments for your own project."
+            })
+        if repayment.status in {Repayment.Status.PAID, Repayment.Status.CANCELLED}:
+            raise serializers.ValidationError({
+                "repayment": "This repayment is already final."
+            })
+        if hasattr(repayment, "funding_transfer"):
+            raise serializers.ValidationError({
+                "repayment": "A funding transfer already exists for this repayment."
+            })
+        if attrs["inbound_transfer_date"] > timezone.localdate():
+            raise serializers.ValidationError({
+                "inbound_transfer_date": "The transfer date cannot be in the future."
+            })
+        if len(attrs.get("source_of_funds_declaration", "").strip()) < 20:
+            raise serializers.ValidationError({
+                "source_of_funds_declaration": "Provide a source-of-funds declaration of at least 20 characters."
+            })
+        if not attrs.pop("agreement_accepted", False):
+            raise serializers.ValidationError({
+                "agreement_accepted": "You must accept the repayment funding agreement."
+            })
+        return attrs
+
+    def create(self, validated_data):
+        repayment = validated_data["repayment"]
+        return RepaymentTransfer.objects.create(
+            **validated_data,
+            submitted_by=self.context["request"].user,
+            amount=repayment.amount,
+            currency="USD",
+            agreement_version="repayment-funding-v1",
+            agreement_accepted_at=timezone.now(),
+        )
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get("request")
+        if request and not (request.user.is_staff or request.user.pk == instance.submitted_by_id):
+            data.pop("source_of_funds_declaration", None)
+            data.pop("review_notes", None)
+        return data
+
+
+class RepaymentTransferSummarySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RepaymentTransfer
+        fields = ["id", "status", "inbound_reference", "outbound_reference"]
+
+
 class RepaymentSerializer(serializers.ModelSerializer):
+    investor_name = serializers.CharField(source="investment.investor.full_name", read_only=True)
+    project_id = serializers.UUIDField(source="investment.project_id", read_only=True)
+    project_title = serializers.CharField(source="investment.project.title", read_only=True)
     status = serializers.ChoiceField(
         choices=Repayment.Status.choices,
         read_only=True,
@@ -99,12 +222,19 @@ class RepaymentSerializer(serializers.ModelSerializer):
         read_only=True,
         help_text="Transaction id is set by an authorized server-controlled workflow.",
     )
+    funding_transfer = RepaymentTransferSummarySerializer(read_only=True)
 
     class Meta:
         model = Repayment
-        fields = "__all__"
+        fields = [
+            "id", "investment", "investor_name", "project_id", "project_title",
+            "amount", "scheduled_date", "actual_payment_date", "status",
+            "payment_method", "transaction_id", "notes", "created_at", "updated_at",
+            "funding_transfer",
+        ]
         read_only_fields = [
-            "id", "status", "actual_payment_date", "transaction_id",
+            "id", "investment", "amount", "scheduled_date", "status",
+            "actual_payment_date", "payment_method", "transaction_id", "notes",
             "created_at", "updated_at",
         ]
 
@@ -125,11 +255,11 @@ class WithdrawalRequestSerializer(serializers.ModelSerializer):
             "id", "project", "project_title", "project_status", "milestone", "milestone_title", "requested_by",
             "amount", "evidence_description", "planned_expenses", "evidence_file", "status",
             "review_notes", "reviewed_by", "reviewed_at", "released_by", "released_at",
-            "simulated_transaction_id", "created_at", "updated_at",
+            "payout_reference", "created_at", "updated_at",
         ]
         read_only_fields = [
             "id", "project", "requested_by", "status", "review_notes", "reviewed_by", "reviewed_at",
-            "released_by", "released_at", "simulated_transaction_id", "created_at", "updated_at",
+            "released_by", "released_at", "payout_reference", "created_at", "updated_at",
         ]
 
     def validate_evidence_file(self, value):

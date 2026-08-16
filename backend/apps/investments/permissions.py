@@ -3,7 +3,11 @@ from rest_framework.permissions import SAFE_METHODS, BasePermission
 
 class InvestmentPermission(BasePermission):
     def has_permission(self, request, view):
-        return request.user and request.user.is_authenticated
+        if not request.user or not request.user.is_authenticated:
+            return False
+        if getattr(view, "action", None) == "create":
+            return request.user.user_type == "investor" and not request.user.is_staff
+        return True
 
     def has_object_permission(self, request, view, obj):
         if request.user.is_staff:

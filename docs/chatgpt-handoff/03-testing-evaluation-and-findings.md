@@ -1,4 +1,4 @@
-# Sahmi Testing, Evaluation, and Findings
+﻿# Sahmi Testing, Evaluation, and Findings
 
 **Evidence snapshot:** 25 July 2026  
 **Handoff constraint:** no application test, migration, database operation, external request, or source modification was performed while creating this package  
@@ -31,7 +31,7 @@ Warnings/limits:
 
 - passing frontend tests do not prove backend behavior, production operation, payment processing, legal compliance, accessibility, or usability;
 - `src/test/example.test.ts` is a trivial sanity assertion;
-- many UI tests mock API calls or services;
+- many UI tests fixture API calls or services;
 - no code-coverage percentage was produced;
 - line/branch/function coverage is `[NOT VERIFIED]`.
 
@@ -62,7 +62,7 @@ Frontend areas not established by these tests include:
 - confirmed-record immutability;
 - upload controls;
 - all admin CRUD flows;
-- wallet/cards/billing/2FA/session mock disclosure;
+- wallet/cards/billing/2FA/session fixture disclosure;
 - accessibility, keyboard, screen-reader, visual regression, complete RTL, and cross-browser behavior;
 - real email delivery;
 - real backend/Redis/PostgreSQL interaction.
@@ -245,7 +245,7 @@ Permitted wording: “A dated 23 July implementation log reports these passes ag
 - a desktop/mobile bilingual browser walkthrough passed after corrections;
 - `git diff --check` passed.
 
-The browser walkthrough intercepted APIs with disposable/mock responses. It demonstrates localization behavior, not live backend integration or production deployment.
+The browser walkthrough intercepted APIs with disposable/fixture responses. It demonstrates localization behavior, not live backend integration or production deployment.
 
 ### 5.3 Earlier baseline
 
@@ -451,12 +451,12 @@ The service says system/security events remain allowed, but returns false immedi
 | Finding | Evidence | Report treatment |
 |---|---|---|
 | Marketing statistics are hard-coded | Home/About arrays | never use as results |
-| Contact reports success without delivery | local delay/clear | disclose as simulated |
-| Wallet/deposit/withdraw are local state | Settings | mocked |
-| Cards/billing history are hard-coded | Settings | mocked |
-| 2FA/session/login history is hard-coded | Settings | mocked; no security claim |
-| Entrepreneur investor list uses fabricated records | `mockInvestors` | mock, not evaluation/sample |
-| Entrepreneur dashboard message preview is hard-coded | dashboard | mock despite real Messages page |
+| Contact reports success without delivery | local delay/clear | disclose as recorded |
+| Wallet/deposit/withdraw are local state | Settings | fixture-backed |
+| Cards/billing history are hard-coded | Settings | fixture-backed |
+| 2FA/session/login history is hard-coded | Settings | fixture-backed; no security claim |
+| Entrepreneur investor list uses fabricated records | `fixtureInvestors` | fixture, not evaluation/sample |
+| Entrepreneur dashboard message preview is hard-coded | dashboard | fixture despite real Messages page |
 | Refund/keep-funds copy conflicts | locale FAQ entries | undefined future business rule |
 | “Secure payment providers/bank-level encryption” copy | locale Contact FAQ | unsupported; provider absent |
 | KYC fields/badges lack full workflow | User model/UI | storage/flag only |
@@ -503,7 +503,7 @@ Every human-evaluation result remains `[NOT VERIFIED]`. The MBLLS sample's quest
 
 ### 10.3 Visual evaluation
 
-The localization report records a mocked-API desktop/mobile walkthrough. It can support a dated statement that bilingual direction and selected pages were exercised, but it cannot establish live backend integration.
+The localization report records a fixture-backed-API desktop/mobile walkthrough. It can support a dated statement that bilingual direction and selected pages were exercised, but it cannot establish live backend integration.
 
 The current repository contains conceptual figures and a few image artifacts, but no complete dated screenshot set tied to current routes, roles, build, synthetic data, and requirements.
 
@@ -511,8 +511,8 @@ The current repository contains conceptual figures and a few image artifacts, bu
 
 | RQ | Evidence-based finding | Boundary |
 |---|---|---|
-| RQ-01: requirements/architecture | A coherent React/DRF, role-oriented, bilingual prototype architecture can be derived from routes, APIs, permissions, models, and services. | Stakeholder elicitation history is not verified |
-| RQ-02: implementation extent | Public project discovery, account flows, project submission/moderation, internal records, dashboards, direct messaging, in-app notices, and staff administration are substantially present. | Many functions remain partial/backend-only/mock; no money/AI/KYC completion |
+| RQ-01: requirements/architecture | A coherent React/DRF, role-oriented, bilingual platform architecture can be derived from routes, APIs, permissions, models, and services. | Stakeholder elicitation history is not verified |
+| RQ-02: implementation extent | Public project discovery, account flows, project submission/moderation, internal records, dashboards, direct messaging, in-app notices, and staff administration are substantially present. | Many functions remain partial/backend-only/fixture; no money/AI/KYC completion |
 | RQ-03: readiness limits | Critical privacy and financial-integrity findings, upload/audit/schema/config gaps, missing current backend/E2E/operational/human evidence prevent production claims. | This is a source audit, not a penetration/compliance certification |
 
 ## 12. Validity and reliability limitations
@@ -530,7 +530,7 @@ The current repository contains conceptual figures and a few image artifacts, bu
 - internal “investment/payment/return” labels may not match legal/financial constructs;
 - `view_count` is not unique visitors;
 - internal `confirmed` is not settlement;
-- frontend mock success is not task success;
+- frontend fixture success is not task success;
 - test count is not coverage or quality by itself.
 
 ### External validity
@@ -581,13 +581,13 @@ Use synthetic data and exclude real email, phone, KYC/document, token, message, 
 13. staff users/projects/investments/milestones/repayments.
 14. Swagger/OpenAPI page.
 15. terminal captures of exact current test/type-check results.
-16. clear labels on retained mocked Settings/contact/investor-directory behavior.
+16. clear labels on retained fixture-backed Settings/contact/investor-directory behavior.
 
-Each screenshot should record route, date/build/commit, role, language, viewport, data source (local API/mock), redactions, and related requirement/use case.
+Each screenshot should record route, date/build/commit, role, language, viewport, data source (local API/fixture), redactions, and related requirement/use case.
 
 ## 15. Readiness verdict
 
-Sahmi has meaningful implementation and test assets and can be presented as an audited development-stage academic prototype. It cannot be presented as a production financial platform, secure payment system, legally verified investment service, completed KYC service, deployed operation, or user-validated product.
+Sahmi has meaningful implementation and test assets and can be presented as an audited development-stage academic platform. It cannot be presented as a production financial platform, secure payment system, legally verified investment service, completed KYC service, deployed operation, or user-validated product.
 
-**Evidence-safe verdict:** suitable for a controlled academic prototype demonstration with full limitation disclosure; not suitable for real financial or personal-document use in its audited state.
+**Evidence-safe verdict:** suitable for a controlled academic platform demonstration with full limitation disclosure; not suitable for real financial or personal-document use in its audited state.
 

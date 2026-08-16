@@ -26,6 +26,8 @@ import type {
   AdminProjectOption,
   AdminUserOption,
 } from "@/services/adminFinanceService";
+import DemoFillButton from "@/components/demo/DemoFillButton";
+import { formDemoData } from "@/demo/formDemoData";
 
 interface AdminInvestmentDialogProps {
   open: boolean;
@@ -124,6 +126,18 @@ const AdminInvestmentDialog = ({
             {t("adminForm.investmentHelp")}
           </DialogDescription>
         </DialogHeader>
+        <DemoFillButton
+          disabled={pending || users.length === 0 || projects.length === 0}
+          onClick={() => setForm((current) => ({
+            ...current,
+            investor: current.investor || users[0]?.id || "",
+            project: current.project || projects[0]?.id || "",
+            amount: formDemoData.investment.amount,
+            quantity: 1,
+            transaction_id: formDemoData.investment.transactionId,
+            notes: formDemoData.investment.notes,
+          }))}
+        />
 
         <form className="space-y-5" onSubmit={submit}>
           <div className="grid gap-4 sm:grid-cols-2">

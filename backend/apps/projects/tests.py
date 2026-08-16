@@ -306,6 +306,9 @@ class ProjectCostTableTests(ProjectAPITestCase):
                 self.assertFalse(Project.objects.filter(title=title).exists())
 
     def test_owner_timeline_edit_preserves_server_controlled_progress(self):
+        Project.objects.filter(pk=self.project.pk).update(
+            funded_amount=self.project.goal_amount,
+        )
         milestone = Milestone.objects.create(
             project=self.project,
             title="Original stage",
@@ -344,6 +347,9 @@ class ProjectCostTableTests(ProjectAPITestCase):
         self.assertEqual(milestone.funding_released, Decimal("500.00"))
 
     def test_project_edit_cannot_remove_a_started_milestone_and_rolls_back(self):
+        Project.objects.filter(pk=self.project.pk).update(
+            funded_amount=self.project.goal_amount,
+        )
         Milestone.objects.create(
             project=self.project,
             title="Started stage",
@@ -953,6 +959,9 @@ class PublicProjectPrivacyTests(ProjectAPITestCase):
         self.project.cost_items = [
             {"name": "1", "description": "Solar panels", "quantity": "2", "unit_cost": "500.00"}
         ]
+        self.project.faqs = [
+            {"question": "When will it open?", "answer": "After implementation."}
+        ]
         self.project.save()
         translate.side_effect = lambda value, language: f"{language}:{value}" if value else ""
 
@@ -966,6 +975,8 @@ class PublicProjectPrivacyTests(ProjectAPITestCase):
         self.assertEqual(response.data["cost_items"][0]["description"], "ar:Solar panels")
         self.assertEqual(response.data["cost_items"][0]["name"], "1")
         self.assertEqual(response.data["cost_items"][0]["quantity"], "2")
+        self.assertEqual(response.data["faqs"][0]["question"], "ar:When will it open?")
+        self.assertEqual(response.data["faqs"][0]["answer"], "ar:After implementation.")
         self.assertNotIn("title", response.data)
         self.assertNotIn("entrepreneur", response.data)
 
@@ -980,6 +991,43 @@ class PublicProjectPrivacyTests(ProjectAPITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    @patch("apps.projects.views.translate_project_edit_content")
+    def test_staff_can_translate_a_pending_project_edit(self, translate_edit):
+        pending = ProjectEditRequest.objects.create(
+            project=self.project,
+            submitted_by=self.entrepreneur,
+            payload={"faqs": [{"question": "When?", "answer": "After implementation."}]},
+        )
+        translate_edit.return_value = {
+            "language": "ar",
+            "faqs": [{"question": "متى؟", "answer": "بعد التنفيذ."}],
+        }
+        self.client.force_authenticate(self.staff)
+
+        response = self.client.get(
+            reverse("project-translation", args=[self.project.slug]),
+            {"language": "ar", "edit_request": str(pending.id)},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["faqs"][0]["question"], "متى؟")
+        translate_edit.assert_called_once_with(pending, "ar")
+
+    def test_non_staff_cannot_translate_a_pending_project_edit(self):
+        pending = ProjectEditRequest.objects.create(
+            project=self.project,
+            submitted_by=self.entrepreneur,
+            payload={"faqs": []},
+        )
+        self.client.force_authenticate(self.entrepreneur)
+
+        response = self.client.get(
+            reverse("project-translation", args=[self.project.slug]),
+            {"language": "ar", "edit_request": str(pending.id)},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_public_project_translation_hides_non_public_projects(self):
         response = self.client.get(

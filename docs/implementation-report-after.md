@@ -1,4 +1,4 @@
-# Implementation Report (After)
+﻿# Implementation Report (After)
 
 ## Repository baseline
 
@@ -19,7 +19,7 @@
 
 ## Completed frontend work
 
-- Replaced `mockConversations`, `mockMessages`, `recentNotifications`, simulated notification preference saves, hardcoded message previews, and local-only logout.
+- Replaced `fixtureConversations`, `fixtureMessages`, `recentNotifications`, recorded notification preference saves, hardcoded message previews, and local-only logout.
 - Added typed Axios services for messaging and notifications.
 - Added React Query loading, error, empty, retry, polling, unread, send, mark-read, and mutation invalidation behavior.
 - Active message polling is 5 seconds; notification polling is 30 seconds. This is polling, not SSE or streaming.

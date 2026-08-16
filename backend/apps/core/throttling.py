@@ -42,6 +42,10 @@ class PasswordResetRateThrottle(ScopedRateThrottle):
     scope = "password_reset"
 
 
+class EmailVerificationRateThrottle(ScopedRateThrottle):
+    scope = "email_verification"
+
+
 class MessageSendRateThrottle(ScopedRateThrottle):
     scope = "message_send"
 

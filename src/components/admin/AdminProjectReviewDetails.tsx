@@ -1,11 +1,26 @@
 import { useTranslation } from "react-i18next";
+import { useQuery } from "@tanstack/react-query";
 import { formatCurrency, formatDate, formatPercent } from "@/i18n/format";
-import type { Project, ProjectCostItem, ProjectMilestone } from "@/services/projectsService";
+import projectsService, { type Project, type ProjectCostItem, type ProjectFaq, type ProjectMilestone } from "@/services/projectsService";
 
 interface Props { project: Project; isEditReview?: boolean; }
 
 const asCostItems = (value: unknown): ProjectCostItem[] => Array.isArray(value) ? value as ProjectCostItem[] : [];
 const asMilestones = (value: unknown): ProjectMilestone[] => Array.isArray(value) ? value as ProjectMilestone[] : [];
+const asFaqs = (value: unknown): ProjectFaq[] => Array.isArray(value) ? value as ProjectFaq[] : [];
+
+const FaqList = ({ value }: { value: unknown }) => {
+  const { t } = useTranslation();
+  const faqs = asFaqs(value);
+  if (!faqs.length) return <p className="py-3 text-sm text-muted-foreground">{t("projects.noFaq")}</p>;
+  return <div className="space-y-3">{faqs.map((faq, index) => (
+    <article key={`${faq.question}-${index}`} className="rounded-xl border bg-card p-4">
+      <p className="text-xs font-semibold uppercase tracking-wide text-primary">{t("projects.faqNumber", { number: index + 1 })}</p>
+      <h4 className="mt-1 font-semibold text-foreground">{faq.question}</h4>
+      <p className="mt-2 whitespace-pre-line text-sm leading-6 text-muted-foreground">{faq.answer}</p>
+    </article>
+  ))}</div>;
+};
 
 const CostTable = ({ value }: { value: unknown }) => {
   const { t } = useTranslation();
@@ -60,7 +75,36 @@ const Timeline = ({ value }: { value: unknown }) => {
 };
 
 const AdminProjectReviewDetails = ({ project, isEditReview = false }: Props) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const contentLanguage = i18n.resolvedLanguage?.startsWith("ar") ? "ar" : "en";
+  const translationQuery = useQuery({
+    queryKey: ["project-translation", project.slug, contentLanguage, project.updated_at],
+    queryFn: () => projectsService.getProjectTranslation(project.slug, contentLanguage),
+    enabled: contentLanguage === "ar" && Boolean(project.slug),
+    staleTime: 24 * 60 * 60 * 1000,
+    retry: 1,
+  });
+  const pendingEditId = project.pending_edit_request?.id;
+  const proposedTranslationQuery = useQuery({
+    queryKey: ["project-edit-translation", project.slug, pendingEditId, contentLanguage],
+    queryFn: () => projectsService.getProjectTranslation(project.slug, contentLanguage, pendingEditId),
+    enabled: contentLanguage === "ar" && Boolean(project.slug) && Boolean(pendingEditId),
+    staleTime: 24 * 60 * 60 * 1000,
+    retry: 1,
+  });
+  const translatedContent = translationQuery.data;
+  const proposedTranslation = proposedTranslationQuery.data;
+  const translatedMilestones = new Map(
+    (translatedContent?.milestones || []).map((milestone) => [milestone.id, milestone]),
+  );
+  const currentMilestones = project.milestones.map((milestone) => ({
+    ...milestone,
+    ...(milestone.id ? translatedMilestones.get(milestone.id) : undefined),
+  }));
+  const currentChangedMilestones = asMilestones(project.pending_edit_request?.changes?.milestones?.before).map((milestone) => ({
+    ...milestone,
+    ...(milestone.id ? translatedMilestones.get(milestone.id) : undefined),
+  }));
   const changes = project.pending_edit_request?.changes ?? {};
   const displayValue = (value: unknown) => {
     if (value === null || value === undefined || value === "") return "—";
@@ -86,7 +130,6 @@ const AdminProjectReviewDetails = ({ project, isEditReview = false }: Props) => 
     ["repayment_status", t("adminForm.repaymentStatus"), t(`status.${project.repayment_status || "on_track"}`)],
     ["investor_count", t("projects.investors"), project.investor_count],
     ["video_url", t("projects.video"), project.video_url],
-    ["faqs", t("projects.projectFaqTitle"), project.faqs],
     ["cover_image", t("projects.coverImage"), project.cover_image],
     ["business_plan", t("projects.businessPlan"), project.business_plan],
     ["financial_projections", t("projects.financialProjections"), project.financial_projections],
@@ -95,6 +138,7 @@ const AdminProjectReviewDetails = ({ project, isEditReview = false }: Props) => 
   const categoryChange = changes.category;
   const costChange = changes.cost_items;
   const milestoneChange = changes.milestones;
+  const faqChange = changes.faqs;
 
   return <div className="space-y-5">
     {isEditReview && <div className="rounded-xl border border-warning/30 bg-warning/10 p-4"><h3 className="font-semibold">{t("adminForm.requestedChanges")}</h3><p className="mt-1 text-sm text-muted-foreground">{t("adminForm.requestedChangesHelp")}</p></div>}
@@ -112,9 +156,20 @@ const AdminProjectReviewDetails = ({ project, isEditReview = false }: Props) => 
       </div>;
     })}</div>
 
-    <section className={`rounded-xl border p-4 ${costChange ? "border-warning bg-warning/5" : "bg-muted/10"}`}><div className="mb-3 flex items-center justify-between"><h3 className="font-semibold">{t("projects.costTable")}</h3>{costChange && <span className="rounded-full bg-warning/20 px-2 py-0.5 text-[10px] font-bold text-warning">{t("adminForm.editRequested")}</span>}</div>{costChange ? <div className="grid gap-4 xl:grid-cols-2"><div><p className="mb-2 text-xs font-semibold text-muted-foreground">{t("adminForm.currentValue")}</p><CostTable value={costChange.before}/></div><div><p className="mb-2 text-xs font-semibold text-muted-foreground">{t("adminForm.proposedValue")}</p><CostTable value={costChange.after}/></div></div> : <CostTable value={project.cost_items}/>}</section>
+    <section className={`rounded-xl border p-4 ${faqChange ? "border-warning bg-warning/5" : "bg-muted/10"}`}>
+      <div className="mb-3 flex items-center justify-between">
+        <h3 className="font-semibold">{t("projects.projectFaqTitle")}</h3>
+        {faqChange && <span className="rounded-full bg-warning/20 px-2 py-0.5 text-[10px] font-bold text-warning">{t("adminForm.editRequested")}</span>}
+      </div>
+      {faqChange ? <div className="grid gap-4 xl:grid-cols-2">
+        <div><p className="mb-2 text-xs font-semibold text-muted-foreground">{t("adminForm.currentValue")}</p><FaqList value={translatedContent?.faqs || faqChange.before} /></div>
+        <div><p className="mb-2 text-xs font-semibold text-muted-foreground">{t("adminForm.proposedValue")}</p><FaqList value={proposedTranslation?.faqs || faqChange.after} /></div>
+      </div> : <FaqList value={translatedContent?.faqs || project.faqs} />}
+    </section>
 
-    <section className={`rounded-xl border p-4 ${milestoneChange ? "border-warning bg-warning/5" : "bg-muted/10"}`}><div className="mb-3 flex items-center justify-between"><h3 className="font-semibold">{t("projects.timeline")}</h3>{milestoneChange && <span className="rounded-full bg-warning/20 px-2 py-0.5 text-[10px] font-bold text-warning">{t("adminForm.editRequested")}</span>}</div>{milestoneChange ? <div className="grid gap-4 xl:grid-cols-2"><div><p className="mb-2 text-xs font-semibold text-muted-foreground">{t("adminForm.currentValue")}</p><Timeline value={milestoneChange.before}/></div><div><p className="mb-2 text-xs font-semibold text-muted-foreground">{t("adminForm.proposedValue")}</p><Timeline value={milestoneChange.after}/></div></div> : <Timeline value={project.milestones}/>}</section>
+    <section className={`rounded-xl border p-4 ${costChange ? "border-warning bg-warning/5" : "bg-muted/10"}`}><div className="mb-3 flex items-center justify-between"><h3 className="font-semibold">{t("projects.costTable")}</h3>{costChange && <span className="rounded-full bg-warning/20 px-2 py-0.5 text-[10px] font-bold text-warning">{t("adminForm.editRequested")}</span>}</div>{costChange ? <div className="grid gap-4 xl:grid-cols-2"><div><p className="mb-2 text-xs font-semibold text-muted-foreground">{t("adminForm.currentValue")}</p><CostTable value={translatedContent?.cost_items || costChange.before}/></div><div><p className="mb-2 text-xs font-semibold text-muted-foreground">{t("adminForm.proposedValue")}</p><CostTable value={proposedTranslation?.cost_items || costChange.after}/></div></div> : <CostTable value={translatedContent?.cost_items || project.cost_items}/>}</section>
+
+    <section className={`rounded-xl border p-4 ${milestoneChange ? "border-warning bg-warning/5" : "bg-muted/10"}`}><div className="mb-3 flex items-center justify-between"><h3 className="font-semibold">{t("projects.timeline")}</h3>{milestoneChange && <span className="rounded-full bg-warning/20 px-2 py-0.5 text-[10px] font-bold text-warning">{t("adminForm.editRequested")}</span>}</div>{milestoneChange ? <div className="grid gap-4 xl:grid-cols-2"><div><p className="mb-2 text-xs font-semibold text-muted-foreground">{t("adminForm.currentValue")}</p><Timeline value={currentChangedMilestones}/></div><div><p className="mb-2 text-xs font-semibold text-muted-foreground">{t("adminForm.proposedValue")}</p><Timeline value={proposedTranslation?.milestones || milestoneChange.after}/></div></div> : <Timeline value={currentMilestones}/>}</section>
 
     <p className="text-xs text-muted-foreground">{t("admin.submitted", { date: formatDate(project.pending_edit_request?.created_at || project.created_at, { dateStyle: "medium", timeStyle: "short" }) })}</p>
   </div>;

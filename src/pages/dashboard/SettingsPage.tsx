@@ -12,6 +12,8 @@ import { changeLanguage, type SupportedLanguage } from "@/i18n";
 import { getErrorMessage } from "@/services/api";
 import authService, { type User as AuthUser } from "@/services/authService";
 import notificationService, { type NotificationPreferences } from "@/services/notificationService";
+import DemoFillButton from "@/components/demo/DemoFillButton";
+import { formDemoData } from "@/demo/formDemoData";
 
 type Section = "profile" | "account" | "security" | "notifications";
 
@@ -181,6 +183,7 @@ const SettingsPage = () => {
 
         <section className="rounded-2xl border bg-card p-5 shadow-sm sm:p-7">
           {section === "profile" && <div className="space-y-6">
+            <DemoFillButton onClick={() => setForm((current) => ({ ...current, full_name: formDemoData.profile.fullName, phone_number: formDemoData.profile.phone, city: formDemoData.profile.city, country: formDemoData.profile.country, website: formDemoData.profile.website, bio: formDemoData.profile.bio, business_name: isEntrepreneur ? formDemoData.profile.businessName : current.business_name, business_registration_number: isEntrepreneur ? formDemoData.profile.registrationNumber : current.business_registration_number, business_address: isEntrepreneur ? formDemoData.profile.businessAddress : current.business_address }))} disabled={saving} />
             <div className="flex flex-wrap items-center gap-5 border-b pb-6">
               <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-2xl bg-primary text-3xl font-bold text-primary-foreground">
                 {user?.profile_picture ? <img src={user.profile_picture} alt="" className="h-full w-full object-cover"/> : (user?.full_name?.[0] || "U").toUpperCase()}

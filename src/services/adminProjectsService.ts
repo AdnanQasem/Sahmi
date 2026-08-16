@@ -69,6 +69,11 @@ export interface AdminProject {
   funding_reached_at: string | null;
   pending_payment_deadline: string | null;
   funding_finalized_at: string | null;
+  quality_hold_started_at: string | null;
+  quality_hold_until: string | null;
+  completion_handover_approved_at: string | null;
+  completion_handover_approved_by: string | null;
+  completion_handover_notes: string;
   minimum_investment: string;
   expected_roi: string;
   cost_items: ProjectCostItem[];
@@ -283,6 +288,11 @@ const adminProjectsService = {
 
   finalizeFunding: async (id: string): Promise<AdminProject> =>
     await api.post("admin/projects/" + id + "/finalize-funding/", {}),
+
+  finalizeCompletion: async (id: string, handoverNotes: string): Promise<AdminProject> =>
+    await api.post("admin/projects/" + id + "/finalize-completion/", {
+      handover_notes: handoverNotes,
+    }),
 
   listOwners: async (): Promise<AdminProjectUser[]> => {
     return await listAll<AdminProjectUser>("admin/users/", { ordering: "email" });

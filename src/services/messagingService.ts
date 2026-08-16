@@ -21,6 +21,13 @@ export interface Message {
   sender: ParticipantUser;
   sender_id: string;
   body: string;
+  attachment?: {
+    name: string;
+    content_type: string;
+    size: number;
+    url: string;
+    is_image: boolean;
+  } | null;
   is_deleted: boolean;
   edited_at: string | null;
   created_at: string;
@@ -35,7 +42,7 @@ export interface Conversation {
   project: string | null;
   created_by: ParticipantUser;
   participants: ConversationParticipant[];
-  last_message_preview: { id: string; sender_id: string; preview: string; created_at: string } | null;
+  last_message_preview: { id: string; sender_id: string; preview: string; has_attachment?: boolean; created_at: string } | null;
   unread_count: number;
   last_message_at: string | null;
   created_at: string;
@@ -54,8 +61,15 @@ const messagingService = {
     api.post("conversations/", { kind: "direct", other_user_id: otherUserId }),
   listMessages: (conversationId: string): Promise<Page<Message>> =>
     api.get(`conversations/${conversationId}/messages/`),
-  sendMessage: (conversationId: string, body: string): Promise<Message> =>
-    api.post(`conversations/${conversationId}/messages/`, { body }),
+  sendMessage: (conversationId: string, body: string, attachment?: File | null): Promise<Message> => {
+    if (!attachment) return api.post(`conversations/${conversationId}/messages/`, { body });
+    const payload = new FormData();
+    payload.append("body", body);
+    payload.append("attachment", attachment);
+    return api.post(`conversations/${conversationId}/messages/`, payload, { headers: { "Content-Type": "multipart/form-data" } });
+  },
+  downloadAttachment: (messageId: string): Promise<Blob> =>
+    api.get(`messages/${messageId}/attachment/`, { responseType: "blob" }) as unknown as Promise<Blob>,
   markRead: (conversationId: string): Promise<{ marked_read: boolean }> =>
     api.post(`conversations/${conversationId}/mark-read/`),
   unreadCount: (): Promise<{ unread_count: number }> => api.get("conversations/unread-count/"),

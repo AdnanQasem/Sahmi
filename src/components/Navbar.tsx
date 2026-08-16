@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Menu, X } from "lucide-react";
 import SahmiLogo from "@/components/SahmiLogo";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
+import LogoutConfirmationDialog from "@/components/LogoutConfirmationDialog";
 import { useAuth } from "@/hooks/useAuth";
 
 const navLinks = [
@@ -19,8 +20,8 @@ const Navbar = () => {
   const { t, i18n } = useTranslation();
   const [open, setOpen] = useState(false);
   const location = useLocation();
-  const { isAuthenticated, logout, user } = useAuth();
-  const canCreateProject = user?.user_type === "entrepreneur" || user?.user_type === "admin";
+  const { isAuthenticated, user } = useAuth();
+  const canCreateProject = user?.user_type === "entrepreneur" && !user.is_staff;
   const links = navLinks.map((link) => <Link key={link.href} to={link.href} dir={i18n.dir()} onClick={() => setOpen(false)} className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-muted ${location.pathname === link.href ? "text-primary" : "text-muted-foreground"}`}>{t(link.key)}</Link>);
 
   return <header className="sticky top-0 z-50 border-b border-border bg-card/80 backdrop-blur-lg">
@@ -31,7 +32,9 @@ const Navbar = () => {
         <LanguageSwitcher compact />
         {isAuthenticated ? <>
           <Button variant="ghost" size="sm" asChild><Link to="/dashboard">{t("nav.dashboard")}</Link></Button>
-          <Button variant="ghost" size="sm" onClick={() => void logout()}>{t("nav.logout")}</Button>
+          <LogoutConfirmationDialog>
+            <Button variant="ghost" size="sm">{t("nav.logout")}</Button>
+          </LogoutConfirmationDialog>
           {canCreateProject && <Button size="sm" asChild><Link to="/start-project">{t("projects.start")}</Link></Button>}
         </> : <>
           <Button variant="ghost" size="sm" asChild><Link to="/login">{t("nav.login")}</Link></Button>
@@ -43,7 +46,7 @@ const Navbar = () => {
     {open && <div id="mobile-navigation" className="border-t border-border bg-card md:hidden"><nav dir="ltr" className="container flex flex-col gap-1 py-4" aria-label={t("nav.menu")}>
       {links}<LanguageSwitcher className="mt-2 mr-auto" />
       <div className="mt-3 flex flex-col gap-2 border-t border-border pt-3">
-        {isAuthenticated ? <><Button variant="outline" size="sm" asChild><Link to="/dashboard" onClick={() => setOpen(false)}>{t("nav.dashboard")}</Link></Button><Button variant="outline" size="sm" onClick={() => { void logout(); setOpen(false); }}>{t("nav.logout")}</Button>{canCreateProject && <Button size="sm" asChild><Link to="/start-project" onClick={() => setOpen(false)}>{t("projects.start")}</Link></Button>}</> : <><Button variant="outline" size="sm" asChild><Link to="/login" onClick={() => setOpen(false)}>{t("nav.login")}</Link></Button><Button size="sm" asChild><Link to="/register" onClick={() => setOpen(false)}>{t("nav.register")}</Link></Button></>}
+        {isAuthenticated ? <><Button variant="outline" size="sm" asChild><Link to="/dashboard" onClick={() => setOpen(false)}>{t("nav.dashboard")}</Link></Button><LogoutConfirmationDialog onLoggedOut={() => setOpen(false)}><Button variant="outline" size="sm">{t("nav.logout")}</Button></LogoutConfirmationDialog>{canCreateProject && <Button size="sm" asChild><Link to="/start-project" onClick={() => setOpen(false)}>{t("projects.start")}</Link></Button>}</> : <><Button variant="outline" size="sm" asChild><Link to="/login" onClick={() => setOpen(false)}>{t("nav.login")}</Link></Button><Button size="sm" asChild><Link to="/register" onClick={() => setOpen(false)}>{t("nav.register")}</Link></Button></>}
       </div>
     </nav></div>}
   </header>;

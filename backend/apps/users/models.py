@@ -40,6 +40,7 @@ class User(AbstractUser):
     website = models.URLField(blank=True)
     timezone = models.CharField(max_length=64, default="Asia/Hebron")
     is_verified = models.BooleanField(default=False)
+    email_verified_at = models.DateTimeField(blank=True, null=True)
     is_kyc_verified = models.BooleanField(default=False)
     kyc_document = models.FileField(upload_to="kyc/", blank=True, null=True)
     kyc_verified_at = models.DateTimeField(blank=True, null=True)
@@ -70,4 +71,24 @@ class User(AbstractUser):
         # (see ``apps/users/admin_views.py``) or a superuser at the Django
         # admin. A model ``save()`` side effect would let any code path that
         # touches ``user_type`` silently escalate privileges.
+        super().save(*args, **kwargs)
+
+
+class PendingRegistration(models.Model):
+    """Registration data awaiting ownership proof of the email address."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    email = models.EmailField(unique=True)
+    full_name = models.CharField(max_length=150)
+    password = models.CharField(max_length=128)
+    user_type = models.CharField(max_length=20, choices=User.UserType.choices)
+    phone_number = models.CharField(max_length=32, blank=True)
+    country = models.CharField(max_length=80, blank=True)
+    city = models.CharField(max_length=80, blank=True)
+    business_name = models.CharField(max_length=150, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        self.email = self.email.strip().lower()
         super().save(*args, **kwargs)

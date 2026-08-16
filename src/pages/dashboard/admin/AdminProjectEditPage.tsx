@@ -38,6 +38,8 @@ import { getErrorMessage, getFieldErrors } from "@/services/api";
 import adminProjectsService, {
   type AdminProjectPayload,
 } from "@/services/adminProjectsService";
+import DemoFillButton from "@/components/demo/DemoFillButton";
+import { formDemoData } from "@/demo/formDemoData";
 
 const AdminProjectEditPage = () => {
   const { t } = useTranslation();
@@ -166,6 +168,39 @@ const AdminProjectEditPage = () => {
 
   const project = projectQuery.data;
   const sectionProps = { form, update, errors: fieldErrors };
+  const fillProjectDemo = async () => {
+    const { projectDemoPresets } = await import("@/demo/projectDemoPresets");
+    const preset = projectDemoPresets[0];
+    const futureDate = (days: number) => new Date(Date.now() + days * 86400000).toISOString().slice(0, 10);
+    setForm((current) => ({
+      ...current,
+      entrepreneur: current.entrepreneur || ownersQuery.data?.[0]?.id || "",
+      category: current.category || categoriesQuery.data?.[0]?.id || "",
+      title: preset.title,
+      slug: "",
+      short_description: preset.summary,
+      description: `${preset.title} will establish a locally operated ${preset.sector} venture in ${preset.location}. The project uses measurable milestones, documented spending, and transparent progress updates to address a practical community need.`,
+      location: preset.location,
+      location_governorate: preset.governorate,
+      goal_amount: String(preset.goal),
+      minimum_investment: "100",
+      expected_roi: "8",
+      funding_period_days: 45,
+      cost_items: [
+        { name: "1", description: "Equipment and installation", quantity: "1", unit_cost: "21600" },
+        { name: "2", description: "Materials and operating setup", quantity: "1", unit_cost: "16800" },
+        { name: "3", description: "Training, launch, and contingency", quantity: "1", unit_cost: "9600" },
+      ],
+      milestones: [
+        { title: "Procurement and preparation", description: "Confirm suppliers, prepare the site, and procure approved equipment.", deliverables: "Supplier agreements, prepared site, and procurement records", target_date: futureDate(30), percentage_of_project: "30", order: 1 },
+        { title: "Installation and training", description: "Install equipment and train the operating team.", deliverables: "Installed equipment, training records, and operating procedures", target_date: futureDate(60), percentage_of_project: "40", order: 2 },
+        { title: "Launch and review", description: "Launch operations and review initial performance.", deliverables: "Launch report, initial service records, and performance summary", target_date: futureDate(90), percentage_of_project: "30", order: 3 },
+      ],
+      verification_notes: formDemoData.review,
+      ai_classified_category: preset.sector,
+      ai_generated_summary: preset.summary,
+    }));
+  };
 
   return (
     <DashboardLayout roleBase="/dashboard/admin">
@@ -177,6 +212,7 @@ const AdminProjectEditPage = () => {
           description={t("admin.projectEditorText")}
           actions={
             <>
+              <DemoFillButton onClick={() => void fillProjectDemo()} disabled={!ownersQuery.data?.length || !categoriesQuery.data?.length} />
               <Button variant="outline" asChild>
                 <Link to="/dashboard/admin/projects">
                   <ArrowLeft className="h-4 w-4 rtl-flip" />{t("admin.projects")}</Link>

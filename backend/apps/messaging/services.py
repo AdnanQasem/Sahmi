@@ -82,25 +82,34 @@ def create_project_conversation(actor, other, project):
     return conversation
 
 
-def send_message(conversation, sender, body):
+def send_message(conversation, sender, body="", attachment=None):
     """
     Persist a new message against ``conversation`` on behalf of ``sender``.
 
     It is the caller's responsibility to verify that ``sender`` is a participant
     of the conversation.
     """
+    from pathlib import Path
+
     from apps.messaging.models import MAX_MESSAGE_LENGTH, Message
+    from apps.messaging.validators import validate_message_attachment
 
     body = (body or "").strip()
-    if not body:
-        raise ValueError("Message body is empty.")
+    if not body and not attachment:
+        raise ValueError("Add a message or an attachment.")
     if len(body) > MAX_MESSAGE_LENGTH:
         raise ValueError("Message body is too long.")
 
+    if attachment:
+        validate_message_attachment(attachment)
     message = Message.objects.create(
         conversation=conversation,
         sender=sender,
         body=body,
+        attachment=attachment,
+        attachment_name=Path(attachment.name).name[:255] if attachment else "",
+        attachment_content_type=(getattr(attachment, "content_type", "") or "")[:120] if attachment else "",
+        attachment_size=attachment.size if attachment else 0,
     )
     conversation.last_message_at = message.created_at
     conversation.save(update_fields=["last_message_at"])

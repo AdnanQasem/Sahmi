@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import projectsService, { ProjectCreatePayload } from "@/services/projectsService";
 import { getFieldErrors, getErrorMessage } from "@/services/api";
-import { CheckCircle, ArrowLeft, ArrowRight } from "lucide-react";
+import { CheckCircle, ArrowLeft, ArrowRight, Sparkles } from "lucide-react";
 import ProjectCostTableEditor from "@/components/projects/ProjectCostTableEditor";
 import { emptyProjectCostItem, validateProjectCostTable } from "@/lib/projectCosts";
 import ProjectTimelineEditor from "@/components/projects/ProjectTimelineEditor";
@@ -27,6 +27,9 @@ const stepKeys = [
   "projects.steps.faq",
   "projects.steps.review",
 ] as const;
+
+const isDemoMode = import.meta.env.VITE_DEMO_MODE === "true";
+type ProjectDemoTools = typeof import("@/demo/projectDemoPresets");
 
 const initialForm: ProjectCreatePayload = {
   title: "",
@@ -90,6 +93,8 @@ const StartProject = () => {
   const [acceptedTerms, setAcceptedTerms] = useState(restoredDraft?.acceptedTerms ?? false);
   const [acceptedUpdates, setAcceptedUpdates] = useState(restoredDraft?.acceptedUpdates ?? false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [demoTools, setDemoTools] = useState<ProjectDemoTools | null>(null);
+  const [selectedDemoId, setSelectedDemoId] = useState("");
   const navigate = useNavigate();
   const hasFiles = [form.cover_image, form.business_plan, form.financial_projections, form.ownership_proof].some((value) => value instanceof File);
   const isDirty = hasFiles || JSON.stringify({
@@ -123,6 +128,17 @@ const StartProject = () => {
     queryKey: ["project-categories"],
     queryFn: projectsService.listCategories,
   });
+
+  useEffect(() => {
+    if (!isDemoMode) return;
+    let active = true;
+    void import("@/demo/projectDemoPresets").then((tools) => {
+      if (!active) return;
+      setDemoTools(tools);
+      setSelectedDemoId((current) => current || tools.projectDemoPresets[0]?.id || "");
+    });
+    return () => { active = false; };
+  }, []);
 
   const createMutation = useMutation({
     mutationFn: () => projectsService.createProject({
@@ -201,6 +217,19 @@ const StartProject = () => {
     }
   };
 
+  const fillDemoData = () => {
+    if (!demoTools) return;
+    const preset = demoTools.projectDemoPresets.find((item) => item.id === selectedDemoId)
+      ?? demoTools.projectDemoPresets[0];
+    if (!preset) return;
+    const categories = categoriesQuery.data ?? [];
+    const filled = demoTools.applyProjectDemoPreset(form, preset, categories);
+    setForm(filled.form);
+    setFundingBreakdown(filled.fundingBreakdown);
+    setRisks(filled.risks);
+    if (categories.length === 0) toast.info(t("projects.demoNeedsCategory"));
+  };
+
   return (
     <div className="min-h-screen">
       <section className="border-b border-border bg-card py-8">
@@ -238,6 +267,25 @@ const StartProject = () => {
         </div>
 
         <div className="rounded-xl border border-border bg-card p-6 md:p-8">
+          {isDemoMode && <div className="mb-6 flex flex-col gap-2 rounded-lg border border-dashed border-border bg-muted/20 p-3 sm:flex-row sm:items-end">
+            <label className="min-w-0 flex-1 text-xs font-medium text-muted-foreground">
+              <span>{t("projects.demoExamples")}</span>
+              <select
+                className="mt-1 h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                value={selectedDemoId}
+                onChange={(event) => setSelectedDemoId(event.target.value)}
+                disabled={!demoTools}
+              >
+                {demoTools?.projectDemoPresets.map((preset) => <option key={preset.id} value={preset.id}>{preset.label}</option>)}
+              </select>
+            </label>
+            <Button type="button" size="sm" variant="outline" disabled={!demoTools} onClick={fillDemoData}>
+              <Sparkles className="h-4 w-4" /> {t("projects.fillDemoData")}
+            </Button>
+            {!categoriesQuery.isLoading && !categoriesQuery.data?.length && (
+              <p className="text-xs text-warning sm:basis-full">{t("projects.demoNeedsCategory")}</p>
+            )}
+          </div>}
           {currentStep === 0 && (
             <div className="space-y-5">
               <h2 className="text-xl font-semibold text-foreground">{t("projects.basicInfo")}</h2>

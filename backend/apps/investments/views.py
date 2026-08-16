@@ -1,19 +1,42 @@
 from decimal import Decimal
 
 from django.db import transaction
-from django.db.models import Sum
+from django.db.models import Prefetch, Sum
 from django.utils import timezone
-from rest_framework import status, viewsets
+from rest_framework import serializers as drf_serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 
-from .models import Investment, Milestone, ProjectFundingAccount, Repayment, WithdrawalRequest
+from apps.notifications.models import Notification
+from apps.notifications.services import notify_on_commit
+
+from .models import (
+    Investment,
+    Milestone,
+    ProjectFundingAccount,
+    Repayment,
+    RepaymentTransfer,
+    WithdrawalRequest,
+)
 from .payments import get_payment_provider
 from .permissions import InvestmentPermission, MilestonePermission, RepaymentPermission
-from .serializers import InvestmentSerializer, MilestoneSerializer, RepaymentSerializer, WithdrawalRequestSerializer
-from .services import FUNDED_INVESTMENT_STATUSES, expire_pending_investments, sync_project_totals
+from .serializers import (
+    InvestmentSerializer,
+    MilestoneSerializer,
+    RepaymentSerializer,
+    RepaymentTransferSerializer,
+    WithdrawalRequestSerializer,
+)
+from .services import (
+    FUNDED_INVESTMENT_STATUSES,
+    expire_pending_investments,
+    start_project_quality_hold,
+    refresh_open_repayment_statuses,
+    sync_repayment_totals,
+    sync_project_totals,
+)
 from apps.projects.models import Project
 
 
@@ -257,6 +280,8 @@ class MilestoneViewSet(viewsets.ModelViewSet):
             raise PermissionDenied('You can only create milestones for your own projects.')
 
     def perform_create(self, serializer):
+        if self.request.user.is_staff and not self.request.user.is_superuser:
+            raise PermissionDenied("Application administrators cannot create milestones.")
         self._ensure_project_access(serializer.validated_data['project'])
         serializer.save()
 
@@ -474,50 +499,17 @@ class MilestoneViewSet(viewsets.ModelViewSet):
                 metadata={"before": Milestone.Status.PENDING, "after": Milestone.Status.IN_PROGRESS, "reason": "previous_milestone_completed"},
                 request=request,
             )
-        all_complete = not project.milestones.exclude(status=Milestone.Status.COMPLETED).exists()
-        account = ProjectFundingAccount.objects.select_for_update().filter(project=project).first()
-        project_completed = all_complete and bool(account) and account.available == 0
-        if project_completed:
-            previous_project_status = project.status
-            project.status = Project.Status.CLOSED
-            project.save(update_fields=["status", "updated_at"])
-            completed_ids = list(Investment.objects.filter(
-                project=project,
-                status=Investment.Status.CONFIRMED,
-            ).values_list("id", flat=True))
-            Investment.objects.filter(id__in=completed_ids).update(
-                status=Investment.Status.COMPLETED,
-                updated_at=now,
-            )
-            from apps.audit.models import AuditLog
-            AuditLog.objects.bulk_create([
-                AuditLog(
-                    actor=request.user,
-                    action="investment.status_changed",
-                    target_type="investment",
-                    target_id=str(investment_id),
-                    metadata={
-                        "before": Investment.Status.CONFIRMED,
-                        "after": Investment.Status.COMPLETED,
-                        "reason": "project_completed",
-                    },
-                )
-                for investment_id in completed_ids
-            ])
-            audit_log(
-                action="project.status_changed",
-                actor=request.user,
-                target_type="project",
-                target_id=str(project.id),
-                metadata={"before": previous_project_status, "after": project.status},
-                request=request,
-            )
+        quality_hold_started = start_project_quality_hold(project, request.user, request=request)
         audit_log(
             action="milestone.completion_approved",
             actor=request.user,
             target_type="milestone",
             target_id=str(milestone.id),
-            metadata={"project_id": str(project.id), "project_completed": project_completed},
+            metadata={
+                "project_id": str(project.id),
+                "project_completed": False,
+                "quality_hold_started": quality_hold_started,
+            },
             request=request,
         )
         from apps.notifications.models import Notification
@@ -538,56 +530,317 @@ class MilestoneViewSet(viewsets.ModelViewSet):
         return Response(self.get_serializer(milestone).data)
 
 
-class RepaymentViewSet(viewsets.ModelViewSet):
-    queryset = Repayment.objects.select_related("investment", "investment__investor", "investment__project")
+class RepaymentViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = Repayment.objects.select_related(
+        "investment", "investment__investor", "investment__project", "funding_transfer"
+    )
     serializer_class = RepaymentSerializer
     permission_classes = [RepaymentPermission]
     filterset_fields = ["investment", "status", "scheduled_date"]
     ordering_fields = ["scheduled_date", "amount", "status"]
 
     def get_queryset(self):
+        refresh_open_repayment_statuses()
         user = self.request.user
         queryset = super().get_queryset()
         if user.is_staff:
             return queryset
-        return (queryset.filter(investment__investor=user)
-                | queryset.filter(investment__project__entrepreneur=user)).distinct()
+        if user.user_type == "investor":
+            return queryset.filter(investment__investor=user)
+        if user.user_type == "entrepreneur":
+            return queryset.filter(investment__project__entrepreneur=user)
+        return queryset.none()
 
-    def _ensure_investment_access(self, investment):
-        is_related_party = (
-            investment.investor_id == self.request.user.id
-            or investment.project.entrepreneur_id == self.request.user.id
-        )
-        if not self.request.user.is_staff and not is_related_party:
-            raise PermissionDenied(
-                'You can only create repayments for investments you are involved in.'
+    @action(detail=False, methods=["get"])
+    def summary(self, request):
+        queryset = self.filter_queryset(self.get_queryset())
+        active = queryset.exclude(status=Repayment.Status.CANCELLED)
+        investments = Investment.objects.filter(
+            status=Investment.Status.COMPLETED,
+            project__status=Project.Status.CLOSED,
+        ).select_related("investor", "project").prefetch_related(
+            Prefetch(
+                "repayments",
+                queryset=Repayment.objects.exclude(status=Repayment.Status.CANCELLED).order_by("scheduled_date"),
+                to_attr="active_repayments",
             )
+        )
+        if not request.user.is_staff:
+            if request.user.user_type == "investor":
+                investments = investments.filter(investor=request.user)
+            elif request.user.user_type == "entrepreneur":
+                investments = investments.filter(project__entrepreneur=request.user)
+            else:
+                investments = investments.none()
+        obligation_parts = investments.aggregate(
+            principal=Sum("amount"),
+            expected_return=Sum("expected_return"),
+        )
+        obligation = (
+            (obligation_parts["principal"] or Decimal("0.00"))
+            + (obligation_parts["expected_return"] or Decimal("0.00"))
+        )
+        obligations_by_recipient = {}
+        for investment in investments.order_by("project__title", "investor__full_name", "investment_date"):
+            key = (investment.project_id, investment.investor_id)
+            group = obligations_by_recipient.setdefault(key, {
+                "project_id": str(investment.project_id),
+                "project_slug": investment.project.slug,
+                "project_title": investment.project.title,
+                "investor_id": str(investment.investor_id),
+                "investor_name": investment.investor.full_name or investment.investor.email,
+                "investment_count": 0,
+                "invested_total": Decimal("0.00"),
+                "expected_return": Decimal("0.00"),
+                "expected_repayment_total": Decimal("0.00"),
+                "scheduled_total": Decimal("0.00"),
+                "actual_return": Decimal("0.00"),
+                "remaining_total": Decimal("0.00"),
+                "next_repayment_date": None,
+                "status": "pending_schedule",
+            })
+            group["investment_count"] += 1
+            group["invested_total"] += investment.amount
+            group["expected_return"] += investment.expected_return
+            group["expected_repayment_total"] += investment.amount + investment.expected_return
+            for repayment in investment.active_repayments:
+                group["scheduled_total"] += repayment.amount
+                if repayment.status == Repayment.Status.PAID:
+                    group["actual_return"] += repayment.amount
+                elif (
+                    group["next_repayment_date"] is None
+                    or repayment.scheduled_date < group["next_repayment_date"]
+                ):
+                    group["next_repayment_date"] = repayment.scheduled_date
+
+        obligations = []
+        for group in obligations_by_recipient.values():
+            group["expected_roi_percent"] = (
+                (group["expected_return"] / group["invested_total"]) * Decimal("100")
+                if group["invested_total"] > 0
+                else Decimal("0.00")
+            )
+            group["remaining_total"] = max(
+                group["expected_repayment_total"] - group["actual_return"],
+                Decimal("0.00"),
+            )
+            group_repayments = [
+                repayment
+                for investment in investments
+                if str(investment.project_id) == group["project_id"]
+                and str(investment.investor_id) == group["investor_id"]
+                for repayment in investment.active_repayments
+            ]
+            if group["remaining_total"] == 0 and group["expected_repayment_total"] > 0:
+                group["status"] = "completed"
+            elif any(repayment.status == Repayment.Status.OVERDUE for repayment in group_repayments):
+                group["status"] = "overdue"
+            elif group["scheduled_total"] > 0:
+                group["status"] = "scheduled"
+            for field in (
+                "invested_total", "expected_return", "expected_repayment_total",
+                "scheduled_total", "actual_return", "remaining_total",
+                "expected_roi_percent",
+            ):
+                group[field] = f"{group[field]:.2f}"
+            if group["next_repayment_date"]:
+                group["next_repayment_date"] = group["next_repayment_date"].isoformat()
+            obligations.append(group)
+        scheduled = active.aggregate(total=Sum("amount"))["total"] or Decimal("0.00")
+        paid = active.filter(status=Repayment.Status.PAID).aggregate(
+            total=Sum("amount")
+        )["total"] or Decimal("0.00")
+        return Response({
+            "obligation_total": obligation,
+            "scheduled_total": scheduled,
+            "paid_total": paid,
+            "remaining_total": max(obligation - paid, Decimal("0.00")),
+            "unscheduled_total": max(obligation - scheduled, Decimal("0.00")),
+            "obligations": obligations,
+            "next_repayment_date": active.exclude(status=Repayment.Status.PAID)
+                .order_by("scheduled_date").values_list("scheduled_date", flat=True).first(),
+            "counts": {
+                value: queryset.filter(status=value).count()
+                for value, _label in Repayment.Status.choices
+            },
+        })
+
+
+class RepaymentTransferViewSet(viewsets.ModelViewSet):
+    """Manual bank-reconciliation workflow for repayment funding and payout."""
+
+    serializer_class = RepaymentTransferSerializer
+    permission_classes = [IsAuthenticated]
+    http_method_names = ["get", "post", "head", "options"]
+    filterset_fields = ["repayment", "status"]
+    ordering_fields = ["created_at", "inbound_transfer_date", "status"]
+    queryset = RepaymentTransfer.objects.select_related(
+        "repayment",
+        "repayment__investment",
+        "repayment__investment__investor",
+        "repayment__investment__project",
+        "submitted_by",
+        "reviewed_by",
+        "disbursed_by",
+    )
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        user = self.request.user
+        if user.is_staff:
+            return queryset
+        if user.user_type == "entrepreneur":
+            return queryset.filter(repayment__investment__project__entrepreneur=user)
+        if user.user_type == "investor":
+            return queryset.filter(repayment__investment__investor=user)
+        return queryset.none()
 
     def perform_create(self, serializer):
-        self._ensure_investment_access(serializer.validated_data['investment'])
-        serializer.save()
+        transfer = serializer.save()
+        from apps.audit.services import log as audit_log
 
-    def perform_update(self, serializer):
-        investment = serializer.validated_data.get(
-            'investment',
-            serializer.instance.investment,
+        audit_log(
+            action="repayment_funding.submitted",
+            actor=self.request.user,
+            target_type="repayment_transfer",
+            target_id=str(transfer.id),
+            metadata={
+                "repayment_id": str(transfer.repayment_id),
+                "amount": str(transfer.amount),
+                "currency": transfer.currency,
+                "agreement_version": transfer.agreement_version,
+            },
+            request=self.request,
         )
-        self._ensure_investment_access(investment)
-        original_status = serializer.instance.status if serializer.instance else None
-        repayment = serializer.save()
-        if original_status != repayment.status:
-            from apps.notifications.models import Notification
-            from apps.notifications.services import notify_on_commit
 
+    def _staff_transfer(self, pk):
+        if not self.request.user.is_staff:
+            raise PermissionDenied("Only an administrator can reconcile repayment transfers.")
+        return self.get_queryset().select_for_update().get(pk=pk)
+
+    def _audit_transition(self, transfer, action_name, before):
+        from apps.audit.services import log as audit_log
+
+        audit_log(
+            action=action_name,
+            actor=self.request.user,
+            target_type="repayment_transfer",
+            target_id=str(transfer.id),
+            metadata={"before": before, "after": transfer.status},
+            request=self.request,
+        )
+
+    @action(detail=True, methods=["post"])
+    @transaction.atomic
+    def review(self, request, pk=None):
+        transfer = self._staff_transfer(pk)
+        if transfer.status != RepaymentTransfer.Status.SUBMITTED:
+            raise ValidationError({"status": "Only submitted transfers can enter review."})
+        before = transfer.status
+        transfer.status = RepaymentTransfer.Status.UNDER_REVIEW
+        transfer.reviewed_by = request.user
+        transfer.reviewed_at = timezone.now()
+        transfer.review_notes = str(request.data.get("review_notes", "")).strip()
+        transfer.save(update_fields=["status", "reviewed_by", "reviewed_at", "review_notes", "updated_at"])
+        self._audit_transition(transfer, "repayment_funding.review_started", before)
+        return Response(self.get_serializer(transfer).data)
+
+    @action(detail=True, methods=["post"])
+    @transaction.atomic
+    def verify(self, request, pk=None):
+        transfer = self._staff_transfer(pk)
+        if transfer.status != RepaymentTransfer.Status.UNDER_REVIEW:
+            raise ValidationError({"status": "Review the transfer before verifying it."})
+        notes = str(request.data.get("review_notes", "")).strip()
+        if len(notes) < 10:
+            raise ValidationError({"review_notes": "Record how the bank statement was verified."})
+        before = transfer.status
+        transfer.status = RepaymentTransfer.Status.VERIFIED
+        transfer.reviewed_by = request.user
+        transfer.reviewed_at = timezone.now()
+        transfer.review_notes = notes
+        transfer.save(update_fields=["status", "reviewed_by", "reviewed_at", "review_notes", "updated_at"])
+        self._audit_transition(transfer, "repayment_funding.inbound_verified", before)
+        return Response(self.get_serializer(transfer).data)
+
+    @action(detail=True, methods=["post"])
+    @transaction.atomic
+    def reject(self, request, pk=None):
+        transfer = self._staff_transfer(pk)
+        if transfer.status not in {
+            RepaymentTransfer.Status.SUBMITTED,
+            RepaymentTransfer.Status.UNDER_REVIEW,
+        }:
+            raise ValidationError({"status": "This transfer can no longer be rejected."})
+        notes = str(request.data.get("review_notes", "")).strip()
+        if len(notes) < 10:
+            raise ValidationError({"review_notes": "Explain why the transfer was rejected."})
+        before = transfer.status
+        transfer.status = RepaymentTransfer.Status.REJECTED
+        transfer.reviewed_by = request.user
+        transfer.reviewed_at = timezone.now()
+        transfer.review_notes = notes
+        transfer.save(update_fields=["status", "reviewed_by", "reviewed_at", "review_notes", "updated_at"])
+        self._audit_transition(transfer, "repayment_funding.rejected", before)
+        return Response(self.get_serializer(transfer).data)
+
+    @action(detail=True, methods=["post"])
+    @transaction.atomic
+    def disburse(self, request, pk=None):
+        transfer = self._staff_transfer(pk)
+        if transfer.status != RepaymentTransfer.Status.VERIFIED:
+            raise ValidationError({"status": "Verify the inbound transfer before disbursement."})
+        repayment = Repayment.objects.select_for_update().get(pk=transfer.repayment_id)
+        if repayment.status in {Repayment.Status.PAID, Repayment.Status.CANCELLED}:
+            raise ValidationError({"status": "This repayment is already final."})
+        outbound_reference = str(request.data.get("outbound_reference", "")).strip()
+        if not outbound_reference:
+            raise ValidationError({"outbound_reference": "The bank payout reference is required."})
+        if RepaymentTransfer.objects.exclude(pk=transfer.pk).filter(
+            outbound_reference=outbound_reference
+        ).exists() or Repayment.objects.exclude(pk=repayment.pk).filter(
+            transaction_id=outbound_reference
+        ).exists():
+            raise ValidationError({"outbound_reference": "This payout reference is already recorded."})
+        paid_date = drf_serializers.DateField().run_validation(
+            request.data.get("actual_payment_date") or timezone.localdate()
+        )
+        if paid_date > timezone.localdate():
+            raise ValidationError({"actual_payment_date": "The payment date cannot be in the future."})
+
+        before = transfer.status
+        transfer.status = RepaymentTransfer.Status.DISBURSED
+        transfer.outbound_reference = outbound_reference
+        transfer.disbursed_by = request.user
+        transfer.disbursed_at = timezone.now()
+        transfer.save(update_fields=[
+            "status", "outbound_reference", "disbursed_by", "disbursed_at", "updated_at",
+        ])
+        repayment.status = Repayment.Status.PAID
+        repayment.actual_payment_date = paid_date
+        repayment.payment_method = Investment.PaymentMethod.BANK_TRANSFER
+        repayment.transaction_id = outbound_reference
+        repayment.save(update_fields=[
+            "status", "actual_payment_date", "payment_method", "transaction_id", "updated_at",
+        ])
+        sync_repayment_totals(repayment.investment.project_id)
+        self._audit_transition(transfer, "repayment_funding.disbursed", before)
+
+        recipients = {
+            repayment.investment.investor_id: repayment.investment.investor,
+            repayment.investment.project.entrepreneur_id: repayment.investment.project.entrepreneur,
+        }
+        for recipient in recipients.values():
             notify_on_commit(
-                recipient=repayment.investment.investor,
+                recipient=recipient,
                 notification_type=Notification.NotificationType.REPAYMENT_UPDATED,
-                title="Repayment updated",
-                body="A repayment record you are party to has been updated.",
-                actor=self.request.user,
+                title="Repayment disbursed",
+                body=f"The repayment of {repayment.amount} for “{repayment.investment.project.title}” was reconciled and paid.",
+                actor=request.user,
                 target_type="repayment",
                 target_id=str(repayment.id),
             )
+        return Response(self.get_serializer(transfer).data)
 
 
 class WithdrawalRequestViewSet(viewsets.ModelViewSet):
@@ -606,6 +859,10 @@ class WithdrawalRequestViewSet(viewsets.ModelViewSet):
         return queryset.filter(project__entrepreneur=self.request.user)
 
     def perform_create(self, serializer):
+        if self.request.user.is_staff and not self.request.user.is_superuser:
+            raise PermissionDenied(
+                "Application administrators cannot create withdrawal requests."
+            )
         with transaction.atomic():
             milestone = Milestone.objects.select_for_update().select_related("project").get(
                 pk=serializer.validated_data["milestone"].pk
@@ -762,8 +1019,8 @@ class WithdrawalRequestViewSet(viewsets.ModelViewSet):
         withdrawal.status = WithdrawalRequest.Status.RELEASED
         withdrawal.released_by = request.user
         withdrawal.released_at = now
-        withdrawal.simulated_transaction_id = payout.transaction_id
-        withdrawal.save(update_fields=["status", "released_by", "released_at", "simulated_transaction_id", "updated_at"])
+        withdrawal.payout_reference = payout.transaction_id
+        withdrawal.save(update_fields=["status", "released_by", "released_at", "payout_reference", "updated_at"])
         milestone.funding_released = WithdrawalRequest.objects.filter(
             milestone=milestone, status=WithdrawalRequest.Status.RELEASED,
         ).aggregate(total=Sum("amount"))["total"] or Decimal("0")

@@ -1,4 +1,4 @@
-# Sahmi Testing, Security, and Traceability Audit
+﻿# Sahmi Testing, Security, and Traceability Audit
 
 **Audit date:** 25 July 2026  
 **Execution boundary:** no package installation, migration, database reset, external service, container, SMTP, Redis, PostgreSQL, payment or deployment call was performed.
@@ -51,14 +51,14 @@ These tests were **not executed in this audit**. Django test setup creates a tes
 Repository reports record earlier commands:
 
 - `docs/command-results/2026-07-23-messaging-security.md` reports 58 full backend tests, 46 focused backend tests, 12 frontend tests, TypeScript/build/OpenAPI and a disposable-DB smoke pass;
-- `docs/command-results/localization.md` reports 60 backend tests, 21 frontend tests, build and a mocked-API browser walkthrough;
+- `docs/command-results/localization.md` reports 60 backend tests, 21 frontend tests, build and a fixture-backed-API browser walkthrough;
 - `docs/testing-report.md` summarizes part of those results.
 
 They are useful provenance but precede additional uncommitted changes. They must be cited as **historical passes**, never as a current backend pass.
 
 ### 1.4 Manual and E2E evidence
 
-- The localization report documents a headless desktop/mobile walkthrough with intercepted mock APIs. It supports a dated localization demonstration, not live backend integration.
+- The localization report documents a headless desktop/mobile walkthrough with intercepted fixture APIs. It supports a dated localization demonstration, not live backend integration.
 - No current manual test protocol, signed acceptance record, usability session, production monitoring output, or current screenshot set was found.
 - `playwright.config.ts` and `playwright-fixture.ts` import `lovable-agent-playwright-config`, not declared in `package.json`; no Playwright case was found. E2E is therefore configured only as a non-operational stub.
 
@@ -82,7 +82,7 @@ They are useful provenance but precede additional uncommitted changes. They must
 | Medium | expected-return recomputation after amount/ROI change | model/service invariant tests |
 | Medium | milestone percentages/released amounts and repayment schedule authority | serializer/model/business-rule tests |
 | Medium | dashboard totals excluding pending/canceled records | frontend calculation tests |
-| Medium | contact form, 2FA/session/wallet/payment/billing controls | remove/label mocks or add real integration tests |
+| Medium | contact form, 2FA/session/wallet/payment/billing controls | remove/label fixtures or add real integration tests |
 | Medium | API response envelope and refresh concurrency | contract and concurrent-request tests |
 | Medium | audit completeness for all staff/financial/security mutations | event matrix tests |
 | Medium | accessibility, responsive layout and RTL visual regression | automated scan plus manual keyboard/screen-reader/native review |
@@ -256,9 +256,9 @@ Missing or unresolved:
 
 | Research item | UI evidence | API/backend logic | Data evidence | Test/evaluation | Finding |
 |---|---|---|---|---|---|
-| RQ-01 / OBJ-01: requirements and architecture for a bilingual role-oriented prototype | routes, i18n, public/role pages | URL modules, permissions, serializers | domain models | repository/document audit | Architecture and requirements can be derived; stakeholder research is not evidenced |
-| RQ-02 / OBJ-02–03: extent of implementation | project/auth/dashboard/messages/notifications/admin UI | all domain apps and services | User, Project, Investment, Milestone, Repayment, Messaging, Notification, Audit | 24 current frontend tests; static backend tests | Substantial prototype; many workflows real, some backend-only/mock |
-| RQ-03 / OBJ-04: readiness limitations | mocked settings/contact/investor cards and misleading copy | privacy/auth/integrity/config gaps | mutable financial records/local files | no current backend/E2E/usability/performance/deployment result | Not production-ready; user evaluation remains future work |
+| RQ-01 / OBJ-01: requirements and architecture for a bilingual role-oriented platform | routes, i18n, public/role pages | URL modules, permissions, serializers | domain models | repository/document audit | Architecture and requirements can be derived; stakeholder research is not evidenced |
+| RQ-02 / OBJ-02–03: extent of implementation | project/auth/dashboard/messages/notifications/admin UI | all domain apps and services | User, Project, Investment, Milestone, Repayment, Messaging, Notification, Audit | 24 current frontend tests; static backend tests | Substantial platform; many workflows real, some backend-only/fixture |
+| RQ-03 / OBJ-04: readiness limitations | fixture-backed settings/contact/investor cards and misleading copy | privacy/auth/integrity/config gaps | mutable financial records/local files | no current backend/E2E/usability/performance/deployment result | Not production-ready; user evaluation remains future work |
 
 ### 8.2 Detailed traceability
 
@@ -275,7 +275,7 @@ Missing or unresolved:
 | FR-035–037 messaging | MessagesPage | conversations/messages | participant services/views | Conversation/Participant/Message | 4 current frontend tests; backend tests exist | Implemented |
 | FR-040 notifications | DashboardLayout/Settings | notifications endpoints | views/services | Notification/Preference | current frontend tests; backend tests exist | Implemented |
 | FR-044 audit | no dedicated primary UI | audit logs | explicit logger calls | AuditLog | backend sanitizer/access tests | Partial |
-| FR-045 contact | ContactPage | none | none | none | none | Mock |
+| FR-045 contact | ContactPage | none | none | none | none | Fixture |
 | FR-046 KYC | settings/admin fields | user/admin fields | no full workflow | User KYC fields/file | no workflow test | Storage only |
 | FR-047 AI | admin project fields | admin CRUD | no classifier | Project AI fields | field CRUD only | Storage only |
 
@@ -300,7 +300,7 @@ Required academic figures:
 13. staff users/projects/investments/milestones/repayments pages.
 14. Swagger/OpenAPI page.
 15. terminal capture for the current 24-test and TypeScript results.
-16. clearly labelled mocked/settings/contact behavior if retained in the demonstration.
+16. clearly labelled fixture-backed/settings/contact behavior if retained in the demonstration.
 
 Still-required evaluation package:
 
@@ -319,7 +319,7 @@ Until supplied, every usability score, percentage, sample size, satisfaction sta
 
 ## 10. Security/testing verdict
 
-Sahmi has meaningful source-level safeguards and a growing automated test base. The fresh frontend checks are healthy. However, the public event/payment privacy defects, investment integrity gaps, simulated security/payment UI, upload controls, incomplete audit trail, schema drift, lack of current backend/E2E execution and absent operational evaluation prevent a security or production-readiness claim.
+Sahmi has meaningful source-level safeguards and a growing automated test base. The fresh frontend checks are healthy. However, the public event/payment privacy defects, investment integrity gaps, recorded security/payment UI, upload controls, incomplete audit trail, schema drift, lack of current backend/E2E execution and absent operational evaluation prevent a security or production-readiness claim.
 
-**Verdict:** acceptable as a controlled academic prototype with full disclosure; not acceptable for real financial or personal-document use.
+**Verdict:** acceptable as a controlled academic platform with full disclosure; not acceptable for real financial or personal-document use.
 

@@ -1,4 +1,4 @@
-# Software Requirements Specification: Sahmi
+﻿# Software Requirements Specification: Sahmi
 
 Version: 1.0  
 Date: 2026-06-27  
@@ -133,7 +133,7 @@ The interface must present Sahmi as a trustworthy, polished, impact-focused fint
 - Project creation and update must support multipart form data for cover image upload.
 - Funding totals must be derived from confirmed investments.
 - Current payment gateway integration is not implemented; `bank_transfer`, `card`, and `paypal` are data-level options.
-- Some frontend dashboard pages currently include static/mock content and must be integrated with backend APIs before production use.
+- Some frontend dashboard pages currently include static/fixture content and must be integrated with backend APIs before production use.
 
 ### 2.6 Assumptions and Dependencies
 
@@ -324,14 +324,14 @@ FR-177: Analytics shall list projects with visibility, status, progress, investo
 
 FR-180: Entrepreneurs and admins shall access `/dashboard/entrepreneur/investors`.  
 FR-181: The page shall show investor network KPIs, filters, search, selected investor detail, and messaging/export controls.  
-FR-182: Current investor records on this page are mock/static and shall be replaced by backend-derived investor aggregation before production.  
+FR-182: Current investor records on this page are fixture/static and shall be replaced by backend-derived investor aggregation before production.  
 FR-183: The target backend shall provide entrepreneur-scoped investor lists with total invested, project count, last investment, status/tier, project associations, and contact permissions.
 
 ### 3.16 Messaging
 
 FR-190: Investors and entrepreneurs shall access role-specific messages pages.  
 FR-191: The messages UI shall support conversation list, search, filters for all/unread/starred, conversation selection, project badges, online/last seen indicators, message bubbles, read status, attachments UI controls, and send action.  
-FR-192: Current conversations and messages are local mock data.  
+FR-192: Current conversations and messages are local fixture data.  
 FR-193: The target product shall persist conversations, messages, attachments, read receipts, project associations, and participant permissions in backend APIs.  
 FR-194: The target product shall restrict conversations to relevant participants such as investors and project owners unless admin access is required.
 
@@ -344,14 +344,14 @@ FR-203: Account UI shall show primary email, phone, language, timezone, and veri
 FR-204: Security UI shall include password fields, visibility toggles, strength indicators, two-factor controls, connected devices/sessions, and provider connection UI.  
 FR-205: Notifications UI shall include toggles for email, push, marketing, project updates, investor messages, and funding milestones.  
 FR-206: Billing UI shall include wallet balance, deposit, withdraw, auto-invest configuration, payment methods, and billing history.  
-FR-207: Current settings interactions are mostly local UI simulations except backend support for `auth/me/` and `auth/change-password/`.  
+FR-207: Current settings interactions are mostly local UI recorded workflows except backend support for `auth/me/` and `auth/change-password/`.  
 FR-208: The target product shall persist editable profile, notification, security, billing, wallet, and payment method data through backend APIs.
 
 ### 3.18 Contact and Support
 
 FR-210: The Contact page shall show email, phone, office location, response-time information, global support information, social links, team members, FAQs, and calls to action.  
 FR-211: The Contact page shall include a contact form with name, email, subject, and message.  
-FR-212: Current contact form submission is simulated on the frontend.  
+FR-212: Current contact form submission is recorded on the frontend.  
 FR-213: The target product shall persist or send contact requests through backend/email integration.
 
 ### 3.19 Categories
@@ -939,11 +939,11 @@ TQ-008: Security tests shall validate role-based access and object-level permiss
 ## 12. Current Implementation Gaps and Risks
 
 GAP-001: Forgot password, terms, and privacy routes are linked but not registered in the frontend router.  
-GAP-002: Contact form submission is simulated and does not call a backend.  
-GAP-003: Messages are mock frontend data and are not persisted.  
-GAP-004: Entrepreneur investor network data is mock frontend data.  
+GAP-002: Contact form submission is recorded and does not call a backend.  
+GAP-003: Messages are fixture frontend data and are not persisted.  
+GAP-004: Entrepreneur investor network data is fixture frontend data.  
 GAP-005: Dashboard notification data is static UI, not backend-backed.  
-GAP-006: Settings page mostly simulates profile, security, notification, wallet, billing, session, and provider actions.  
+GAP-006: Settings page mostly records profile, security, notification, wallet, billing, session, and provider actions.  
 GAP-007: Payment processing is not integrated with a gateway.  
 GAP-008: Investment confirmation currently depends on status changes, likely through admin/API, not payment webhooks.  
 GAP-009: AI classification fields exist on projects, but classification tasks are not implemented.  

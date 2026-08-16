@@ -1,4 +1,4 @@
-# Screenshot evidence status and capture checklist
+﻿# Screenshot evidence status and capture checklist
 
 Four verified public screenshots are included. They were captured on 2026-08-15 with the repository's Playwright library driving the installed system Google Chrome, against local Vite and Django development servers. Only public GET/list routes were opened; no form was submitted and no database state was intentionally changed.
 
@@ -23,9 +23,9 @@ Recommended captures for Chapters 4–6, using seeded/demo accounts and both Eng
 8. Investor dashboard, transactions/detail dialog, messages, notifications, settings, and investment dialog.
 9. Admin overview and projects review dialog showing edit diff, cost table, timeline, uploaded-image review metadata/status.
 10. Admin investments, milestones, repayments, users, categories, messages, notifications, settings, and fund-request review/release.
-11. Fund request states: Requested, Under Review, Approved, Revision Required/Rejected, Released with simulated transaction reference.
+11. Fund request states: Requested, Under Review, Approved, Revision Required/Rejected, Released with recorded transaction reference.
 12. Milestone completion evidence submission/review and final Completed project page.
 13. Contact, privacy, terms, about, and how-it-works pages.
 14. API documentation at `/api/docs/` and Django admin only if academically relevant.
 
-For every screenshot, record date/time, commit plus working-tree identifier, role, route, language, viewport, seed record IDs, and whether values are mocked/simulated.
+For every screenshot, record date/time, commit plus working-tree identifier, role, route, language, viewport, seed record IDs, and whether values are fixture-backed/recorded.

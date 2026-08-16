@@ -20,7 +20,7 @@ const LegalDocumentPage = ({ type, sectionCount }: LegalDocumentPageProps) => {
             <Icon className="h-7 w-7" aria-hidden="true" />
           </div>
           <p className="text-sm font-semibold uppercase tracking-wider text-primary">
-            {t("legal.prototypeLabel")}
+            {t("legal.platformLabel")}
           </p>
           <h1 className="mt-2 text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
             {t(`legal.${type}.title`)}

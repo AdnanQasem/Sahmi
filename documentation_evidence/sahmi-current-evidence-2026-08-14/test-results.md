@@ -1,6 +1,6 @@
 # Sahmi verification results — 2026-08-14
 
-All commands were run against the current working tree, not a clean checkout of `HEAD`.
+All commands were run against the application working tree later committed unchanged as `dd6a4aede05d1e1ecb0ce9e7d4ff9de3bd0a0507`.
 
 | Check | Command | Result |
 |---|---|---|

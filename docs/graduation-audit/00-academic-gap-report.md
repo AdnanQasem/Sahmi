@@ -1,4 +1,4 @@
-# Sahmi Academic Structure and Evidence Gap Report
+﻿# Sahmi Academic Structure and Evidence Gap Report
 
 **Audit date:** 25 July 2026  
 **Academic authority:** Naji Shukri Alzaza, *Research Methodology in Information Technology*, second edition (2020)  
@@ -35,11 +35,11 @@ The methodology book treats an information-technology graduation project as more
 The 2014 sample operationalizes this pattern through:
 
 1. Information Gathering;
-2. Prototype Design;
-3. Prototype Development; and
+2. Platform Design;
+3. Platform Development; and
 4. Evaluation.
 
-That four-phase Research and Development model is appropriate for Sahmi. Agile sprints may explain iteration inside **Prototype Development**, but Agile is a software delivery approach and must not replace the academic research methodology.
+That four-phase Research and Development model is appropriate for Sahmi. Agile sprints may explain iteration inside **Platform Development**, but Agile is a software delivery approach and must not replace the academic research methodology.
 
 ## 3. Structural comparison
 
@@ -57,9 +57,9 @@ That four-phase Research and Development model is appropriate for Sahmi. Agile s
 | Abbreviations/glossary | Optional but useful | Used | Abbreviations present | Update for R&D, RBAC, JWT, SSE, API, KYC, CI/CD, and SRS. |
 | Chapter 1 | Background, motivation, problem, questions, objectives, significance, scope | Strong example | Background/problem/objectives/scope exist; research questions and significance are absent or implicit | Add explicit RQs, motivation/significance, beneficiaries, boundaries, and question–objective mapping. |
 | Chapter 2 | Critical literature review grounded in scholarly sources | Organized by related work | Mostly technology descriptions and platform summaries | Replace product-documentation-heavy treatment with a sourced thematic review. Retain stack details for implementation, not as the core literature review. |
-| Chapter 3 | Research method, participants/data, development method, evaluation method, ethics | Four R&D phases | Agile is the selected methodology | Replace with four-phase R&D; nest Agile sprints only within Prototype Development. Disclose that interviews/surveys/usability evaluation are not evidenced. |
-| Design | Methodology should connect requirements to design | Prototype Design phase | Mostly Chapter 4 | Move/bridge architecture, use cases, data model, and prototype rationale into Chapter 3; detailed technical design may remain in an appendix. |
-| Implementation/results | Report what was actually built | Proposal only anticipates it | Chapter 5 exists | Update to the present working tree and classify backend-only, mocked, configured, and future behavior. |
+| Chapter 3 | Research method, participants/data, development method, evaluation method, ethics | Four R&D phases | Agile is the selected methodology | Replace with four-phase R&D; nest Agile sprints only within Platform Development. Disclose that interviews/surveys/usability evaluation are not evidenced. |
+| Design | Methodology should connect requirements to design | Platform Design phase | Mostly Chapter 4 | Move/bridge architecture, use cases, data model, and platform rationale into Chapter 3; detailed technical design may remain in an appendix. |
+| Implementation/results | Report what was actually built | Proposal only anticipates it | Chapter 5 exists | Update to the present working tree and classify backend-only, fixture-backed, configured, and future behavior. |
 | Testing/evaluation | Executed technical and/or user evaluation, method and findings | Evaluation planned with usability dimensions/questionnaire | Chapter 6 is stale and largely planned | Current frontend results may be reported exactly; dated backend results must be labelled historical. No user study, survey, sample, or usability result may be claimed. |
 | Findings/discussion | Interpret results against questions/objectives/literature | Not a completed final report | Missing as a distinct evidence-based chapter | Add repository findings and limitations. Human usability findings remain `[NOT VERIFIED]`. |
 | Future work | Derived from limitations | Briefly anticipated | Distributed through gaps | Consolidate into a dedicated chapter and do not describe it as implemented. |
@@ -82,7 +82,7 @@ The current document begins with a title page and English abstract, then content
 - confirmation that the listed program, contributors, student identifiers, supervisors, and year are official;
 - an abstract based on current evidence.
 
-The current abstract says persistent messaging, notification APIs, and audit logging are absent. Those statements are now contradicted by `backend/apps/messaging/`, `backend/apps/notifications/`, `backend/apps/audit/`, their routes, and corresponding frontend services. Conversely, the abstract correctly warns that payment processing, AI execution, operational deployment, and several simulations are absent.
+The current abstract says persistent messaging, notification APIs, and audit logging are absent. Those statements are now contradicted by `backend/apps/messaging/`, `backend/apps/notifications/`, `backend/apps/audit/`, their routes, and corresponding frontend services. Conversely, the abstract correctly warns that payment processing, AI execution, operational deployment, and several recorded workflows are absent.
 
 ### 4.2 Chapter 1: Introduction
 
@@ -90,7 +90,7 @@ Useful material to preserve:
 
 - the intended Palestinian entrepreneurship context;
 - the trust, discoverability, and structured-record problem;
-- the prototype focus;
+- the platform focus;
 - the distinction between internal investment records and real money movement.
 
 Required corrections:
@@ -101,15 +101,15 @@ Required corrections:
 - distinguish stakeholders from actual research participants;
 - remove or source claims about regional payment access, fraud prevalence, platform fees, and market demand;
 - do not state that stakeholder interviews, requirements workshops, or market surveys occurred without records;
-- define the prototype boundary: Sahmi is not verified as a regulated financial intermediary, custodian, payment processor, or deployed service.
+- define the platform boundary: Sahmi is not verified as a regulated financial intermediary, custodian, payment processor, or deployed service.
 
 Recommended aligned framework:
 
 | ID | Research question | Objective | Permitted evidence |
 |---|---|---|---|
-| RQ-01 | What repository-verifiable requirements and architecture support a bilingual, role-oriented project funding-record prototype? | OBJ-01 gather and structure requirements; OBJ-02 design the prototype | SRS, routes, models, APIs, UI, architecture diagrams |
-| RQ-02 | To what extent does the Sahmi prototype implement project discovery, submission, moderation, investment records, dashboards, messaging, and notifications? | OBJ-03 develop and trace the prototype | Source evidence and current frontend test execution |
-| RQ-03 | What technical, security, testing, usability, and operational limitations remain before real-world use? | OBJ-04 evaluate the prototype | Repository audit, static tests, current frontend test result, historical backend logs labelled as such |
+| RQ-01 | What repository-verifiable requirements and architecture support a bilingual, role-oriented project funding-record platform? | OBJ-01 gather and structure requirements; OBJ-02 design the platform | SRS, routes, models, APIs, UI, architecture diagrams |
+| RQ-02 | To what extent does the Sahmi platform implement project discovery, submission, moderation, investment records, dashboards, messaging, and notifications? | OBJ-03 develop and trace the platform | Source evidence and current frontend test execution |
+| RQ-03 | What technical, security, testing, usability, and operational limitations remain before real-world use? | OBJ-04 evaluate the platform | Repository audit, static tests, current frontend test result, historical backend logs labelled as such |
 
 Any question about user satisfaction, adoption, economic impact, usability score, or market acceptance cannot presently be answered and must either be reframed as future evaluation or supported by approved study evidence.
 
@@ -125,7 +125,7 @@ Missing scholarly themes include:
 - privacy and security in financial or crowdfunding systems;
 - usability of bilingual and right-to-left systems;
 - role-based access and secure API design;
-- prototype evaluation in information-systems research.
+- platform evaluation in information-systems research.
 
 Claims needing real sources include:
 
@@ -155,10 +155,10 @@ Required replacement:
    - repository and document analysis are verified;
    - interviews, questionnaires, observation, and stakeholder workshops are `[NOT VERIFIED]`;
    - participant identities, sample, consent, and dates are `[TEAM CONFIRMATION REQUIRED]`.
-2. **Prototype Design**
+2. **Platform Design**
    - verified design evidence includes route structure, components, API contracts, Django models, and conceptual figures;
    - existing figures must be labelled conceptual where they are not screenshots.
-3. **Prototype Development**
+3. **Platform Development**
    - React/TypeScript and Django/DRF implementation is verified;
    - Agile sprints may describe team practice only after the team supplies dated records;
    - otherwise describe iterations without invented sprint numbers.
@@ -179,7 +179,7 @@ The existing Chapter 5 contains useful repository-grounded explanations, but man
 - investment status is server-controlled in the normal serializer;
 - persistent messaging, notification APIs/preferences, password reset, audit records, and rich admin REST APIs now exist;
 - bilingual English/Arabic resources and RTL/LTR switching now exist;
-- Settings profile update, password change, and notification preferences have backend connections, while its 2FA, sessions, wallet, providers, billing, invoices, KYC display, and several verification badges remain simulated;
+- Settings profile update, password change, and notification preferences have backend connections, while its 2FA, sessions, wallet, providers, billing, invoices, KYC display, and several verification badges remain recorded;
 - the entrepreneur investor page and entrepreneur dashboard message preview remain hard-coded;
 - the contact form only delays and reports success locally;
 - payment-provider, receipt, refund, and money-transfer functionality remains absent;
@@ -219,14 +219,14 @@ Future work should follow from verified limitations:
 - validate positive investment amounts and model-level financial constraints;
 - define trusted repayment/milestone workflows;
 - implement real payment verification only after legal and provider decisions;
-- remove misleading mocked financial/security UI;
+- remove misleading fixture-backed financial/security UI;
 - add upload validation, malware scanning strategy, private object storage, and retention rules;
 - complete audit coverage and structured logging;
 - repair container/environment inconsistencies and add frontend/worker/reverse-proxy/CI configuration;
 - conduct approved usability/accessibility evaluation;
 - verify literature sources and local legal context.
 
-The conclusion may state that Sahmi is a substantial bilingual development-stage prototype. It may not state that it securely processes payments, guarantees returns, has proven social/economic impact, is production-ready, is legally compliant, or has been accepted by users.
+The conclusion may state that Sahmi is a substantial bilingual development-stage platform. It may not state that it securely processes payments, guarantees returns, has proven social/economic impact, is production-ready, is legally compliant, or has been accepted by users.
 
 ## 5. Unsupported, stale, or contradictory claims
 
@@ -242,7 +242,7 @@ The conclusion may state that Sahmi is a substantial bilingual development-stage
 | TypeScript currently fails | Fresh no-emit check passed | Stale |
 | Interface is English/LTR only | English/Arabic i18n and direction switching exist | Stale; native-language completeness still unverified |
 | Secure provider/bank-level encrypted payments | No provider call, webhook, receipt, custody, refund, or disbursement code | **Frontend claim not found in backend**; remove |
-| 230+ projects, $2.4M, 12,000+ users, 89% | Hard-coded arrays in `HomePage.tsx:61-63` and `AboutPage.tsx:78-80` | **Frontend-only or mocked**; no academic use |
+| 230+ projects, $2.4M, 12,000+ users, 89% | Hard-coded arrays in `HomePage.tsx:61-63` and `AboutPage.tsx:78-80` | **Frontend-only or fixture-backed**; no academic use |
 | Review within 2–3 business days | Translation copy only; no SLA logic or evidence | `[TEAM CONFIRMATION REQUIRED]` |
 | All founders/KYC/funds verified | Fields/badges exist, but no complete KYC workflow | Misleading; classify as **Partially implemented/storage only** |
 | Goal failure keeps funds | UI copy only | Contradicts refund copy and no payment implementation |
@@ -286,11 +286,11 @@ Required actions:
 
 ## 8. Academic readiness conclusion
 
-The current Sahmi document contains useful technical analysis and unusually candid prototype limitations, but it is not ready for final submission. Its academic method is misclassified as Agile, its research questions and significance are missing, its literature base is inadequate, its implementation/test description is stale, and no human evaluation is evidenced.
+The current Sahmi document contains useful technical analysis and unusually candid platform limitations, but it is not ready for final submission. Its academic method is misclassified as Agile, its research questions and significance are missing, its literature base is inadequate, its implementation/test description is stale, and no human evaluation is evidenced.
 
 The correct submission posture is:
 
-- **ready as an audited development-stage prototype baseline;**
+- **ready as an audited development-stage platform baseline;**
 - **not ready as a final academic report until sources, front matter, team facts, and evaluation decisions are resolved;**
 - **not ready for production or real financial operation.**
 

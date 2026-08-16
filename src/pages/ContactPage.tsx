@@ -1,12 +1,17 @@
 import { useTranslation } from "react-i18next";
 import { useState, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion, useScroll, useTransform } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import contactService from "@/services/contactService";
 import { getErrorMessage } from "@/services/api";
+import DemoFillButton from "@/components/demo/DemoFillButton";
+import { formDemoData } from "@/demo/formDemoData";
+import { useAuth } from "@/hooks/useAuth";
 import {
   Mail,
   Phone,
@@ -23,6 +28,7 @@ import {
   CheckCircle,
   Linkedin,
   Instagram,
+  AlertCircle,
 } from "lucide-react";
 
 // Animation Variants
@@ -86,6 +92,8 @@ const socialLinks = [
 const faqIndexes = [0, 1, 2, 3, 4, 5];
 const ContactPage = () => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
   const [openFaq, setOpenFaq] = useState<number | null>(0);
   const [formState, setFormState] = useState({
     name: "",
@@ -107,6 +115,18 @@ const ContactPage = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isAuthenticated) {
+      navigate("/register", {
+        state: {
+          contactLoginRequired: true,
+          contactPrefill: {
+            name: formState.name.trim(),
+            email: formState.email.trim(),
+          },
+        },
+      });
+      return;
+    }
     setIsSubmitting(true);
     setSubmitError("");
     try {
@@ -250,7 +270,16 @@ const ContactPage = () => {
                   </p>
                 </div>
 
+                {!isAuthenticated && (
+                  <Alert variant="destructive" className="mb-6 bg-destructive/5">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>{t("contact.loginRequiredTitle")}</AlertTitle>
+                    <AlertDescription>{t("contact.loginRequiredText")}</AlertDescription>
+                  </Alert>
+                )}
+
                 <form onSubmit={handleSubmit} className="space-y-6">
+                  <DemoFillButton onClick={() => setFormState(formDemoData.contact)} disabled={isSubmitting} />
                   <div className="grid gap-6 sm:grid-cols-2">
                     <motion.div
                       initial={{ opacity: 0, y: 20 }}

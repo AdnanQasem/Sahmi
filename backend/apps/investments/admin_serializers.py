@@ -6,7 +6,7 @@ from rest_framework import serializers
 
 from apps.projects.models import Project
 
-from .models import Investment, Milestone, Repayment
+from .models import Investment, Milestone, Repayment, RepaymentTransfer
 
 
 User = get_user_model()
@@ -33,6 +33,9 @@ class AdminInvestmentSerializer(serializers.ModelSerializer):
         source="project",
         read_only=True,
     )
+    obligation_total = serializers.SerializerMethodField()
+    scheduled_repayment_total = serializers.SerializerMethodField()
+    remaining_repayment_obligation = serializers.SerializerMethodField()
 
     class Meta:
         model = Investment
@@ -51,6 +54,9 @@ class AdminInvestmentSerializer(serializers.ModelSerializer):
             "payment_method",
             "expected_return",
             "actual_return",
+            "obligation_total",
+            "scheduled_repayment_total",
+            "remaining_repayment_obligation",
             "return_received_at",
             "notes",
             "created_at",
@@ -71,8 +77,27 @@ class AdminInvestmentSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Amount must be greater than zero.")
         return value
 
+    def get_obligation_total(self, obj):
+        return obj.amount + obj.expected_return
+
+    def get_scheduled_repayment_total(self, obj):
+        return obj.repayments.exclude(status=Repayment.Status.CANCELLED).aggregate(
+            total=Sum("amount")
+        )["total"] or Decimal("0.00")
+
+    def get_remaining_repayment_obligation(self, obj):
+        return max(
+            self.get_obligation_total(obj) - self.get_scheduled_repayment_total(obj),
+            Decimal("0.00"),
+        )
+
     def validate(self, attrs):
         attrs = super().validate(attrs)
+        investor = attrs.get("investor", getattr(self.instance, "investor", None))
+        if investor and investor.user_type != User.UserType.INVESTOR:
+            raise serializers.ValidationError(
+                {"investor": "Only investor accounts can own investments."}
+            )
         project = attrs.get("project", getattr(self.instance, "project", None))
         amount = attrs.get("amount", getattr(self.instance, "amount", None))
         investment_status = attrs.get("status", getattr(self.instance, "status", Investment.Status.PENDING))
@@ -216,6 +241,77 @@ class AdminMilestoneSerializer(serializers.ModelSerializer):
         return attrs
 
 
+def validate_repayment_eligibility(investment, scheduled_date):
+    project = investment.project
+    if project.status != Project.Status.CLOSED:
+        raise serializers.ValidationError({
+            "investment": (
+                "Return of Investment payments cannot be scheduled until "
+                "the project is Completed."
+            )
+        })
+    if investment.status != Investment.Status.COMPLETED:
+        raise serializers.ValidationError({
+            "investment": "Only completed investments can have a repayment schedule."
+        })
+
+    milestones = project.milestones.all()
+    if not milestones.exists() or milestones.exclude(
+        status=Milestone.Status.COMPLETED,
+    ).exists():
+        raise serializers.ValidationError({
+            "investment": (
+                "Return of Investment payments cannot be scheduled until "
+                "implementation is complete and the project is operating."
+            )
+        })
+
+    completion_dates = list(milestones.values_list("actual_completion_date", flat=True))
+    if any(date is None for date in completion_dates):
+        raise serializers.ValidationError({
+            "investment": (
+                "Every implementation milestone must have a completion date "
+                "before Return of Investment payments can be scheduled."
+            )
+        })
+    operations_start_date = max(completion_dates)
+    if scheduled_date and scheduled_date < operations_start_date:
+        raise serializers.ValidationError({
+            "scheduled_date": (
+                "The first Return of Investment payment cannot be scheduled "
+                f"before the project became operational on {operations_start_date}."
+            )
+        })
+    return operations_start_date
+
+
+class AdminRepaymentPlanSerializer(serializers.Serializer):
+    investment = serializers.PrimaryKeyRelatedField(queryset=Investment.objects.all())
+    installment_count = serializers.IntegerField(min_value=1, max_value=60)
+    first_scheduled_date = serializers.DateField()
+    interval_months = serializers.IntegerField(min_value=1, max_value=12, default=1)
+    payment_method = serializers.ChoiceField(
+        choices=Investment.PaymentMethod.choices,
+        default=Investment.PaymentMethod.BANK_TRANSFER,
+    )
+    notes = serializers.CharField(required=False, allow_blank=True, max_length=1000)
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        investment = attrs["investment"]
+        validate_repayment_eligibility(investment, attrs["first_scheduled_date"])
+        scheduled_total = investment.repayments.exclude(
+            status=Repayment.Status.CANCELLED
+        ).aggregate(total=Sum("amount"))["total"] or Decimal("0.00")
+        remaining = investment.amount + investment.expected_return - scheduled_total
+        if remaining <= 0:
+            raise serializers.ValidationError({
+                "investment": "This investment's full repayment obligation is already scheduled."
+            })
+        attrs["remaining_obligation"] = remaining
+        return attrs
+
+
 class AdminRepaymentSerializer(serializers.ModelSerializer):
     investor_detail = AdminInvestmentUserSummarySerializer(
         source="investment.investor",
@@ -225,6 +321,19 @@ class AdminRepaymentSerializer(serializers.ModelSerializer):
         source="investment.project",
         read_only=True,
     )
+    funding_transfer = serializers.SerializerMethodField()
+
+    def get_funding_transfer(self, obj):
+        try:
+            transfer = obj.funding_transfer
+        except RepaymentTransfer.DoesNotExist:
+            return None
+        return {
+            "id": str(transfer.id),
+            "status": transfer.status,
+            "inbound_reference": transfer.inbound_reference,
+            "outbound_reference": transfer.outbound_reference or "",
+        }
 
     class Meta:
         model = Repayment
@@ -242,11 +351,15 @@ class AdminRepaymentSerializer(serializers.ModelSerializer):
             "notes",
             "created_at",
             "updated_at",
+            "funding_transfer",
         ]
         read_only_fields = [
             "id",
             "investor_detail",
             "project_detail",
+            "status",
+            "actual_payment_date",
+            "transaction_id",
             "created_at",
             "updated_at",
         ]
@@ -258,7 +371,24 @@ class AdminRepaymentSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         attrs = super().validate(attrs)
+        requested_status = self.initial_data.get("status")
+        if self.instance is None and requested_status not in (None, "", Repayment.Status.PENDING):
+            raise serializers.ValidationError({
+                "status": "Create the schedule as Pending, then use the paid or cancelled action."
+            })
+        if self.instance and requested_status not in (None, "", self.instance.status):
+            raise serializers.ValidationError({
+                "status": "Use the paid or cancelled action to change repayment status."
+            })
+        if self.instance is None and (
+            self.initial_data.get("actual_payment_date")
+            or self.initial_data.get("transaction_id")
+        ):
+            raise serializers.ValidationError({
+                "status": "Payment details can only be recorded when marking a repayment paid."
+            })
         investment = attrs.get("investment", getattr(self.instance, "investment", None))
+        amount = attrs.get("amount", getattr(self.instance, "amount", None))
         scheduled_date = attrs.get(
             "scheduled_date",
             getattr(self.instance, "scheduled_date", None),
@@ -266,43 +396,40 @@ class AdminRepaymentSerializer(serializers.ModelSerializer):
         if not investment:
             return attrs
 
-        project = investment.project
-        if project.funded_amount < project.goal_amount:
+        validate_repayment_eligibility(investment, scheduled_date)
+        if self.instance and investment.pk != self.instance.investment_id:
             raise serializers.ValidationError({
-                "investment": (
-                    "Return of Investment payments cannot be scheduled until "
-                    "the project reaches 100% funding."
-                )
+                "investment": "A repayment cannot be moved to another investment."
             })
-
-        milestones = project.milestones.all()
-        if not milestones.exists() or milestones.exclude(
-            status=Milestone.Status.COMPLETED,
-        ).exists():
+        if self.instance and self.instance.status in {
+            Repayment.Status.PAID,
+            Repayment.Status.CANCELLED,
+        }:
             raise serializers.ValidationError({
-                "investment": (
-                    "Return of Investment payments cannot be scheduled until "
-                    "implementation is complete and the project is operating."
-                )
+                "status": "Paid and cancelled repayment records are final."
             })
-
-        completion_dates = list(
-            milestones.values_list("actual_completion_date", flat=True)
+        duplicate = Repayment.objects.filter(
+            investment=investment,
+            scheduled_date=scheduled_date,
         )
-        if any(date is None for date in completion_dates):
+        if self.instance:
+            duplicate = duplicate.exclude(pk=self.instance.pk)
+        if scheduled_date and duplicate.exists():
             raise serializers.ValidationError({
-                "investment": (
-                    "Every implementation milestone must have a completion date "
-                    "before Return of Investment payments can be scheduled."
-                )
+                "scheduled_date": "A repayment already exists for this investment and date."
             })
-
-        operations_start_date = max(completion_dates)
-        if scheduled_date and scheduled_date < operations_start_date:
+        scheduled = Repayment.objects.filter(investment=investment).exclude(
+            status=Repayment.Status.CANCELLED
+        )
+        if self.instance:
+            scheduled = scheduled.exclude(pk=self.instance.pk)
+        scheduled_total = scheduled.aggregate(total=Sum("amount"))["total"] or Decimal("0.00")
+        obligation_total = investment.amount + investment.expected_return
+        if amount and scheduled_total + amount > obligation_total:
             raise serializers.ValidationError({
-                "scheduled_date": (
-                    "The first Return of Investment payment cannot be scheduled "
-                    f"before the project became operational on {operations_start_date}."
+                "amount": (
+                    "Scheduled repayments cannot exceed the investment obligation "
+                    f"of {obligation_total}."
                 )
             })
         return attrs

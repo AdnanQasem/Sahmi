@@ -38,7 +38,7 @@ const ProjectCard = ({ project, successfullyFunded = false }: ProjectCardProps) 
   const statusLabel = projectStatus === "implementation"
     ? t("projects.badges.inImplementation")
     : projectStatus === "completed"
-      ? t("projects.badges.projectCompleted")
+      ? t(project.repaymentStatus === "completed" ? "projects.badges.projectCompleted" : "projects.badges.repayingInvestors")
       : t("projects.badges.fullyFunded");
 
   return (

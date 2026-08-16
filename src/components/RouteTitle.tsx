@@ -24,9 +24,10 @@ const RouteTitle = () => {
     else if (pathname.includes("/notifications")) title = t("notifications.title");
     else if (pathname.includes("/settings")) title = t("settings.title");
     else if (pathname.includes("/funds")) title = t("funds.title");
+    else if (pathname.includes("/dashboard/admin/investments")) title = t("admin.investments");
     else if (pathname.includes("/investments")) title = t("dashboard.myInvestments");
     else if (pathname.includes("/milestones")) title = t("settings.milestones");
-    else if (pathname.includes("/repayments")) title = t("transactions.title");
+    else if (pathname.includes("/repayments")) title = t("repaymentDashboard.title");
     else if (pathname.includes("/analytics")) title = t("dashboard.analytics");
     else if (pathname.includes("/investors")) title = t("dashboard.investors");
     else if (pathname.includes("/dashboard")) title = t("nav.dashboard");

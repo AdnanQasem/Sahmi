@@ -1,30 +1,36 @@
 from django.contrib.auth import authenticate, get_user_model
+from django.contrib.auth.hashers import make_password
 from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth.tokens import default_token_generator
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.utils.encoding import force_str
 from django.utils.http import urlsafe_base64_decode
+from django.utils import timezone
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 User = get_user_model()
 
+from .email_verification import email_verification_token
+from .models import PendingRegistration
+
 
 class UserSerializer(serializers.ModelSerializer):
+    email_verified = serializers.SerializerMethodField()
     class Meta:
         model = User
         fields = [
             "id", "username", "email", "full_name", "phone_number", "user_type",
             "preferred_language",
-            "profile_picture", "bio", "country", "city", "website", "timezone", "is_verified", "is_kyc_verified",
+            "profile_picture", "bio", "country", "city", "website", "timezone", "is_verified", "email_verified", "email_verified_at", "is_kyc_verified",
             "investor_tier", "total_invested", "total_returned", "average_roi",
             "risk_preference", "business_name", "business_registration_number",
             "business_established_date", "business_address", "total_funded",
             "total_repaid", "reputation_score", "is_staff", "date_joined", "last_login",
         ]
         read_only_fields = [
-            "id", "user_type", "is_verified", "is_kyc_verified", "total_invested",
+            "id", "user_type", "is_verified", "email_verified", "email_verified_at", "is_kyc_verified", "total_invested",
             "total_returned", "average_roi", "total_funded", "total_repaid",
             "reputation_score", "is_staff", "date_joined", "last_login",
         ]
@@ -37,6 +43,9 @@ class UserSerializer(serializers.ModelSerializer):
         if duplicate.exists():
             raise serializers.ValidationError("A user with this email already exists.")
         return value
+
+    def get_email_verified(self, obj):
+        return obj.email_verified_at is not None
 
     def validate_timezone(self, value):
         value = value.strip()
@@ -58,6 +67,7 @@ class UserSerializer(serializers.ModelSerializer):
         new_email = validated_data.get("email", old_email)
         if new_email != old_email:
             instance.is_verified = False
+            instance.email_verified_at = None
         updated = super().update(instance, validated_data)
         new_picture_name = updated.profile_picture.name if updated.profile_picture else ""
         if picture_is_changing and old_picture_name and old_picture_name != new_picture_name:
@@ -74,25 +84,20 @@ def build_auth_payload(user, context=None):
     }
 
 
-class RegisterSerializer(serializers.ModelSerializer):
+class RegisterSerializer(serializers.Serializer):
+    username = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    email = serializers.EmailField()
     name = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    full_name = serializers.CharField(required=False, allow_blank=True)
     password = serializers.CharField(write_only=True, validators=[validate_password])
-
-    class Meta:
-        model = User
-        fields = [
-            "id", "username", "email", "name", "full_name", "password", "user_type",
-            "phone_number", "country", "city", "business_name",
-        ]
-        read_only_fields = ["id"]
-        extra_kwargs = {
-            "username": {"required": False, "allow_blank": True},
-            "full_name": {"required": False, "allow_blank": True},
-            "user_type": {"required": False},
-        }
+    user_type = serializers.ChoiceField(choices=User.UserType.choices, default=User.UserType.INVESTOR)
+    phone_number = serializers.CharField(required=False, allow_blank=True)
+    country = serializers.CharField(required=False, allow_blank=True)
+    city = serializers.CharField(required=False, allow_blank=True)
+    business_name = serializers.CharField(required=False, allow_blank=True)
 
     def validate(self, attrs):
-        attrs = super().validate(attrs)
+        attrs.pop("username", None)
         name = attrs.pop("name", "").strip()
         full_name = attrs.get("full_name", "").strip()
         if not full_name and name:
@@ -100,6 +105,12 @@ class RegisterSerializer(serializers.ModelSerializer):
         if not attrs.get("full_name"):
             raise serializers.ValidationError({"full_name": "Full name is required."})
         return attrs
+
+    def validate_email(self, value):
+        value = value.strip().lower()
+        if User.objects.filter(email__iexact=value).exists():
+            raise serializers.ValidationError("A user with this email already exists.")
+        return value
 
     def validate_user_type(self, value):
         public_user_types = {
@@ -113,14 +124,12 @@ class RegisterSerializer(serializers.ModelSerializer):
         return value
 
     def create(self, validated_data):
-        password = validated_data.pop("password")
-        validated_data["email"] = validated_data["email"].strip().lower()
-        if not validated_data.get("username"):
-            validated_data["username"] = validated_data["email"]
-        user = User(**validated_data)
-        user.set_password(password)
-        user.save()
-        return user
+        password = make_password(validated_data.pop("password"))
+        registration, _ = PendingRegistration.objects.update_or_create(
+            email=validated_data["email"],
+            defaults={**validated_data, "password": password},
+        )
+        return registration
 
 
 class PasswordChangeSerializer(serializers.Serializer):
@@ -193,6 +202,60 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
         user.set_password(self.validated_data["new_password"])
         user.save(update_fields=["password"])
         return user
+
+
+class EmailVerificationSerializer(serializers.Serializer):
+    uid = serializers.CharField(write_only=True)
+    token = serializers.CharField(write_only=True)
+
+    def validate(self, attrs):
+        try:
+            registration_id = force_str(urlsafe_base64_decode(attrs["uid"]))
+            registration = PendingRegistration.objects.get(pk=registration_id)
+        except (TypeError, ValueError, OverflowError, UnicodeDecodeError, PendingRegistration.DoesNotExist):
+            raise serializers.ValidationError({"token": "This email confirmation link is invalid or has expired."})
+        if not email_verification_token.check_token(registration, attrs["token"]):
+            raise serializers.ValidationError({"token": "This email confirmation link is invalid or has expired."})
+        attrs["registration"] = registration
+        return attrs
+
+    def save(self, **kwargs):
+        try:
+            registration = PendingRegistration.objects.select_for_update().get(
+                pk=self.validated_data["registration"].pk
+            )
+        except PendingRegistration.DoesNotExist:
+            raise serializers.ValidationError(
+                {"token": "This email confirmation link has already been used."}
+            )
+        if not email_verification_token.check_token(registration, self.validated_data["token"]):
+            raise serializers.ValidationError(
+                {"token": "This email confirmation link is invalid or has expired."}
+            )
+        if User.objects.filter(email__iexact=registration.email).exists():
+            raise serializers.ValidationError({"token": "An account already exists for this email address."})
+        user = User(
+            username=registration.email,
+            email=registration.email,
+            full_name=registration.full_name,
+            password=registration.password,
+            user_type=registration.user_type,
+            phone_number=registration.phone_number,
+            country=registration.country,
+            city=registration.city,
+            business_name=registration.business_name,
+            email_verified_at=timezone.now(),
+        )
+        user.save()
+        registration.delete()
+        return user
+
+
+class EmailVerificationResendSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+    def validate_email(self, value):
+        return value.strip().lower()
 
 
 class EmailTokenObtainPairSerializer(TokenObtainPairSerializer):

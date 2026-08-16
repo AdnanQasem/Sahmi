@@ -18,6 +18,7 @@ import HowItWorksPage from "./pages/HowItWorksPage";
 import LoginPage from "./pages/LoginPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
+import VerifyEmailPage from "./pages/VerifyEmailPage";
 import RegisterPage from "./pages/RegisterPage";
 import EditProject from "./pages/EditProject";
 import NotFound from "./pages/NotFound.tsx";
@@ -31,8 +32,10 @@ import AdminMilestonesPage from "./pages/dashboard/admin/AdminMilestonesPage";
 import FundsPage from "./pages/dashboard/FundsPage";
 import AdminRepaymentsPage from "./pages/dashboard/admin/AdminRepaymentsPage";
 import AdminProjectEditPage from "./pages/dashboard/admin/AdminProjectEditPage";
+import AdminAuditLogsPage from "./pages/dashboard/admin/AdminAuditLogsPage";
 import InvestorDashboard from "./pages/dashboard/InvestorDashboard";
 import InvestorTransactionsPage from "./pages/dashboard/InvestorTransactionsPage";
+import RepaymentsPage from "./pages/dashboard/RepaymentsPage";
 import EntrepreneurDashboard from "./pages/dashboard/EntrepreneurDashboard";
 import EntrepreneurAnalyticsPage from "./pages/dashboard/EntrepreneurAnalyticsPage";
 import SettingsPage from "./pages/dashboard/SettingsPage";
@@ -62,7 +65,6 @@ const App = () => (
             <Route element={<ProtectedRoute requireStaff redirectTo="/dashboard" />}>
               <Route path="/dashboard/admin" element={<AdminDashboard />} />
               <Route path="/dashboard/admin/projects" element={<AdminProjectsPage />} />
-              <Route path="/dashboard/admin/projects/new" element={<AdminProjectEditPage />} />
               <Route path="/dashboard/admin/projects/:projectId/edit" element={<AdminProjectEditPage />} />
               <Route path="/dashboard/admin/categories" element={<AdminCategoriesPage />} />
               <Route path="/dashboard/admin/users" element={<AdminUsersPage />} />
@@ -73,10 +75,12 @@ const App = () => (
               <Route path="/dashboard/admin/messages" element={<MessagesPage />} />
               <Route path="/dashboard/admin/settings" element={<SettingsPage />} />
               <Route path="/dashboard/admin/notifications" element={<NotificationsPage />} />
+              <Route path="/dashboard/admin/logs" element={<AdminAuditLogsPage />} />
             </Route>
             <Route element={<ProtectedRoute allowedUserTypes={["investor", "admin"]} redirectTo="/dashboard" />}>
               <Route path="/dashboard/investor" element={<InvestorDashboard />} />
               <Route path="/dashboard/investor/transactions" element={<InvestorTransactionsPage />} />
+              <Route path="/dashboard/investor/repayments" element={<RepaymentsPage />} />
               <Route path="/dashboard/investor/settings" element={<SettingsPage />} />
               <Route path="/dashboard/investor/messages" element={<MessagesPage />} />
               <Route path="/dashboard/investor/notifications" element={<NotificationsPage />} />
@@ -88,6 +92,7 @@ const App = () => (
               <Route path="/dashboard/entrepreneur/messages" element={<MessagesPage />} />
               <Route path="/dashboard/entrepreneur/investors" element={<InvestorsPage />} />
               <Route path="/dashboard/entrepreneur/funds" element={<FundsPage />} />
+              <Route path="/dashboard/entrepreneur/repayments" element={<RepaymentsPage />} />
               <Route path="/dashboard/entrepreneur/notifications" element={<NotificationsPage />} />
             </Route>
 
@@ -102,7 +107,7 @@ const App = () => (
                       <Route path="/" element={<HomePage />} />
                       <Route path="/projects" element={<BrowseProjects />} />
                       <Route path="/projects/:id" element={<ProjectDetails />} />
-                      <Route element={<ProtectedRoute allowedUserTypes={["entrepreneur", "admin"]} redirectTo="/" />}>
+                      <Route element={<ProtectedRoute allowedUserTypes={["entrepreneur"]} redirectTo="/" />}>
                         <Route path="/start-project" element={<StartProject />} />
                       </Route>
                       <Route element={<ProtectedRoute />}>
@@ -116,6 +121,7 @@ const App = () => (
                       <Route path="/login" element={<LoginPage />} />
                       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
                       <Route path="/reset-password" element={<ResetPasswordPage />} />
+                      <Route path="/verify-email" element={<VerifyEmailPage />} />
                       <Route path="/register" element={<RegisterPage />} />
                       <Route path="*" element={<NotFound />} />
                     </Routes>

@@ -6,6 +6,8 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError
 
+from apps.core.admin_mixins import ApplicationAdminCreateGuardMixin
+
 from apps.notifications.models import Notification
 from apps.notifications.services import notify_on_commit
 from .admin_serializers import (
@@ -41,7 +43,7 @@ class AdminProjectCategoryViewSet(viewsets.ModelViewSet):
             )
 
 
-class AdminProjectViewSet(viewsets.ModelViewSet):
+class AdminProjectViewSet(ApplicationAdminCreateGuardMixin, viewsets.ModelViewSet):
     queryset = (
         Project.objects.select_related("entrepreneur", "category", "verified_by", "funding_account")
         .prefetch_related("images", "supporting_documents", "milestones", "edit_requests")
@@ -86,6 +88,7 @@ class AdminProjectViewSet(viewsets.ModelViewSet):
         "rating",
     ]
     ordering = ["-created_at"]
+    creation_denied_message = "Application administrators cannot create projects."
 
     @action(detail=True, methods=["post"])
     def verify(self, request, pk=None):
@@ -165,6 +168,22 @@ class AdminProjectViewSet(viewsets.ModelViewSet):
                 target_type="project",
                 target_id=str(project.id),
             )
+        return Response(self.get_serializer(project).data)
+
+    @action(detail=True, methods=["post"], url_path="finalize-completion")
+    def finalize_completion(self, request, pk=None):
+        from apps.investments.services import finalize_project_completion
+
+        project = self.get_object()
+        try:
+            project = finalize_project_completion(
+                project.pk,
+                request.user,
+                request.data.get("handover_notes", ""),
+                request=request,
+            )
+        except ValueError as exc:
+            raise ValidationError({"project": str(exc)}) from exc
         return Response(self.get_serializer(project).data)
 
     def _pending_edit(self, project):
@@ -289,7 +308,7 @@ class AdminProjectViewSet(viewsets.ModelViewSet):
         return Response(self.get_serializer(project).data)
 
 
-class AdminProjectImageViewSet(viewsets.ModelViewSet):
+class AdminProjectImageViewSet(ApplicationAdminCreateGuardMixin, viewsets.ModelViewSet):
     queryset = ProjectImage.objects.select_related("project")
     serializer_class = AdminProjectImageSerializer
     permission_classes = [permissions.IsAdminUser]
@@ -299,7 +318,7 @@ class AdminProjectImageViewSet(viewsets.ModelViewSet):
     ordering = ["-created_at"]
 
 
-class AdminProjectDocumentViewSet(viewsets.ModelViewSet):
+class AdminProjectDocumentViewSet(ApplicationAdminCreateGuardMixin, viewsets.ModelViewSet):
     queryset = ProjectDocument.objects.select_related("project")
     serializer_class = AdminProjectDocumentSerializer
     permission_classes = [permissions.IsAdminUser]

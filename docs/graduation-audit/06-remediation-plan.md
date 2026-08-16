@@ -1,4 +1,4 @@
-# Sahmi Security and Financial-Integrity Remediation Plan
+﻿# Sahmi Security and Financial-Integrity Remediation Plan
 
 **Verification date:** 25 July 2026  
 **Verified against:** local working tree on `feature/backend-messaging-security-hardening`, commit `7a6cb1e57eb76c6fecfde015a1097c41ac69f6d3`  
@@ -246,11 +246,11 @@ Severity is based on confidentiality, integrity, exploitability, and whether an 
 
 **Repository evidence.** `backend/apps/investments/models.py:15-31` stores the fields; `backend/apps/investments/views.py:111-153` confirms an investment with a staff request; `backend/apps/investments/admin_views.py:38-71` permits staff status changes. No provider integration module or webhook endpoint was found in the inspected backend routes/services.
 
-**Risk and possible exploitation.** This is not evidence of a broken provider integration; none exists. If this prototype is presented or operated as receiving real funds, staff can mark an unverified record confirmed and totals/notifications/SSE change without evidence of payment. That is a high financial-integrity and product-claims risk.
+**Risk and possible exploitation.** This is not evidence of a broken provider integration; none exists. If this platform is presented or operated as receiving real funds, staff can mark an unverified record confirmed and totals/notifications/SSE change without evidence of payment. That is a high financial-integrity and product-claims risk.
 
 **Required changes.**
 
-- Immediate: label the feature as an internal prototype record workflow in UI/documentation and prohibit production payment claims until a provider and reconciliation design are approved.
+- Immediate: label the feature as an internal platform record workflow in UI/documentation and prohibit production payment claims until a provider and reconciliation design are approved.
 - Future backend: use provider-created payment intents/orders, signed webhook verification, idempotency keys, server-side amount/currency verification, settlement/reversal handling, and a reconciliation job. Confirmation must be driven by verified provider events, not a free-form status update.
 - Future frontend: invoke only the approved provider flow and never accept raw card data unless the chosen compliant provider explicitly permits it.
 - Database: future provider work requires a migration for provider reference, immutable payment event/ledger records, currency, idempotency key, provider status, webhook event uniqueness, reconciliation timestamps, and reversal/refund links. Do not invent a provider before `[TEAM CONFIRMATION REQUIRED]`.
@@ -390,7 +390,7 @@ The commits below are intentionally narrow. Do not combine schema, authorization
 - `[TEAM CONFIRMATION REQUIRED]` Who may see an investor’s identity and payment metadata: staff, project owner, participating investor, or nobody outside staff.
 - `[TEAM CONFIRMATION REQUIRED]` Whether the public project page needs real-time updates or can use polling; public aggregate-only SSE is the safest minimum.
 - `[TEAM CONFIRMATION REQUIRED]` Storage provider, scanning/quarantine service, private-download policy, retention/deletion policy, and migration approach for existing KYC/project documents.
-- `[TEAM CONFIRMATION REQUIRED]` Whether Sahmi will process real money. If yes, provider/compliance/legal/accounting scope must be approved before development; if no, UI and documentation must continue to state that confirmation is a prototype workflow rather than settlement.
+- `[TEAM CONFIRMATION REQUIRED]` Whether Sahmi will process real money. If yes, provider/compliance/legal/accounting scope must be approved before development; if no, UI and documentation must continue to state that confirmation is a platform workflow rather than settlement.
 - `[TEAM CONFIRMATION REQUIRED]` Trusted reverse proxy, shared cache, production domains, secret-management process, and audit retention/monitoring owner.
 
 ## 5. Readiness gate

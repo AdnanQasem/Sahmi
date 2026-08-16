@@ -1,4 +1,9 @@
+from decimal import Decimal
+from pathlib import Path
+from uuid import uuid4
+
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
 
@@ -42,10 +47,15 @@ class Investment(UUIDTimestampModel):
         ]
 
     def save(self, *args, **kwargs):
+        if self.investor_id and self.investor.user_type != "investor":
+            raise ValidationError(
+                {"investor": "Only investor accounts can own investments."}
+            )
         if self.status == self.Status.PENDING and not self.pending_expires_at:
             self.pending_expires_at = timezone.now() + timezone.timedelta(hours=24)
         if self.project_id and self.amount and not self.expected_return:
-            self.expected_return = self.amount * (self.project.expected_roi / 100)
+            roi = Decimal(str(self.project.expected_roi or 0))
+            self.expected_return = self.amount * (roi / Decimal("100"))
         super().save(*args, **kwargs)
 
 
@@ -96,7 +106,7 @@ class WithdrawalRequest(UUIDTimestampModel):
     reviewed_at = models.DateTimeField(blank=True, null=True)
     released_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, blank=True, null=True, related_name="released_withdrawals")
     released_at = models.DateTimeField(blank=True, null=True)
-    simulated_transaction_id = models.CharField(max_length=120, blank=True)
+    payout_reference = models.CharField(max_length=120, blank=True)
 
     class Meta:
         ordering = ["-created_at"]
@@ -162,13 +172,28 @@ class Milestone(UUIDTimestampModel):
         ordering = ["project", "order"]
         indexes = [models.Index(fields=["project", "status"])]
 
+    def save(self, *args, **kwargs):
+        if self.status == self.Status.IN_PROGRESS and self.project_id:
+            funding = Project.objects.filter(pk=self.project_id).values(
+                "funded_amount", "goal_amount"
+            ).first()
+            if funding and funding["funded_amount"] < funding["goal_amount"]:
+                raise ValidationError({
+                    "status": (
+                        "A milestone cannot be in progress until the project "
+                        "is completely funded."
+                    )
+                })
+        super().save(*args, **kwargs)
+
 
 class Repayment(UUIDTimestampModel):
     class Status(models.TextChoices):
         PENDING = "pending", "Pending"
+        DUE = "due", "Due"
         PAID = "paid", "Paid"
         OVERDUE = "overdue", "Overdue"
-        CANCELED = "canceled", "Canceled"
+        CANCELLED = "cancelled", "Cancelled"
 
     investment = models.ForeignKey(Investment, on_delete=models.CASCADE, related_name="repayments")
     amount = models.DecimalField(max_digits=12, decimal_places=2)
@@ -182,3 +207,94 @@ class Repayment(UUIDTimestampModel):
     class Meta:
         ordering = ["scheduled_date"]
         indexes = [models.Index(fields=["investment", "scheduled_date", "status"])]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(amount__gt=0),
+                name="repayment_amount_positive",
+            ),
+            models.UniqueConstraint(
+                fields=["investment", "scheduled_date"],
+                name="unique_repayment_installment_date",
+            ),
+            models.UniqueConstraint(
+                fields=["transaction_id"],
+                condition=~models.Q(transaction_id=""),
+                name="unique_repayment_transaction_id",
+            ),
+        ]
+
+
+def repayment_receipt_upload_path(instance, filename):
+    extension = Path(filename).suffix.lower()
+    return f"repayment-receipts/{instance.repayment_id}/{uuid4().hex}{extension}"
+
+
+class RepaymentTransfer(UUIDTimestampModel):
+    """Evidence and reconciliation state for both legs of a repayment.
+
+    The inbound leg is the entrepreneur's deposit into the designated
+    safeguarded account. The outbound leg is the payout from that account to
+    the investor. A repayment is not paid until the outbound leg is recorded.
+    """
+
+    class Status(models.TextChoices):
+        SUBMITTED = "submitted", "Submitted"
+        UNDER_REVIEW = "under_review", "Under review"
+        VERIFIED = "verified", "Inbound transfer verified"
+        REJECTED = "rejected", "Rejected"
+        DISBURSED = "disbursed", "Disbursed to investor"
+
+    repayment = models.OneToOneField(
+        Repayment,
+        on_delete=models.PROTECT,
+        related_name="funding_transfer",
+    )
+    submitted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="submitted_repayment_transfers",
+    )
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    currency = models.CharField(max_length=3, default="USD")
+    inbound_reference = models.CharField(max_length=120, unique=True)
+    inbound_transfer_date = models.DateField()
+    receipt = models.FileField(upload_to=repayment_receipt_upload_path)
+    source_of_funds_declaration = models.TextField()
+    agreement_version = models.CharField(max_length=40, default="repayment-funding-v1")
+    agreement_accepted_at = models.DateTimeField()
+    status = models.CharField(
+        max_length=24,
+        choices=Status.choices,
+        default=Status.SUBMITTED,
+    )
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="reviewed_repayment_transfers",
+    )
+    reviewed_at = models.DateTimeField(blank=True, null=True)
+    review_notes = models.TextField(blank=True)
+    outbound_reference = models.CharField(max_length=120, blank=True, unique=True, null=True)
+    disbursed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="disbursed_repayment_transfers",
+    )
+    disbursed_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["status", "created_at"]),
+            models.Index(fields=["submitted_by", "created_at"]),
+        ]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(amount__gt=0),
+                name="repayment_transfer_amount_positive",
+            ),
+        ]

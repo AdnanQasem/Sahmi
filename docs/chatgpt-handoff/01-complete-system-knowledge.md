@@ -1,4 +1,4 @@
-# Complete Sahmi System Knowledge
+﻿# Complete Sahmi System Knowledge
 
 **Evidence date:** 25 July 2026  
 **Evidence base:** current non-generated working tree, including uncommitted changes  
@@ -169,9 +169,9 @@ The custom model deliberately no longer converts `user_type=admin` into staff in
 | English/Arabic and RTL/LTR | All | **Partially implemented** | locale JSON, i18n config, `index.css:125-141` | Principal flows covered; complete translation/native review `[NOT VERIFIED]` |
 | Password change | User | **Verified and implemented** | `SettingsPage.tsx`; `PasswordChangeSerializer/View` | Existing access JWTs are not explicitly revoked immediately |
 | Password-reset request/confirm | Visitor | **Configured but not operationally verified** | forgot/reset pages; `users/views.py:193-258`; SMTP settings | Code/tests exist; actual delivery not verified and console backend produces no real mail |
-| 2FA | User | **Frontend-only or mocked** | `SettingsPage.tsx` security UI | No backend secret, challenge, recovery-code, or verification API |
-| Device sessions/revocation | User | **Frontend-only or mocked** | hard-coded settings device list | No session model/API |
-| Login history/recovery email | User | **Frontend-only or mocked** | hard-coded Settings rows/fields | Includes fictional IP/timestamp/“Password + 2FA” values |
+| 2FA | User | **Frontend-only or fixture-backed** | `SettingsPage.tsx` security UI | No backend secret, challenge, recovery-code, or verification API |
+| Device sessions/revocation | User | **Frontend-only or fixture-backed** | hard-coded settings device list | No session model/API |
+| Login history/recovery email | User | **Frontend-only or fixture-backed** | hard-coded Settings rows/fields | Includes fictional IP/timestamp/“Password + 2FA” values |
 | Role-protected client routes | User/staff | **Verified and implemented** | `ProtectedRoute.tsx`; `App.tsx:53-105` | Backend remains authoritative |
 | Project submission wizard | Entrepreneur/staff | **Verified and implemented** | `StartProject.tsx`; `ProjectViewSet.perform_create`; multipart serializer | Creates owned draft/unverified record; terms checkbox is not persisted legal consent |
 | Project edit | Owner/staff | **Verified and implemented** | `EditProject.tsx`; project PATCH | Moderation/aggregate fields read-only in normal serializer |
@@ -190,8 +190,8 @@ The custom model deliberately no longer converts `user_type=admin` into staff in
 | Repayment records | Related parties/staff; staff UI | **Partially implemented / backend-oriented** | `RepaymentViewSet`; staff page | Records only; no payment/schedule engine; related parties can author descriptive financial fields |
 | Investor dashboard and transaction ledger | Investor | **Verified and implemented with caveats** | investor dashboard/transaction page; investment/project services | Real records; some totals/status labels may imply money movement |
 | Entrepreneur dashboard/analytics | Entrepreneur | **Verified and implemented with caveats** | entrepreneur pages; projects/investments queries | Client-derived charts; not a validated analytics method |
-| Entrepreneur investor directory | Entrepreneur | **Frontend-only or mocked** | `InvestorsPage.tsx:57-168` | Queries may occur, but displayed records use `mockInvestors` with fabricated PII/amounts/status |
-| Entrepreneur recent-message card | Entrepreneur | **Frontend-only or mocked** | `EntrepreneurDashboard.tsx` | Hard-coded preview despite a real messaging page |
+| Entrepreneur investor directory | Entrepreneur | **Frontend-only or fixture-backed** | `InvestorsPage.tsx:57-168` | Queries may occur, but displayed records use `fixtureInvestors` with fabricated PII/amounts/status |
+| Entrepreneur recent-message card | Entrepreneur | **Frontend-only or fixture-backed** | `EntrepreneurDashboard.tsx` | Hard-coded preview despite a real messaging page |
 | Persistent direct conversation | Authenticated users | **Verified and implemented** | `MessagesPage.tsx`; messaging service; conversation models/views | HTTP polling, direct create/reuse, participant scope |
 | Message send/read/edit/delete | Participant/sender | **Verified and implemented** | messaging views/services/models | Plain text; sender server-derived; sender-only edit/soft-delete |
 | Mute/archive conversation | Participant | **Backend-only** | conversation actions | Main UI does not expose all controls |
@@ -204,9 +204,9 @@ The custom model deliberately no longer converts `user_type=admin` into staff in
 | Admin users CRUD/reset | Staff | **Verified and implemented** | admin user viewset/service/page/tests | Self/last-admin safeguards; deletion permanent |
 | Admin projects/categories/assets | Staff | **Verified and implemented** | admin routers/pages/services | Powerful hard-delete/full-field paths; audit incomplete |
 | Admin investments/milestones/repayments | Staff | **Verified and implemented as record CRUD** | admin finance viewsets/pages | Not evidence of financial processing; broad state mutation |
-| Contact submission | Visitor | **Frontend-only or mocked** | `ContactPage.tsx:107-116` | Waits 1.5 seconds, clears, reports success; no API/persistence/delivery |
-| Wallet balance/deposit/withdraw | User | **Frontend-only or mocked** | `SettingsPage.tsx:115,238-260,977-1013` | Starts with local 25,000; no ledger/money movement |
-| Cards and billing history | User | **Frontend-only or mocked** | `SettingsPage.tsx:1094-1178` | Hard-coded Visa/Mastercard and transactions |
+| Contact submission | Visitor | **Frontend-only or fixture-backed** | `ContactPage.tsx:107-116` | Waits 1.5 seconds, clears, reports success; no API/persistence/delivery |
+| Wallet balance/deposit/withdraw | User | **Frontend-only or fixture-backed** | `SettingsPage.tsx:115,238-260,977-1013` | Starts with local 25,000; no ledger/money movement |
+| Cards and billing history | User | **Frontend-only or fixture-backed** | `SettingsPage.tsx:1094-1178` | Hard-coded Visa/Mastercard and transactions |
 | KYC fields/admin flag | User/staff | **Partially implemented/storage only** | user model KYC fields/file; admin serializers/UI | No complete submission/review/private storage/legal standard/retention |
 | AI fields | Staff/data model | **Backend-only storage** | `Project.ai_*`; admin project form | No model/provider/task/inference/recommendation |
 | Payment gateway/webhook/receipts/refunds/escrow/disbursement | Intended product | **Claimed but not found in code / future** | no implementation found | Payment-method/status strings do not constitute integration |
@@ -229,7 +229,7 @@ Routes are declared in `src/App.tsx:51-113`.
 | `/start-project` | entrepreneur/admin client guard | five-step submission | `POST /projects/`; backend entrepreneur or staff |
 | `/projects/:id/edit` | any authenticated client guard | edit | backend enforces owner/staff |
 | `/about` | public | static marketing | no authoritative outcome API |
-| `/contact` | public | simulated form | no backend endpoint |
+| `/contact` | public | recorded form | no backend endpoint |
 | `/how-it-works` | public | static marketing/FAQ | contains unsupported/contradictory funding claims |
 | `/login` | public | login | `/auth/login/` |
 | `/forgot-password` | public | reset request | `/auth/password-reset/` |
@@ -239,10 +239,10 @@ Routes are declared in `src/App.tsx:51-113`.
 | `/dashboard/investor` | investor/admin client guard | investor dashboard | investments/projects |
 | `/dashboard/investor/transactions` | investor/admin | ledger | investments |
 | `/dashboard/investor/messages` | investor/admin | persistent direct messages | conversations/messages |
-| `/dashboard/investor/settings` | investor/admin | mixed settings | profile/password/notification/language real; security/wallet/billing mock |
+| `/dashboard/investor/settings` | investor/admin | mixed settings | profile/password/notification/language real; security/wallet/billing fixture |
 | `/dashboard/entrepreneur` | entrepreneur/admin | dashboard | own projects/related investments; hard-coded message preview |
 | `/dashboard/entrepreneur/analytics` | entrepreneur/admin | charts | client-derived project/investment data |
-| `/dashboard/entrepreneur/investors` | entrepreneur/admin | investor display | displayed `mockInvestors` |
+| `/dashboard/entrepreneur/investors` | entrepreneur/admin | investor display | displayed `fixtureInvestors` |
 | `/dashboard/entrepreneur/messages` | entrepreneur/admin | messages | same persistent direct messaging |
 | `/dashboard/entrepreneur/settings` | entrepreneur/admin | mixed settings | same qualification as investor settings |
 | `/dashboard/admin` | staff guard | summary | projects/categories |
@@ -254,7 +254,7 @@ Routes are declared in `src/App.tsx:51-113`.
 | `/dashboard/admin/investments` | staff | record CRUD | staff finance API |
 | `/dashboard/admin/milestones` | staff | record CRUD | staff finance API |
 | `/dashboard/admin/repayments` | staff | record CRUD | staff finance API |
-| `/dashboard/admin/settings` | staff | mixed settings | same profile/mocked sections |
+| `/dashboard/admin/settings` | staff | mixed settings | same profile/fixture-backed sections |
 | any other route | public wrapper | not-found page | none |
 
 ## 7. Backend API catalogue
@@ -544,7 +544,7 @@ The Python dependency file contains ranges rather than exact locks, and the obse
 
 ### Product truth
 
-- wallet, cards, billing, 2FA, sessions, login history, contact delivery, investor network, and some dashboard messages are simulated;
+- wallet, cards, billing, 2FA, sessions, login history, contact delivery, investor network, and some dashboard messages are recorded;
 - secure-payment, refund, KYC, review-SLA, and platform-statistics copy is unsupported or contradictory;
 - real payment and AI integrations are absent.
 

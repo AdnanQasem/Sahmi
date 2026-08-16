@@ -10,6 +10,7 @@ from apps.messaging.services import (
     create_project_conversation,
     get_or_create_direct_conversation,
 )
+from apps.messaging.validators import validate_message_attachment
 
 
 class MinimalUserSerializer(serializers.ModelSerializer):
@@ -79,7 +80,8 @@ class ConversationSerializer(serializers.ModelSerializer):
         return {
             "id": str(last.id),
             "sender_id": str(last.sender_id),
-            "preview": last.body[:200],
+            "preview": last.body[:200] or last.attachment_name,
+            "has_attachment": bool(last.attachment),
             "created_at": last.created_at.isoformat() if last.created_at else None,
         }
 
@@ -156,6 +158,7 @@ class MessageSerializer(serializers.ModelSerializer):
     )
     is_deleted = serializers.BooleanField(read_only=True)
     can_edit = serializers.SerializerMethodField()
+    attachment = serializers.SerializerMethodField()
 
     class Meta:
         model = Message
@@ -165,6 +168,7 @@ class MessageSerializer(serializers.ModelSerializer):
             "sender",
             "sender_id",
             "body",
+            "attachment",
             "is_deleted",
             "edited_at",
             "created_at",
@@ -184,6 +188,19 @@ class MessageSerializer(serializers.ModelSerializer):
 
     def get_body(self, obj):
         return "" if obj.is_deleted else obj.body
+
+    def get_attachment(self, obj):
+        if obj.is_deleted or not obj.attachment:
+            return None
+        request = self.context.get("request")
+        path = f"/api/v1/messages/{obj.pk}/attachment/"
+        return {
+            "name": obj.attachment_name,
+            "content_type": obj.attachment_content_type,
+            "size": obj.attachment_size,
+            "url": request.build_absolute_uri(path) if request else path,
+            "is_image": obj.attachment_content_type.startswith("image/"),
+        }
 
     def get_can_edit(self, obj):
         request = self.context.get("request")
@@ -209,17 +226,23 @@ class CreateMessageSerializer(serializers.Serializer):
     body = serializers.CharField(
         max_length=MAX_MESSAGE_LENGTH,
         trim_whitespace=True,
+        required=False,
+        allow_blank=True,
     )
+    attachment = serializers.FileField(required=False, allow_null=True, validators=[validate_message_attachment])
 
     def validate_body(self, value):
         body = (value or "").strip()
-        if not body:
-            raise serializers.ValidationError("Message body is empty.")
         if len(body) > MAX_MESSAGE_LENGTH:
             raise serializers.ValidationError(
                 f"Message body exceeds {MAX_MESSAGE_LENGTH} characters."
             )
         return body
+
+    def validate(self, attrs):
+        if not attrs.get("body") and not attrs.get("attachment"):
+            raise serializers.ValidationError("Add a message or an attachment.")
+        return attrs
 
 
 class UpdateMessageSerializer(serializers.Serializer):

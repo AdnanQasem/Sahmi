@@ -1,4 +1,4 @@
-# Sahmi: A Bilingual Role-Oriented Project Funding-Record and Communication Prototype
+﻿# Sahmi: A Bilingual Role-Oriented Project Funding-Record and Communication Platform
 
 ## Front matter
 
@@ -7,7 +7,7 @@
 **University of Palestine** `[TEAM CONFIRMATION REQUIRED]`  
 **Software Engineering and Artificial Intelligence / Software Engineering** `[TEAM CONFIRMATION REQUIRED]`
 
-**Sahmi: A Bilingual Role-Oriented Project Funding-Record and Communication Prototype**
+**Sahmi: A Bilingual Role-Oriented Project Funding-Record and Communication Platform**
 
 A graduation project submitted in partial fulfilment of the requirements for the degree/program `[TEAM CONFIRMATION REQUIRED]`.
 
@@ -43,13 +43,13 @@ All names, spellings, student identifiers, order and contribution statements are
 
 ### English abstract
 
-Sahmi is a development-stage bilingual web prototype intended to organize the presentation, moderation, and tracking of entrepreneurial project funding records. The project investigates how a role-oriented information system can support public project discovery, entrepreneur project submission, staff review, internal investment records, user dashboards, direct messaging, and in-app notifications while making its implementation and limitations traceable to source code.
+Sahmi is a development-stage bilingual web platform intended to organize the presentation, moderation, and tracking of entrepreneurial project funding records. The project investigates how a role-oriented information system can support public project discovery, entrepreneur project submission, staff review, internal investment records, user dashboards, direct messaging, and in-app notifications while making its implementation and limitations traceable to source code.
 
-The study uses a four-phase Research and Development methodology: Information Gathering, Prototype Design, Prototype Development, and Evaluation. Information gathering in the current evidence package consists of analysis of the project documents, methodology references, and software repository; stakeholder interviews or surveys were not verified. Prototype design covers user roles, requirements, routes, API boundaries, domain entities, and security rules. Prototype development uses a React and TypeScript frontend with a Django REST Framework backend. Agile iteration may describe activity within this development phase, but available repository evidence does not independently verify the proposed sprint history. Evaluation combines a repository audit, requirements traceability, security review, source-test inspection, and safe frontend execution.
+The study uses a four-phase Research and Development methodology: Information Gathering, Platform Design, Platform Development, and Evaluation. Information gathering in the current evidence package consists of analysis of the project documents, methodology references, and software repository; stakeholder interviews or surveys were not verified. Platform design covers user roles, requirements, routes, API boundaries, domain entities, and security rules. Platform development uses a React and TypeScript frontend with a Django REST Framework backend. Agile iteration may describe activity within this development phase, but available repository evidence does not independently verify the proposed sprint history. Evaluation combines a repository audit, requirements traceability, security review, source-test inspection, and safe frontend execution.
 
-The repository implements English/Arabic interfaces; JWT account flows; public active and verified project discovery; entrepreneur project management; staff administration and moderation; pending and confirmed internal investment states; confirmed-total synchronization; milestone and repayment records; persistent direct messaging; in-app notifications and preferences; password reset code; partial audit logging; and Redis-based confirmed-investment events. In the audited working tree, 24 frontend tests across 11 files passed and TypeScript checking passed. Backend tests were inspected but not executed because the audit prohibited migrations.
+The repository implements English/Arabic interfaces; JWT account flows; public active and verified project discovery; entrepreneur project management; staff administration and moderation; pending and confirmed internal investment states; confirmed-total synchronization; milestone evidence/revision; server-authoritative repayment schedules and totals; persistent direct messaging; in-app notifications and preferences; password reset; partial audit logging; and Redis/Celery-supported status updates. On 16 August 2026, the complete Django suite passed 132 of 132 tests and the frontend suite passed 82 of 82 tests across 36 files; the production frontend build, funding-integrity audit and migration-drift check also passed.
 
-Sahmi does not implement provider-verified payment, refunds, escrow, disbursement, a complete KYC process, AI execution, operational email notifications, or a verified production deployment. Privacy, investment-integrity, upload-security, test, and operational gaps remain. The result is therefore a substantial academic prototype and traceable engineering baseline, not a production financial service.
+Sahmi does not implement provider-verified payment, refunds, escrow, disbursement, a complete KYC process, AI execution, operational email notifications, or a verified production deployment. Privacy, investment-integrity, upload-security, test, and operational gaps remain. The result is therefore a substantial academic platform and traceable engineering baseline, not a production financial service.
 
 **Keywords:** Research and Development; bilingual information system; project funding records; role-based access control; React; Django REST Framework; repository audit.
 
@@ -57,13 +57,13 @@ Sahmi does not implement provider-verified payment, refunds, escrow, disbursemen
 
 `[ARABIC LANGUAGE AND SUPERVISOR REVIEW REQUIRED]`
 
-سهمي هو نموذج أولي ثنائي اللغة في مرحلة التطوير، يهدف إلى تنظيم عرض مشاريع ريادة الأعمال ومراجعتها وتتبع سجلات التمويل المرتبطة بها. يبحث المشروع في كيفية دعم نظام معلومات قائم على الأدوار لاكتشاف المشاريع بصورة عامة، وتقديم المشاريع من قبل رواد الأعمال، ومراجعتها من قبل الإدارة، وتسجيل طلبات الاستثمار الداخلية، وعرض لوحات المعلومات، وتوفير المراسلة المباشرة والإشعارات داخل النظام، مع ربط الادعاءات المتعلقة بالتنفيذ بأدلة واضحة من الشيفرة المصدرية.
+سهمي هو منصة ثنائي اللغة في مرحلة التطوير، يهدف إلى تنظيم عرض مشاريع ريادة الأعمال ومراجعتها وتتبع سجلات التمويل المرتبطة بها. يبحث المشروع في كيفية دعم نظام معلومات قائم على الأدوار لاكتشاف المشاريع بصورة عامة، وتقديم المشاريع من قبل رواد الأعمال، ومراجعتها من قبل الإدارة، وتسجيل طلبات الاستثمار الداخلية، وعرض لوحات المعلومات، وتوفير المراسلة المباشرة والإشعارات داخل النظام، مع ربط الادعاءات المتعلقة بالتنفيذ بأدلة واضحة من الشيفرة المصدرية.
 
-تعتمد الدراسة منهجية البحث والتطوير من خلال أربع مراحل: جمع المعلومات، وتصميم النموذج الأولي، وتطوير النموذج الأولي، والتقييم. يقتصر جمع المعلومات المثبت في حزمة الأدلة الحالية على تحليل وثائق المشروع ومراجع المنهجية ومستودع البرمجيات؛ ولم يتم التحقق من إجراء مقابلات أو استبيانات مع أصحاب المصلحة. يشمل التصميم تحديد المستخدمين والمتطلبات والمسارات وواجهات البرمجة والكيانات وقواعد الحماية. نُفّذت الواجهة باستخدام React وTypeScript، بينما نُفّذت الواجهة الخلفية باستخدام Django REST Framework. ويمكن استخدام التطوير الرشيق داخل مرحلة التطوير، إلا أن سجل الدورات المقترح يحتاج إلى تأكيد من الفريق.
+تعتمد الدراسة منهجية البحث والتطوير من خلال أربع مراحل: جمع المعلومات، وتصميم المنصة، وتطوير المنصة، والتقييم. يقتصر جمع المعلومات المثبت في حزمة الأدلة الحالية على تحليل وثائق المشروع ومراجع المنهجية ومستودع البرمجيات؛ ولم يتم التحقق من إجراء مقابلات أو استبيانات مع أصحاب المصلحة. يشمل التصميم تحديد المستخدمين والمتطلبات والمسارات وواجهات البرمجة والكيانات وقواعد الحماية. نُفّذت الواجهة باستخدام React وTypeScript، بينما نُفّذت الواجهة الخلفية باستخدام Django REST Framework. ويمكن استخدام التطوير الرشيق داخل مرحلة التطوير، إلا أن سجل الدورات المقترح يحتاج إلى تأكيد من الفريق.
 
-ينفّذ المستودع واجهتين باللغتين الإنجليزية والعربية، والمصادقة باستخدام JWT، وعرض المشاريع النشطة والمتحقق منها، وإدارة المشاريع ومراجعتها، وسجلات الاستثمار الداخلية، وتحديث إجماليات التمويل المؤكدة، وسجلات المراحل والسداد، والمراسلة الدائمة، والإشعارات داخل النظام، واستعادة كلمة المرور، وسجل تدقيق جزئي، وتحديثات مرتبطة بـ Redis. نجح في بيئة التدقيق 24 اختباراً للواجهة الأمامية، كما نجح فحص TypeScript. لم تُشغّل اختبارات الواجهة الخلفية لأن قواعد التدقيق منعت تشغيل عمليات الترحيل.
+ينفّذ المستودع واجهتين باللغتين الإنجليزية والعربية، والمصادقة باستخدام JWT، وعرض المشاريع النشطة والمتحقق منها، وإدارة المشاريع ومراجعتها، وسجلات الاستثمار الداخلية، وتحديث إجماليات التمويل المؤكدة، وإثبات إنجاز المراحل ومراجعتها، وجداول السداد وإجمالياتها المحسوبة في الخادم، والمراسلة الدائمة، والإشعارات داخل النظام، واستعادة كلمة المرور، وسجل تدقيق جزئي، وتحديثات مرتبطة بـ Redis وCelery. في 16 أغسطس 2026 نجحت جميع اختبارات Django وعددها 132، ونجحت جميع اختبارات الواجهة الأمامية وعددها 82 ضمن 36 ملف اختبار، كما نجح بناء الواجهة الإنتاجي وفحص سلامة سجلات التمويل وفحص توافق النماذج مع عمليات الترحيل.
 
-لا يوفّر سهمي معالجة دفع مؤكدة من مزود خارجي، أو استرداداً أو ضماناً أو تحويلاً للأموال، أو إجراءً متكاملاً للتحقق من الهوية، أو تنفيذاً فعلياً للذكاء الاصطناعي، أو نشراً إنتاجياً موثقاً. ولذلك فإن النتيجة نموذج أولي أكاديمي وقاعدة هندسية قابلة للتتبع، وليست خدمة مالية جاهزة للإنتاج.
+لا يوفّر سهمي معالجة دفع مؤكدة من مزود خارجي، أو استرداداً أو ضماناً أو تحويلاً للأموال، أو إجراءً متكاملاً للتحقق من الهوية، أو تنفيذاً فعلياً للذكاء الاصطناعي، أو نشراً إنتاجياً موثقاً. ولذلك فإن النتيجة منصة أكاديمي وقاعدة هندسية قابلة للتتبع، وليست خدمة مالية جاهزة للإنتاج.
 
 ### Contents and lists
 
@@ -84,28 +84,28 @@ Suggested abbreviations: API, CI/CD, CORS, CSRF, DRF, ERD, HSTS, JWT, KYC, NFR, 
 
 Digital platforms can organize project presentation, communication, and transaction-related records. Whether such a platform improves trust, access, or economic outcomes is an empirical question and requires appropriate literature and evaluation `[SOURCE REQUIRED]`. This report therefore avoids treating those expected benefits as established outcomes.
 
-The Sahmi team proposes a localized platform through which entrepreneurs may present projects and users may record an intention to support or invest. The repository implements a web prototype around this idea. Because the current software does not contact a payment provider or move money, the academically accurate term in this report is **internal investment record**. “Payment,” “funding,” and “return” refer to stored project-domain fields unless external settlement evidence is explicitly identified.
+The Sahmi team proposes a localized platform through which entrepreneurs may present projects and users may record an intention to support or invest. The repository implements a web platform around this idea. Because the current software does not contact a payment provider or move money, the academically accurate term in this report is **internal investment record**. “Payment,” “funding,” and “return” refer to stored project-domain fields unless external settlement evidence is explicitly identified.
 
-Sahmi's current engineering contribution is the integration of a bilingual browser interface, a REST API, persistent domain models, role-oriented pages, and selected security controls. The report evaluates what the prototype actually implements and which trust boundaries remain incomplete.
+Sahmi's current engineering contribution is the integration of a bilingual browser interface, a REST API, persistent domain models, role-oriented pages, and selected security controls. The report evaluates what the platform actually implements and which trust boundaries remain incomplete.
 
 ## 1.2 Motivation
 
 The project is motivated by the team's stated intention to provide a structured experience for Palestinian entrepreneurial projects. Empirical claims about the scale of unmet financing, adoption of informal transfers, regional provider availability, or stakeholder demand require verified academic, regulator, or official-provider sources `[SOURCE REQUIRED]`.
 
-At the engineering level, the motivation is evidence-based: a prototype must distinguish public and private project data, restrict administrative actions, maintain consistent totals, protect messages, disclose simulated behavior, and avoid representing database status as real payment. These needs can be examined directly through the repository.
+At the engineering level, the motivation is evidence-based: a platform must distinguish public and private project data, restrict administrative actions, maintain consistent totals, protect messages, disclose recorded behavior, and avoid representing database status as real payment. These needs can be examined directly through the repository.
 
 ## 1.3 Problem statement
 
 The research and development problem is:
 
-> How can a bilingual, role-oriented web prototype organize project discovery, project submission and review, internal investment records, communication, and traceability while exposing—rather than concealing—the limits of its security, testing, and operational readiness?
+> How can a bilingual, role-oriented web platform organize project discovery, project submission and review, internal investment records, communication, and traceability while exposing—rather than concealing—the limits of its security, testing, and operational readiness?
 
 This formulation does not assume that Sahmi has solved a regional market problem or produced economic impact. It focuses on design, implementation, and technical evaluation that the available evidence can support.
 
 ## 1.4 Research questions
 
-- **RQ-01:** What repository-verifiable requirements and architecture support a bilingual, role-oriented project funding-record prototype?
-- **RQ-02:** To what extent does the current Sahmi prototype implement project discovery, submission, moderation, investment records, dashboards, messaging, and notifications?
+- **RQ-01:** What repository-verifiable requirements and architecture support a bilingual, role-oriented project funding-record platform?
+- **RQ-02:** To what extent does the current Sahmi platform implement project discovery, submission, moderation, investment records, dashboards, messaging, and notifications?
 - **RQ-03:** What technical, security, testing, usability, and operational limitations remain before real-world use?
 
 A research question about measured user satisfaction or adoption is excluded because no approved human-evaluation dataset was found.
@@ -113,9 +113,9 @@ A research question about measured user satisfaction or adoption is excluded bec
 ## 1.5 Research objectives
 
 - **OBJ-01:** Gather, classify, and document system and stakeholder requirements using available documents and repository evidence.
-- **OBJ-02:** Design a bilingual, role-oriented prototype architecture, domain model, interfaces, and access boundaries.
-- **OBJ-03:** Develop and trace the prototype's public, entrepreneur, investor, staff, messaging, notification, and record-management modules.
-- **OBJ-04:** Evaluate the prototype through repository audit, requirements traceability, source-test inspection, safe frontend checks, and documented limitations.
+- **OBJ-02:** Design a bilingual, role-oriented platform architecture, domain model, interfaces, and access boundaries.
+- **OBJ-03:** Develop and trace the platform's public, entrepreneur, investor, staff, messaging, notification, and record-management modules.
+- **OBJ-04:** Evaluate the platform through repository audit, requirements traceability, source-test inspection, safe frontend checks, and documented limitations.
 
 Objective–question alignment:
 
@@ -129,9 +129,9 @@ Objective–question alignment:
 
 The report may be significant in three bounded ways:
 
-1. **Engineering:** it documents a non-trivial full-stack prototype and its trust boundaries.
+1. **Engineering:** it documents a non-trivial full-stack platform and its trust boundaries.
 2. **Academic:** it demonstrates how repository evidence can constrain graduation-project claims.
-3. **Practical learning:** it identifies a prioritized path from prototype behavior to more defensible operation.
+3. **Practical learning:** it identifies a prioritized path from platform behavior to more defensible operation.
 
 No claim is made that Sahmi has achieved financial inclusion, reduced fraud, created employment, generated returns, or produced social impact. Those outcomes require separate theory, data, and evaluation `[SOURCE REQUIRED]`.
 
@@ -167,7 +167,7 @@ Excluded or not verified:
 
 ## 1.8 Limitations
 
-The audit examined a materially dirty working tree rather than a clean release. Backend tests were not freshly run because Django test setup applies migrations and the audit rules prohibited migrations. Frontend tests do not prove backend integration. Prior backend results in repository logs are historical. No external source or service was contacted during this task. These constraints limit the conclusions to the observed source, local frontend checks, and supplied documents.
+The audit examined a materially dirty working tree rather than a clean release. A dated implementation addendum on 16 August 2026 executed the complete backend and frontend automated suites, the frontend production build, migration-drift check and funding-integrity audit. These checks strengthen source-level confidence but do not prove production deployment, external integrations, human usability or real financial operation. Prior test results in repository logs remain historical evidence for their respective snapshots.
 
 ## 1.9 Chapter organization
 
@@ -206,7 +206,7 @@ Privacy is equally important. Data minimization is implemented in the public pro
 
 ## 2.4 Bilingual and right-to-left usability
 
-The prototype provides English and Arabic resources, persists locale choice, and changes document direction. Research on bilingual interfaces, RTL layout, translation quality, accessibility and culturally appropriate evaluation is required `[SOURCE REQUIRED]`. The existence of translated resource keys does not demonstrate comprehension or usability.
+The platform provides English and Arabic resources, persists locale choice, and changes document direction. Research on bilingual interfaces, RTL layout, translation quality, accessibility and culturally appropriate evaluation is required `[SOURCE REQUIRED]`. The existence of translated resource keys does not demonstrate comprehension or usability.
 
 ## 2.5 Secure role-oriented web architecture
 
@@ -235,13 +235,13 @@ The current project document discusses Kickstarter, GoFundMe, and informal local
 
 ## 2.7 Research gap
 
-The defensible gap addressed by this study is an engineering and documentation gap: the design and evidence-based evaluation of a bilingual, role-oriented prototype that integrates project records, moderation, internal investment states, messages, notifications and traceability while separating implemented functionality from future financial operation.
+The defensible gap addressed by this study is an engineering and documentation gap: the design and evidence-based evaluation of a bilingual, role-oriented platform that integrates project records, moderation, internal investment states, messages, notifications and traceability while separating implemented functionality from future financial operation.
 
 This is not evidence that no comparable product exists or that Sahmi has a unique market position. A novelty or market-gap claim requires a systematic and current related-work review `[SOURCE REQUIRED]`.
 
 ## 2.8 Chapter conclusion
 
-The literature needed for final submission extends beyond technology manuals. The final review must connect platform models, trust, privacy, localization, secure design and prototype evaluation using verified sources. The repository can answer implementation questions, but it cannot supply empirical regional or user evidence.
+The literature needed for final submission extends beyond technology manuals. The final review must connect platform models, trust, privacy, localization, secure design and platform evaluation using verified sources. The repository can answer implementation questions, but it cannot supply empirical regional or user evidence.
 
 ---
 
@@ -249,12 +249,12 @@ The literature needed for final submission extends beyond technology manuals. Th
 
 ## 3.1 Introduction
 
-Following Alzaza's information-technology research guidance [1] and the organizational example of the 2014 proposal [2], this study adopts Research and Development with four phases. Agile iteration is limited to the Prototype Development phase.
+Following Alzaza's information-technology research guidance [1] and the organizational example of the 2014 proposal [2], this study adopts Research and Development with four phases. Agile iteration is limited to the Platform Development phase.
 
 ```mermaid
 flowchart LR
-    IG["1. Information Gathering"] --> PD["2. Prototype Design"]
-    PD --> DEV["3. Prototype Development"]
+    IG["1. Information Gathering"] --> PD["2. Platform Design"]
+    PD --> DEV["3. Platform Development"]
     DEV --> EV["4. Evaluation"]
     EV -. findings may refine .-> PD
 ```
@@ -266,7 +266,7 @@ The approach combines:
 - document analysis;
 - repository and source-code analysis;
 - requirements engineering;
-- prototype design and development;
+- platform design and development;
 - technical verification;
 - gap and traceability analysis.
 
@@ -298,7 +298,7 @@ The researcher:
 
 No interview transcript, survey instrument, consent form, raw response, Trello export, meeting minutes, or requirements-signoff record was found. Therefore stakeholder needs in this draft derive from intended roles and implemented behavior, not from a completed empirical needs study. Team evidence may be added only after verification.
 
-## 3.4 Phase 2: Prototype Design
+## 3.4 Phase 2: Platform Design
 
 ### 3.4.1 Actors and boundaries
 
@@ -313,7 +313,7 @@ The backend `is_staff` flag is the administrative authority. `user_type` support
 
 ### 3.4.2 Functional design
 
-The prototype is organized into:
+The platform is organized into:
 
 - public discovery;
 - account/session management;
@@ -356,7 +356,7 @@ Core entities are User, ProjectCategory, Project, ProjectImage, ProjectDocument,
 
 The evaluation found exceptions to these principles, reported in Chapter 5.
 
-## 3.5 Phase 3: Prototype Development
+## 3.5 Phase 3: Platform Development
 
 ### 3.5.1 Development stack
 
@@ -387,18 +387,18 @@ The evaluation methods were:
 - frontend/backend/data/API/deployment inspection;
 - static test inventory;
 - security/privacy review;
-- fresh frontend Vitest execution;
+- complete backend Django and frontend Vitest execution;
+- frontend production build, funding-integrity audit and migration-drift check;
 - TypeScript no-emit checking;
 - comparison with dated repository command reports.
 
 ### 3.6.2 Evaluation limitations
 
-- backend tests were not freshly executed because migrations were prohibited;
 - no coverage measurement;
 - no E2E, accessibility, load, penetration or production test;
-- no external service execution;
+- no external payment, SMTP-delivery or deployed-service execution;
 - no participant usability evaluation;
-- the working tree was uncommitted.
+- the tested working tree was uncommitted and not a tagged release.
 
 ### 3.6.3 Proposed human evaluation — future, not executed
 
@@ -418,15 +418,15 @@ The four-phase R&D method connects requirements, design, development and bounded
 
 ## 4.1 Introduction
 
-This chapter describes the audited working tree, not an idealized target architecture. Status classifications prevent backend-only fields, simulated UI and configured services from being reported as complete operations.
+This chapter describes the audited working tree, not an idealized target architecture. Status classifications prevent backend-only fields, recorded UI and configured services from being reported as complete operations.
 
 ## 4.2 Public interface and project discovery
 
 The application routes `/`, `/projects`, `/projects/:id`, `/about`, `/contact` and `/how-it-works` publicly. The public API list is restricted to active, verified, non-deleted projects. Public detail uses a reduced entrepreneur representation and omits private documents, contact fields, KYC data and verification notes. Owners and staff may retrieve richer non-public project details.
 
-The home and About pages display hard-coded statistics—230+, $2.4M, 12,000+ and 89%—without a data source. They are presentation mock data and must not appear as research results.
+The home and About pages display hard-coded statistics—230+, $2.4M, 12,000+ and 89%—without a data source. They are presentation fixture data and must not appear as research results.
 
-The Contact page simulates an API request with a delay, clears the form and reports success. No contact message is sent or persisted.
+The Contact page records an API request with a delay, clears the form and reports success. No contact message is sent or persisted.
 
 ## 4.3 Accounts, authentication and localization
 
@@ -439,7 +439,7 @@ English and Arabic resources, persisted language choice, document `lang`/`dir`, 
 Settings has mixed status:
 
 - **real:** profile fields, language, password change, notification preferences;
-- **mocked:** recovery email, 2FA, sessions, login history, provider connections, wallet, deposit/withdrawal, auto-invest, cards, billing history, invoice download, and several verification claims.
+- **fixture-backed:** recovery email, 2FA, sessions, login history, provider connections, wallet, deposit/withdrawal, auto-invest, cards, billing history, invoice download, and several verification claims.
 
 ## 4.4 Project submission and moderation
 
@@ -456,21 +456,11 @@ This inconsistency is a traceability and control gap.
 
 ## 4.5 Investment records and live totals
 
-The project page posts an amount and `bank_transfer` label. The backend creates a pending `Investment` row and sends in-app notifications. The normal serializer prevents clients from writing status and return fields. Staff can confirm a pending record; an investor can cancel an owned pending record.
+The project page currently posts an amount and a `bank_transfer` label. Only investor-role accounts may create investments. The backend creates a pending `Investment` row, reserves it against the remaining campaign capacity and sends in-app notifications. Status, expected return, actual return and settlement time are server-controlled. Staff can confirm a pending record; an investor can cancel an owned pending record. Confirmed records cannot be changed through the normal investor workflow.
 
-Confirmed rows are summed into `Project.funded_amount`; distinct confirmed investors form `investor_count`. Signals resynchronize totals after saves/deletes. A transition into confirmed publishes a Redis event containing totals and payment display data. ProjectDetails consumes the event and falls back to polling after an SSE error.
+Confirmed/completed rows are reconciled into `Project.funded_amount`; distinct funded investors form `investor_count`. Server services resynchronize funding totals, reject overfunding and expire stale pending reservations. A transition into confirmed publishes a Redis event containing refreshed totals; the project page consumes the event and falls back to polling after an SSE error.
 
-Limitations:
-
-- any authenticated role may create an investment;
-- zero amount bypasses the minimum truthiness check;
-- an investor may edit/delete an owned record after confirmation;
-- only entry into confirmed publishes, while other changes can leave a connected client stale;
-- confirmed payment history is accessible to any authenticated user who knows a non-deleted project slug;
-- the event endpoint is public for any non-deleted known slug and its payload contains investor name, amount and method;
-- no provider, receipt, bank, wallet, webhook, refund or disbursement is contacted.
-
-Consequently, “confirmed” is a database state, not confirmed money.
+The payment-method model includes card, PayPal and bank-transfer labels, but the investor interface still submits bank transfer and no external provider is contacted. There is no signed payment webhook, investor receipt-upload step, automatic charge, automatic refund or bank reconciliation. Consequently, “confirmed” means that an administrator confirmed the internal investment record; it is not evidence that Sahmi transferred money.
 
 ## 4.6 Dashboards and analytics
 
@@ -482,9 +472,19 @@ No analytics value is a verified business KPI unless its formula and eligible st
 
 ## 4.7 Milestones and repayments
 
-Milestone and Repayment models and REST endpoints exist. Staff has full admin pages. The normal milestone API scopes records to owner/staff and makes status/release/completion read-only, but offers no owner-facing transition workflow. Repayment records are scoped to related investors/owners/staff; related parties can create or edit descriptive financial terms, while status/payment proof remains server-controlled in the normal serializer.
+Milestone completion now has an owner-facing evidence workflow. After the authorized milestone allocation has been released, the entrepreneur submits a completion summary and PDF/image evidence. Staff can start review, approve, reject or request revision. A revision-required milestone can be corrected and resubmitted; completion and project transitions remain server-controlled and audited.
 
-No schedule-generation, money transfer, due-date job, overdue engine or return settlement is implemented.
+The repayment workflow begins only after all milestones are approved and the project reaches `completed`. Staff creates an installment plan for each completed investment. The backend validates project eligibility, positive amounts, duplicate investment/date records, schedule totals and legal state transitions. Installments use `pending`, `due`, `paid`, `overdue` and `cancelled`; a periodic Celery task advances open installments according to the local date.
+
+Visibility is object-scoped: an investor receives only repayments attached to that investor's investments; an entrepreneur can inspect obligations for owned projects but cannot confirm payment; staff can create/manage plans and mark installments paid or cancelled. Summary responses group obligations by investor and project and calculate invested principal, expected profit, total obligation, scheduled total, actually returned amount, remaining amount and next date on the server. Marking a repayment paid synchronizes `Investment.actual_return`, `Project.total_repaid`, the remaining balance and project repayment status. A fully scheduled and fully paid plan becomes `completed`; an unpaid overdue installment makes it `delayed`; otherwise it remains `on_track`.
+
+The investor dashboard presents invested amount beside total expected repayment for each project. The transaction detail displays only the amount actually recorded as paid; before repayment it explains whether the project is fundraising, implementing or completed and awaiting repayment. Completed project details include a repayment-process section, while the staff dashboard provides schedule creation and payment/cancellation actions.
+
+This remains an internal repayment-record workflow. The transaction reference and evidence notes document an externally handled settlement, but Sahmi does not initiate or verify a bank, card or PayPal transfer.
+
+### 4.7.1 Controlled Solar Panels demonstration
+
+On 16 August 2026, the synthetic Solar Panels dataset contained 13 completed investor records totaling USD 10,000. At the configured 5% expected return, the server calculated USD 500 expected profit and a USD 10,500 repayment obligation. Three installments were generated per investment. One USD 3.50 installment was recorded as paid, producing USD 3.50 actual return and USD 10,496.50 remaining. These figures demonstrate server reconciliation using dummy development data; they are not evidence of a real financial transfer or participant outcome.
 
 ## 4.8 Persistent messaging
 
@@ -512,7 +512,7 @@ Minimal production settings enable SSL redirect, secure cookies and HSTS. No pro
 
 ## 4.12 Chapter conclusion
 
-The repository contains a substantial full-stack prototype. Its strongest completed areas are public project scoping, server-controlled roles/status fields, admin CRUD, persistent messaging, in-app notifications, localization and confirmed-total synchronization. Its main weaknesses concern financial semantics/integrity, event/payment privacy, simulated controls, upload security, audit completeness and operation.
+The repository contains a substantial full-stack platform. Its strongest completed areas are public project scoping, server-controlled roles/status fields, admin CRUD, persistent messaging, in-app notifications, localization and confirmed-total synchronization. Its main weaknesses concern financial semantics/integrity, event/payment privacy, recorded controls, upload security, audit completeness and operation.
 
 ---
 
@@ -526,22 +526,23 @@ Evaluation is divided into fresh technical checks, static test/source evidence, 
 
 | Date | Check | Result | Interpretation |
 |---|---|---|---|
-| 25 July 2026 | `npm test -- --run` | 11 files, 24 tests passed | Current frontend unit/component evidence |
-| 25 July 2026 | `npx --no-install tsc --noEmit` | Exit 0 | Current TypeScript static evidence |
+| 16 August 2026 | `python manage.py test --settings=config.settings.test` | **132/132 tests passed**; no Django system-check issues; 52.464 seconds | Current isolated backend integration/unit evidence |
+| 16 August 2026 | `npm test -- --run` | **36 test files, 82 tests passed** | Current frontend unit/component evidence after the unique repayment-demo-reference test |
+| 16 August 2026 | `npm run build` | Exit 0; production bundle generated | Current frontend compilation/bundling evidence |
+| 16 August 2026 | `python manage.py audit_funding_integrity` | No issues found | Current development-database funding-ledger consistency check |
+| 16 August 2026 | `python manage.py makemigrations --check --dry-run` | No changes detected | Current model/migration drift check |
 
-The frontend tests cover localization, staff routing, session cleanup/rotation, password reset payloads, messages, notifications and preferences. They do not constitute live backend or production tests.
+The backend suite covers authentication/users, project access and moderation, supporting documents, investment/funding integrity, withdrawal and milestone-completion transitions, repayment plans/permissions/totals, messaging, notifications, audit and staff APIs. The frontend suite covers those workflows at service/component level together with localization, routing, forms and demonstration helpers. These results support the tested development configuration; they do not constitute production, external-payment, usability, accessibility, load or penetration evidence.
 
 ## 5.3 Backend and historical evidence
 
-Sixty-four backend test methods were statically discovered. They cover users/auth, projects/privacy/moderation, investment totals/permissions, messaging, notifications, audit and admin APIs. They were not run because the audit prohibited migrations.
+The current 132-test backend suite supersedes the earlier static-only and historical counts for the 16 August 2026 working tree. Repository logs containing earlier suites of 58 or 60 backend tests and smaller frontend suites remain provenance for older snapshots, not the current result.
 
-Repository logs report earlier backend suites of 58 and later 60 tests, frontend suites of 12 and 21, builds, schema validation and local smoke checks. Because the working tree changed afterward, those are historical results only.
-
-No current E2E, coverage, load, accessibility, penetration, Docker, SMTP, Redis, PostgreSQL or deployment result is available.
+No current E2E, coverage percentage, load, accessibility, penetration, Docker-production, SMTP-delivery, live Redis/PostgreSQL, payment-provider or deployed-environment result is available. The test run emitted a short HMAC/JWT test-key warning; production secrets must meet the provider's required entropy and length.
 
 ## 5.4 Findings
 
-### Finding F-01: The prototype is broader than the current graduation document states
+### Finding F-01: The platform is broader than the current graduation document states
 
 Persistent messaging, notifications/preferences, audit records, password reset, expanded admin APIs and bilingual support now exist. The old documentation's claim that these are absent is no longer accurate.
 
@@ -551,19 +552,19 @@ Public admin/staff escalation, public category mutation, direct client investmen
 
 ### Finding F-03: Internal financial records are implemented, payment is not
 
-Investment creation, state, totals and notifications exist. No code verifies money movement. UI references to secure payment providers, bank-level encryption, wallet actions, cards, refunds or disbursement are unsupported.
+Investment creation, server-owned state, funding reconciliation, milestone release records, repayment schedules, actual-return synchronization and notifications exist. No code verifies incoming or outgoing money movement. Card and PayPal are data labels, not gateway integrations; wallet, automatic refund and provider-settlement claims remain unsupported.
 
-### Finding F-04: Privacy and integrity defects remain
+### Finding F-04: Financial integrity improved, but production controls remain incomplete
 
-Public project SSE can expose investor-related event data for non-public known slugs. Authenticated payment history has no relationship requirement. Zero investment can bypass minimum validation. Investors can modify confirmed records. These defects prevent a secure-financial-workflow claim.
+Investor-role checks, server-owned financial states, overfunding prevention, immutable repayment workflow fields, schedule validation, unique repayment references and server-side aggregate reconciliation materially improve integrity. Public/project-event privacy, absence of external settlement verification, automatic campaign refunds, dispute/chargeback handling and production-grade reconciliation still prevent a secure financial-service claim.
 
 ### Finding F-05: Messaging and notifications are persistent but bounded
 
 Direct messages and in-app notifications are real database workflows and are covered by current frontend tests. Messaging is polling-based and lacks some relationship/moderation controls. Email delivery is disabled.
 
-### Finding F-06: The interface mixes real and simulated behavior
+### Finding F-06: The interface mixes real and recorded behavior
 
-Contact submission, investor-network people, dashboard message previews, wallet, deposit/withdrawal, cards, invoice, 2FA, sessions and login history are mocked. This must be disclosed during demonstration and in captions.
+Contact submission, investor-network people, dashboard message previews, wallet, deposit/withdrawal, cards, invoice, 2FA, sessions and login history are fixture-backed. This must be disclosed during demonstration and in captions.
 
 ### Finding F-07: Deployment evidence is configuration only
 
@@ -571,7 +572,7 @@ Backend container artifacts exist, but their sample values are inconsistent and 
 
 ### Finding F-08: Academic evaluation remains incomplete
 
-Technical frontend checks passed, but no current backend execution or human evaluation exists. Usability, satisfaction, market acceptance and impact cannot be concluded.
+Current backend and frontend automated suites pass, but no human evaluation or production operation has been conducted. Usability, accessibility, satisfaction, market acceptance and impact cannot be concluded.
 
 ## 5.5 Discussion by research question
 
@@ -583,9 +584,9 @@ The architecture remains incomplete for real financial operation because payment
 
 ### RQ-02: Extent of implementation
 
-The prototype implements the principal record-management and communication foundation. Public discovery, project lifecycle, admin CRUD, internal investments/aggregates, direct messages and in-app notifications are repository-verified. Milestone/repayment and AI/KYC fields have narrower backend/storage status. Financial/security/settings/support experiences include mocks.
+The platform implements the principal record-management and communication foundation. Public discovery, project lifecycle, admin CRUD, internal investments/aggregates, milestone evidence/revision, server-authoritative repayment plans, direct messages and in-app notifications are repository-verified. AI/KYC and external financial settlement remain incomplete or storage-only. Some financial/security/settings/support experiences still include fixtures.
 
-Therefore the correct finding is “substantial prototype implementation,” not “complete crowdfunding platform.”
+Therefore the correct finding is “substantial platform implementation,” not “complete crowdfunding platform.”
 
 ### RQ-03: Remaining limitations
 
@@ -593,11 +594,11 @@ The most important limitations are:
 
 1. project-event/payment privacy;
 2. investment validation and immutability;
-3. misleading simulated payment/security claims;
+3. misleading recorded payment/security claims;
 4. incomplete upload and KYC privacy controls;
 5. inconsistent moderation side effects and partial audit;
 6. environment/schema/deployment reproducibility;
-7. absent current backend/E2E/performance/accessibility/user evaluation.
+7. absent E2E/performance/accessibility/security and human evaluation.
 
 These limitations mean real-world readiness is not demonstrated.
 
@@ -605,7 +606,7 @@ These limitations mean real-world readiness is not demonstrated.
 
 ### Internal validity
 
-Claims are tied to file paths, classes/functions and current commands. The dirty working tree and non-executed backend reduce confidence in release-level behavior.
+Claims are tied to file paths, classes/functions and current commands. The dirty working tree and absence of a tagged release reduce confidence in release-level reproducibility, despite the current passing backend and frontend suites.
 
 ### Construct validity
 
@@ -635,7 +636,7 @@ Metrics and analysis must be selected before data collection. Participant count,
 
 ## 5.8 Chapter conclusion
 
-Evaluation answers the research questions at the prototype/source level. It demonstrates working frontend test targets and substantial implementation, while revealing material privacy, integrity, simulation and operation gaps. It does not establish human usability or production safety.
+Evaluation answers the research questions at the platform/source level. It demonstrates passing backend/frontend automated targets and substantial implementation, while revealing material privacy, external-settlement and operational gaps. It does not establish human usability or production safety.
 
 ---
 
@@ -645,11 +646,11 @@ Evaluation answers the research questions at the prototype/source level. It demo
 
 1. Restrict project events to public active/verified projects or authorized related users and remove unnecessary investor PII.
 2. Restrict payment-history details by approved relation/privacy rule.
-3. require investor role, positive amount and full-context minimum validation.
-4. make confirmed financial records immutable to normal users; implement auditable corrections.
+3. define and implement an auditable failed/cancelled campaign refund workflow.
+4. add bank-transfer receipt/reference verification before administrative confirmation.
 5. unify normal/admin moderation through one service with audit, notification and throttle parity.
 6. validate project conversations and return controlled errors.
-7. fix the `normalise_roles` command and commit the website/timezone migration.
+7. preserve financial-integrity and transition tests in continuous integration.
 
 ## 6.2 Product-truth and usability work
 
@@ -684,8 +685,8 @@ Only after approval should payment-provider adapters, signed webhooks, idempoten
 
 ## 6.5 Testing and operations
 
-- run current backend suite in an authorized isolated environment;
-- add critical gap tests and coverage reporting;
+- preserve the current backend/frontend commands in CI and publish coverage reporting;
+- add provider-webhook, automatic-refund and repayment-reminder tests after those workflows are designed;
 - replace Playwright stubs with local declared configuration and E2E cases;
 - add accessibility, load and security testing against agreed targets;
 - lock Python dependencies reproducibly;
@@ -713,13 +714,13 @@ Future work is ordered by risk: protect data and financial integrity first, corr
 
 ## 7.1 Summary
 
-This project applied a four-phase R&D framework to the design, development and technical evaluation of Sahmi. Information Gathering reviewed academic references, project documents and the repository. Prototype Design defined roles, requirements, architecture, entities and trust boundaries. Prototype Development produced a React/TypeScript and Django/DRF application. Evaluation traced requirements to source and tests, executed safe frontend checks, and identified limitations.
+This project applied a four-phase R&D framework to the design, development and technical evaluation of Sahmi. Information Gathering reviewed academic references, project documents and the repository. Platform Design defined roles, requirements, architecture, entities and trust boundaries. Platform Development produced a React/TypeScript and Django/DRF application. Evaluation traced requirements to source and tests, executed safe frontend checks, and identified limitations.
 
 ## 7.2 Answers to the research questions
 
 **RQ-01:** Sahmi is supported by requirements and architecture for public project discovery, role-oriented project and investment records, staff moderation, messaging, notifications and bilingual presentation. The detailed SRS, API map, ERD and RBAC matrix answer this question.
 
-**RQ-02:** The repository implements a substantial prototype: account/JWT workflows, public active/verified project visibility, entrepreneur project management, staff administration, internal investment states and totals, milestone/repayment records, persistent direct messages, in-app notifications, password reset code, partial audit and English/Arabic UI. Some features remain backend-only or mocked.
+**RQ-02:** The repository implements a substantial platform: account/JWT workflows, public active/verified project visibility, entrepreneur project management, staff administration, internal investment states and totals, milestone evidence/revision, server-authoritative repayment scheduling and totals, persistent direct messages, in-app notifications, password reset, partial audit and English/Arabic UI. Some features remain backend-only or fixture-backed, and financial settlement remains external/manual.
 
 **RQ-03:** Material limitations remain in event/payment privacy, investment integrity, upload/KYC protection, audit completeness, product-truth labeling, schema/deployment reproducibility, E2E/backend-current testing and human evaluation. Real payment and production operation are absent.
 
@@ -728,13 +729,13 @@ This project applied a four-phase R&D framework to the design, development and t
 | Objective | Achievement |
 |---|---|
 | OBJ-01 requirements gathering | Achieved for document/repository analysis; stakeholder empirical work `[NOT VERIFIED]` |
-| OBJ-02 prototype design | Achieved at repository/document level |
-| OBJ-03 prototype development | Substantially achieved, with classified partial/mock/backend-only modules |
-| OBJ-04 evaluation | Achieved for repository and current frontend checks; backend-current and human/operational evaluation incomplete |
+| OBJ-02 platform design | Achieved at repository/document level |
+| OBJ-03 platform development | Substantially achieved, with classified partial/fixture/backend-only modules |
+| OBJ-04 evaluation | Achieved for repository plus current backend/frontend automated checks; human, accessibility, performance, security and operational evaluation remain incomplete |
 
 ## 7.4 Final conclusion
 
-Sahmi is a credible graduation-project prototype and an instructive full-stack engineering artifact. Its value lies in the breadth and traceability of its implemented foundation, not in unsupported claims of financial security, deployment, usability, impact or compliance. With the identified academic evidence, security, integrity and evaluation work completed, it could become a stronger research report and safer software baseline. In its audited state, it is suitable for controlled demonstration with synthetic data and explicit limitations; it is not ready for production or real financial use.
+Sahmi is a credible graduation-project platform and an instructive full-stack engineering artifact. Its value lies in the breadth and traceability of its implemented foundation, not in unsupported claims of financial security, deployment, usability, impact or compliance. With the identified academic evidence, security, integrity and evaluation work completed, it could become a stronger research report and safer software baseline. In its audited state, it is suitable for controlled demonstration with synthetic data and explicit limitations; it is not ready for production or real financial use.
 
 ---
 
@@ -762,7 +763,7 @@ The current document lists official documentation for Django, Django REST Framew
 - official current provider/country/fee information;
 - privacy, secure API, token-storage and upload-security sources;
 - bilingual/RTL usability and accessibility research;
-- information-system prototype/usability evaluation sources.
+- information-system platform/usability evaluation sources.
 
 Do not number or cite a missing source until it is obtained and verified.
 
@@ -782,7 +783,7 @@ Do not number or cite a missing source until it is obtained and verified.
 
 1. Verified and implemented
 2. Partially implemented
-3. Frontend-only or mocked
+3. Frontend-only or fixture-backed
 4. Backend-only
 5. Configured but not operationally verified
 6. Planned/future work
@@ -792,9 +793,10 @@ Do not number or cite a missing source until it is obtained and verified.
 
 Current:
 
-- 24/24 frontend tests passed across 11 files on 25 July 2026;
-- TypeScript no-emit check passed;
-- backend tests not run under the no-migration constraint.
+- 132/132 Django tests passed on 16 August 2026 with no system-check issues;
+- 82/82 frontend tests passed across 36 files on 16 August 2026;
+- the frontend production build, funding-integrity audit and migration-drift check passed;
+- TypeScript no-emit checking remains recorded from the earlier audit.
 
 Historical repository logs must be labelled with their dates and prior working-tree context.
 
@@ -802,7 +804,7 @@ Historical repository logs must be labelled with their dates and prior working-t
 
 | RQ | Objectives | Primary evidence | Finding |
 |---|---|---|---|
-| RQ-01 | OBJ-01, OBJ-02 | SRS, architecture, routes, models, RBAC | coherent prototype requirements/architecture |
+| RQ-01 | OBJ-01, OBJ-02 | SRS, architecture, routes, models, RBAC | coherent platform requirements/architecture |
 | RQ-02 | OBJ-02, OBJ-03 | feature/evidence map, implementation chapter, tests | substantial mixed-status implementation |
 | RQ-03 | OBJ-04 | security/testing audit and limitations | not production-ready; evaluation incomplete |
 
@@ -816,7 +818,7 @@ Historical repository logs must be labelled with their dates and prior working-t
 - deployment evidence, if any;
 - evaluation ethics, instrument, participants, raw data and analysis;
 - synthetic-data screenshot set;
-- signed final review that mocked features and limitations are disclosed.
+- signed final review that fixture-backed features and limitations are disclosed.
 
 ## Appendix F: Screenshot register
 
@@ -826,7 +828,7 @@ Each figure must state:
 
 - route/build/date;
 - synthetic account role;
-- whether API data is real local test data or mocked;
+- whether API data is real local test data or fixture-backed;
 - language and viewport;
 - any hidden/redacted personal data;
 - related requirement/use case.

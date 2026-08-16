@@ -2,8 +2,12 @@ from django.db import transaction
 from django.db.models.signals import post_delete, post_save, pre_save
 from django.dispatch import receiver
 
-from .models import Investment, Milestone
-from .services import publish_investment_confirmed_event, sync_project_totals
+from .models import Investment, Milestone, Repayment
+from .services import (
+    publish_investment_confirmed_event,
+    sync_project_totals,
+    sync_repayment_totals,
+)
 
 
 @receiver(pre_save, sender=Investment)
@@ -62,3 +66,30 @@ def sync_project_after_milestone_save(sender, instance, **kwargs):
 def sync_project_after_milestone_delete(sender, instance, **kwargs):
     project_id = instance.project_id
     transaction.on_commit(lambda: sync_project_milestone_count(project_id))
+
+
+@receiver(pre_save, sender=Repayment)
+def remember_previous_repayment_project(sender, instance, **kwargs):
+    previous = sender.objects.filter(pk=instance.pk).values(
+        "investment__project_id"
+    ).first() if instance.pk else None
+    instance._previous_repayment_project_id = (
+        previous["investment__project_id"] if previous else None
+    )
+
+
+@receiver(post_save, sender=Repayment)
+def sync_totals_after_repayment_save(sender, instance, **kwargs):
+    project_ids = {instance.investment.project_id}
+    previous_project_id = getattr(instance, "_previous_repayment_project_id", None)
+    if previous_project_id:
+        project_ids.add(previous_project_id)
+    transaction.on_commit(
+        lambda: [sync_repayment_totals(project_id) for project_id in project_ids]
+    )
+
+
+@receiver(post_delete, sender=Repayment)
+def sync_totals_after_repayment_delete(sender, instance, **kwargs):
+    project_id = instance.investment.project_id
+    transaction.on_commit(lambda: sync_repayment_totals(project_id))

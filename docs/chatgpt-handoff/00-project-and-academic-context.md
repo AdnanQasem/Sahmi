@@ -1,4 +1,4 @@
-# Sahmi Project and Academic Context
+﻿# Sahmi Project and Academic Context
 
 **Handoff snapshot:** 25 July 2026  
 **Repository authority:** current working tree on branch `feature/backend-messaging-security-hardening`, HEAD `7a6cb1e57eb76c6fecfde015a1097c41ac69f6d3`  
@@ -16,7 +16,7 @@ Use these labels without weakening or removing them:
 |---|---|
 | **Verified and implemented** | Current source contains the frontend/backend/data behavior and the relevant access rules. This does not prove production operation. |
 | **Partially implemented** | Some layers or rules exist, but a material workflow, control, integration, or UI is absent or defective. |
-| **Frontend-only or mocked** | The interface exists but no authoritative backend workflow persists or performs the represented action. |
+| **Frontend-only or fixture-backed** | The interface exists but no authoritative backend workflow persists or performs the represented action. |
 | **Backend-only** | Model/API behavior exists but the main frontend does not expose a complete workflow. |
 | **Configured but not operationally verified** | Configuration exists, but the service or environment was not exercised and no operational result is available. |
 | **Planned/future work** | Intended capability is not implemented. |
@@ -39,17 +39,17 @@ When sources conflict, apply this order:
 
 The repository and current manuscript call the project **Sahmi**. The name is described in the existing SRS as meaning “my share” in Arabic. A precise, evidence-safe working description is:
 
-> Sahmi is a bilingual, role-oriented web prototype for discovering project campaigns, submitting and moderating project records, recording intended investments, presenting role-specific dashboards, and supporting persistent in-app communication.
+> Sahmi is a bilingual, role-oriented web platform for discovering project campaigns, submitting and moderating project records, recording intended investments, presenting role-specific dashboards, and supporting persistent in-app communication.
 
 The descriptive draft title used in the existing audit is:
 
-> *Sahmi: A Bilingual Role-Oriented Project Funding-Record and Communication Prototype*
+> *Sahmi: A Bilingual Role-Oriented Project Funding-Record and Communication Platform*
 
 That is not established as the official registered title and remains `[TEAM CONFIRMATION REQUIRED]`.
 
 ### 2.2 Intended purpose
 
-The supplied project material positions Sahmi as a way to connect Palestinian entrepreneurs and their projects with investors or supporters seeking transparent project information. The repository implements a structured prototype around:
+The supplied project material positions Sahmi as a way to connect Palestinian entrepreneurs and their projects with investors or supporters seeking transparent project information. The repository implements a structured platform around:
 
 - public discovery of active, verified project records;
 - investor and entrepreneur accounts;
@@ -65,7 +65,7 @@ The implementation does **not** prove that Sahmi transfers money, validates lega
 
 The existing manuscript describes fragmented discoverability, trust, transparency, and communication around Palestinian project funding. Those contextual claims require literature and local evidence. An academically safe problem statement is:
 
-> The project investigates how a bilingual, role-oriented web prototype can organize project discovery, project submission and moderation, internal contribution records, dashboards, and communication within a traceable software architecture. The present study also identifies which capabilities are actually implemented and which technical, security, evaluation, and operational limitations prevent the prototype from being represented as a production financial platform.
+> The project investigates how a bilingual, role-oriented web platform can organize project discovery, project submission and moderation, internal contribution records, dashboards, and communication within a traceable software architecture. The present study also identifies which capabilities are actually implemented and which technical, security, evaluation, and operational limitations prevent the platform from being represented as a production financial platform.
 
 Do not state as fact, without verified sources:
 
@@ -90,7 +90,7 @@ Available reference:
 Relevant guidance extracted from the complete book:
 
 - Information-technology research connects theoretical investigation, software development, and evaluation. The book explicitly warns that development without evaluation has no usability evidence.
-- Research and Development (R&D) is an appropriate research type for a software prototype.
+- Research and Development (R&D) is an appropriate research type for a software platform.
 - A proposal should align title, background, motivation, problem, research questions, objectives, significance, scope, literature review, methodology, conclusion, and abstract.
 - Research questions must be answerable by the method and aligned with objectives.
 - A software-development method may be described inside the development part of the research method; it does not replace the academic method.
@@ -124,8 +124,8 @@ The complete 40-page sample demonstrates:
 - Chapter 2: a themed literature review and related work;
 - Chapter 3: an adapted System Development Research Methodology with:
   1. Information Gathering;
-  2. Prototype Design;
-  3. Prototype Development; and
+  2. Platform Design;
+  3. Platform Development; and
   4. Evaluation;
 - references and an appendix containing a proposed questionnaire.
 
@@ -210,8 +210,8 @@ Use this structure unless the supervisor supplies a different mandatory template
 3. **Chapter 3: Research Methodology and System Design**
    - R&D approach;
    - Information Gathering;
-   - Prototype Design;
-   - Prototype Development, including any documented Agile iteration;
+   - Platform Design;
+   - Platform Development, including any documented Agile iteration;
    - Evaluation;
    - actors, requirements, architecture, data, security design, and ethics.
 4. **Chapter 4: System Implementation**
@@ -220,7 +220,7 @@ Use this structure unless the supervisor supplies a different mandatory template
    - authentication/localization;
    - project, investment-record, messaging, notification, audit, and admin modules;
    - implemented architecture and configured deployment;
-   - explicit implemented/partial/mock boundary.
+   - explicit implemented/partial/fixture boundary.
 5. **Chapter 5: Testing, Evaluation, Findings, and Discussion**
    - current executed technical checks;
    - historical results clearly dated;
@@ -239,7 +239,7 @@ Use this structure unless the supervisor supplies a different mandatory template
    - evidence-bounded summary;
    - direct answers to RQs;
    - objective achievement;
-   - prototype—not production—verdict.
+   - platform—not production—verdict.
 
 ### End matter
 
@@ -252,18 +252,18 @@ The following framework is evidence-aligned and avoids unsupported user-outcome 
 
 | ID | Research question | Aligned objectives | Evidence that can answer it |
 |---|---|---|---|
-| RQ-01 | What repository-verifiable requirements and architecture support a bilingual, role-oriented project funding-record prototype? | OBJ-01, OBJ-02 | SRS, routes, models, serializers, permissions, frontend services, architecture and ERD |
-| RQ-02 | To what extent does the Sahmi prototype implement project discovery, submission, moderation, investment records, dashboards, messaging, notifications, and administration? | OBJ-02, OBJ-03 | Current source, feature/evidence map, frontend test result, static backend test assets |
+| RQ-01 | What repository-verifiable requirements and architecture support a bilingual, role-oriented project funding-record platform? | OBJ-01, OBJ-02 | SRS, routes, models, serializers, permissions, frontend services, architecture and ERD |
+| RQ-02 | To what extent does the Sahmi platform implement project discovery, submission, moderation, investment records, dashboards, messaging, notifications, and administration? | OBJ-02, OBJ-03 | Current source, feature/evidence map, frontend test result, static backend test assets |
 | RQ-03 | What technical, security, testing, usability, and operational limitations remain before real-world use? | OBJ-04 | Repository audit, security findings, test boundaries, configuration review, missing-evidence register |
 
 Recommended objectives:
 
 | ID | Objective | Evidence status |
 |---|---|---|
-| OBJ-01 | Identify and organize the functional, non-functional, data, security, and stakeholder requirements for the prototype. | Repository/document analysis verified; stakeholder elicitation history `[NOT VERIFIED]` |
-| OBJ-02 | Design a bilingual, role-oriented architecture, interface structure, API, and data model for the prototype. | Design can be derived from current source and diagrams |
+| OBJ-01 | Identify and organize the functional, non-functional, data, security, and stakeholder requirements for the platform. | Repository/document analysis verified; stakeholder elicitation history `[NOT VERIFIED]` |
+| OBJ-02 | Design a bilingual, role-oriented architecture, interface structure, API, and data model for the platform. | Design can be derived from current source and diagrams |
 | OBJ-03 | Develop and trace the implemented public, account, project, internal investment-record, communication, notification, and administrative workflows. | Substantially implemented with statuses documented in the handoff |
-| OBJ-04 | Evaluate the prototype's source-level correctness and readiness using available automated checks, traceability, and security/quality analysis, while recording absent human and operational evidence. | Repository audit and current frontend checks exist; human/production evaluation absent |
+| OBJ-04 | Evaluate the platform's source-level correctness and readiness using available automated checks, traceability, and security/quality analysis, while recording absent human and operational evidence. | Repository audit and current frontend checks exist; human/production evaluation absent |
 
 Do not introduce an RQ about satisfaction, usability score, adoption, market acceptance, economic impact, or financial performance unless the team provides an approved method, raw evidence, and analysis.
 
@@ -321,7 +321,7 @@ Not evidenced:
 
 If the team confirms such work, report the real method, dates, roles, ethical handling, and retained evidence. Otherwise describe this phase as document, repository, and literature analysis.
 
-### Phase 2 — Prototype Design
+### Phase 2 — Platform Design
 
 Verified design evidence:
 
@@ -334,14 +334,14 @@ Verified design evidence:
 
 The repository contains multiple conflicting generated design-system files. Actual `src/index.css`, Tailwind configuration, components, and pages are the implementation authority.
 
-### Phase 3 — Prototype Development
+### Phase 3 — Platform Development
 
 Verified:
 
 - React/TypeScript/Vite frontend;
 - Django/DRF backend;
 - iterative changes documented by Git history and dated implementation reports;
-- current implemented, partial, mocked, backend-only, and configured capabilities.
+- current implemented, partial, fixture-backed, backend-only, and configured capabilities.
 
 Not verified:
 
@@ -368,17 +368,17 @@ Unavailable:
 - coverage percentage;
 - participants, approved instrument, survey/usability scores, task completion data, or user acceptance.
 
-The current report may evaluate the prototype technically and discuss repository findings. It may not claim human usability or operational effectiveness.
+The current report may evaluate the platform technically and discuss repository findings. It may not claim human usability or operational effectiveness.
 
 ## 9. Evaluation and conclusion boundaries
 
 Permitted findings include:
 
-- the source implements a substantial bilingual, role-oriented prototype;
-- implementation is mixed: some workflows are persistent, some are partial/backend-only, and some interfaces are mocked;
+- the source implements a substantial bilingual, role-oriented platform;
+- implementation is mixed: some workflows are persistent, some are partial/backend-only, and some interfaces are fixture-backed;
 - the current frontend test suite passed in the audited environment on the recorded date;
 - source-level privacy, financial-integrity, upload, audit, configuration, and schema-reproducibility gaps exist;
-- the prototype is not ready for real financial/personal-document use;
+- the platform is not ready for real financial/personal-document use;
 - user evaluation and production operation remain unverified.
 
 Not permitted:

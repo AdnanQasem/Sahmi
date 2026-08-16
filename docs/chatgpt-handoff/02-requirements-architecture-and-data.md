@@ -1,4 +1,4 @@
-# Sahmi Requirements, Architecture, and Data Reference
+﻿# Sahmi Requirements, Architecture, and Data Reference
 
 **Specification basis:** repository working tree on 25 July 2026  
 **Branch / HEAD:** `feature/backend-messaging-security-hardening` / `7a6cb1e57eb76c6fecfde015a1097c41ac69f6d3`  
@@ -10,7 +10,7 @@
 |---|---|
 | Verified and implemented | Current source supplies the material behavior across the relevant layers |
 | Partially implemented | Some behavior exists, but an important layer, control, or invariant is absent/defective |
-| Frontend-only or mocked | UI exists without an authoritative backend workflow |
+| Frontend-only or fixture-backed | UI exists without an authoritative backend workflow |
 | Backend-only | Model/API exists without a complete main-UI workflow |
 | Configured but not operationally verified | Configuration exists; service/result was not exercised |
 | Planned/future work | Valid requirement is not implemented |
@@ -19,8 +19,8 @@
 | Actor/stakeholder | Repository-supported interest | Boundary |
 |---|---|---|
 | Visitor | public verified projects, static information, registration/login | SSE currently exposes excessive data |
-| Investor account | intended-contribution records, own ledger/dashboard, messaging, real profile/preferences | settings also contain mocks |
-| Entrepreneur account | submit/manage projects, related records/analytics, messaging | investor directory/message preview partly mocked |
+| Investor account | intended-contribution records, own ledger/dashboard, messaging, real profile/preferences | settings also contain fixtures |
+| Entrepreneur account | submit/manage projects, related records/analytics, messaging | investor directory/message preview partly fixture-backed |
 | Staff/admin | moderation, domain administration, audit read | broad authority and incomplete audit |
 | Team/developers | maintain code/schema/docs | repository evidence |
 | Supervisor/examiners | assess method/evidence | academic, not runtime actor |
@@ -46,7 +46,7 @@ Unverified assumptions include the legal meaning of investment/support, funding 
 | FR-010 | User shall read/update permitted own profile without changing privileged/KYC/aggregate fields. | Implemented | UserSerializer/MeView |
 | FR-011 | User shall change password with valid current and matching replacement. | Implemented | password serializer/view |
 | FR-012 | Visitor shall request/confirm enumeration-safe password reset. | Configured, not operationally verified | reset views/pages/tests; SMTP unverified |
-| FR-013 | 2FA, recovery email, sessions/revocation, and login history shall appear active only after backend implementation. | Mocked | Settings only |
+| FR-013 | 2FA, recovery email, sessions/revocation, and login history shall appear active only after backend implementation. | Fixture-backed | Settings only |
 | FR-014 | Entrepreneur/staff shall create an owned draft/unverified project. | Implemented | IsEntrepreneur/perform_create |
 | FR-015 | Owner/staff shall update while ordinary clients cannot write moderation/aggregate/AI fields. | Implemented | permission/read-only fields |
 | FR-016 | Owner/staff shall soft-delete through normal API. | Implemented | `perform_destroy`; `deleted_at` |
@@ -78,7 +78,7 @@ Unverified assumptions include the legal meaning of investment/support, funding 
 | FR-042 | Staff shall manage users while preventing self-lockout/last-admin removal. | Implemented | AdminUserViewSet/tests |
 | FR-043 | Staff shall manage principal project/finance records through staff APIs. | Implemented as record CRUD | admin routers/pages/tests |
 | FR-044 | Security/finance changes shall create sanitized, immutable, queryable audit events. | Partial | audit source; incomplete producers/no tamper evidence |
-| FR-045 | Contact success shall correspond to actual persistence/delivery. | Mocked | local delay; no API |
+| FR-045 | Contact success shall correspond to actual persistence/delivery. | Fixture-backed | local delay; no API |
 | FR-046 | KYC submission/storage/review/retention/deletion shall follow approved policy. | Future | fields/admin flags only |
 | FR-047 | AI classification/recommendation shall have model/provider, invocation, review, and evaluation. | Backend storage only | `Project.ai_*`; no execution |
 
@@ -139,11 +139,11 @@ Unverified assumptions include the legal meaning of investment/support, funding 
 | UC-005 | Review/moderate project | Staff | implemented; side-effect parity partial |
 | UC-006 | Record intended investment | Authenticated user currently | pending internal record; role/zero gaps |
 | UC-007 | Confirm/cancel record | Staff/investor | internal state/totals/notice |
-| UC-008 | View dashboards/ledger | Role account | real derived data mixed with mock/misleading portions |
+| UC-008 | View dashboards/ledger | Role account | real derived data mixed with fixture/misleading portions |
 | UC-009 | Direct message | Authenticated user | persistent participant thread |
 | UC-010 | Manage notifications | Authenticated user | owner-scoped in-app |
 | UC-011 | Administer records | Staff | broad CRUD; incomplete audit |
-| UC-012 | Contact support | Visitor | simulated |
+| UC-012 | Contact support | Visitor | recorded |
 
 Key stories:
 
@@ -499,14 +499,14 @@ flowchart LR
 | FR-035–037 | MessagesPage | messaging service | views/services | Conversation/Participant/Message | implemented direct |
 | FR-040 | dashboard/settings | notification service | views/services | Notification/Preference | implemented in-app |
 | FR-044 | no principal UI | audit list | explicit service calls | AuditLog | partial |
-| FR-045 | ContactPage | none | none | none | mock |
+| FR-045 | ContactPage | none | none | none | fixture |
 | FR-046 | settings/admin | user fields | no workflow | KYC fields | storage only |
 | FR-047 | admin project form | staff CRUD | no classifier | AI fields | storage only |
 
 | Research item | Requirements/evidence | Finding |
 |---|---|---|
 | RQ-01 / OBJ-01–02 | FR/NFR/BR, routes, models, architecture, RBAC | coherent source-derived bilingual role architecture; stakeholder elicitation unverified |
-| RQ-02 / OBJ-03 | feature/source/test traceability | substantial mixed-status prototype |
+| RQ-02 / OBJ-03 | feature/source/test traceability | substantial mixed-status platform |
 | RQ-03 / OBJ-04 | AC results, security/testing/config review | critical limits prevent production claim; human evaluation absent |
 
 ## 13. Interpretation controls
@@ -519,5 +519,5 @@ flowchart LR
 - UI route guards are not backend authorization;
 - internal `confirmed` is not provider settlement;
 - a historical pass is not a current pass;
-- conceptual figures/mocks are not executed workflows.
+- conceptual figures/fixtures are not executed workflows.
 

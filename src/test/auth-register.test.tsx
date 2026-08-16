@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   register: vi.fn(),
   getCurrentUser: vi.fn(),
   logout: vi.fn(),
+  verifyEmail: vi.fn(),
 }));
 
 vi.mock("@/services/authService", () => ({
@@ -14,11 +15,12 @@ vi.mock("@/services/authService", () => ({
     getCurrentUser: mocks.getCurrentUser,
     logout: mocks.logout,
     login: vi.fn(),
+    verifyEmail: mocks.verifyEmail,
   },
 }));
 
 const Probe = () => {
-  const { register, user } = useAuth();
+  const { register, verifyEmail, user } = useAuth();
   return (
     <div>
       <button
@@ -31,6 +33,7 @@ const Probe = () => {
       >
         Register
       </button>
+      <button onClick={() => verifyEmail("pending-id", "verification-token")}>Verify</button>
       <span>{user?.email ?? "signed out"}</span>
     </div>
   );
@@ -41,10 +44,15 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
-it("stores registration tokens and signs the new user in", async () => {
+it("keeps registration signed out until the email link is verified", async () => {
   mocks.register.mockResolvedValue({
+    message: "Check your email",
+    email_confirmation_sent: true,
+  });
+  mocks.verifyEmail.mockResolvedValue({
     access: "new-access-token",
     refresh: "new-refresh-token",
+    message: "verified",
     user: {
       id: "user-1",
       username: "new@example.com",
@@ -59,6 +67,11 @@ it("stores registration tokens and signs the new user in", async () => {
   render(<AuthProvider><Probe /></AuthProvider>);
   fireEvent.click(screen.getByRole("button", { name: "Register" }));
 
+  await waitFor(() => expect(mocks.register).toHaveBeenCalled());
+  expect(screen.getByText("signed out")).toBeInTheDocument();
+  expect(localStorage.getItem("accessToken")).toBeNull();
+
+  fireEvent.click(screen.getByRole("button", { name: "Verify" }));
   expect(await screen.findByText("new@example.com")).toBeInTheDocument();
   await waitFor(() => {
     expect(localStorage.getItem("accessToken")).toBe("new-access-token");

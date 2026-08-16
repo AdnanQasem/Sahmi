@@ -14,6 +14,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import type { ProjectCategory, ProjectCategoryPayload } from "@/services/projectsService";
+import DemoFillButton from "@/components/demo/DemoFillButton";
+import { formDemoData } from "@/demo/formDemoData";
 
 interface AdminCategoryDialogProps {
   open: boolean;
@@ -65,6 +67,7 @@ const AdminCategoryDialog = ({
             {t("adminForm.categoryHelp")}
           </DialogDescription>
         </DialogHeader>
+        <DemoFillButton onClick={() => { setName(formDemoData.category.name); setSlug(""); setDescription(formDemoData.category.description); }} disabled={isPending} />
 
         <form className="space-y-5" onSubmit={handleSubmit}>
           <div className="space-y-2">

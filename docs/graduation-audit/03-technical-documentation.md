@@ -1,4 +1,4 @@
-# Sahmi Technical Documentation
+﻿# Sahmi Technical Documentation
 
 **Evidence snapshot:** 25 July 2026 working tree  
 **Branch/HEAD:** `feature/backend-messaging-security-hardening` / `7a6cb1e57eb76c6fecfde015a1097c41ac69f6d3`  
@@ -406,14 +406,14 @@ flowchart LR
 | `/login`, `/register` | auth pages | login/register | Real |
 | `/forgot-password`, `/reset-password` | reset pages | reset request/confirm | Code complete; delivery not operationally verified |
 | `/about`, `/how-it-works` | marketing | none | Static; includes unsupported operational claims |
-| `/contact` | contact | none | Simulated submit |
+| `/contact` | contact | none | Recorded submit |
 | `/dashboard/investor` | investor dashboard | investments/projects | Real records; status totals may mislead |
 | `/dashboard/investor/transactions` | transaction ledger | investments | Real records |
 | `/dashboard/investor/messages` | MessagesPage | conversation/message APIs | Real persistent direct messages |
-| `/dashboard/investor/settings` | Settings | me/password/notification prefs/language | Mixed real and mocked |
+| `/dashboard/investor/settings` | Settings | me/password/notification prefs/language | Mixed real and fixture-backed |
 | `/dashboard/entrepreneur` | entrepreneur dashboard | my projects/investments | Real aggregates; hard-coded message preview |
 | `/dashboard/entrepreneur/analytics` | analytics | projects/investments | Client-derived real data; no validated analytics method |
-| `/dashboard/entrepreneur/investors` | InvestorsPage | queries made, displayed `mockInvestors` | Mock display |
+| `/dashboard/entrepreneur/investors` | InvestorsPage | queries made, displayed `fixtureInvestors` | Fixture display |
 | entrepreneur messages/settings | shared pages | same services | Mixed as above |
 | `/dashboard/admin` | admin summary | projects/categories | Real |
 | `/dashboard/admin/projects*` | project admin | admin project/assets/categories APIs | Real |

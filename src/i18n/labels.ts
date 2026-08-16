@@ -50,5 +50,39 @@ export const translateSystemNotificationBody = (
     return t("notifications.body.milestoneUpdated", { title: title ?? "" });
   }
   if (type === "repayment_updated") return t("notifications.body.repaymentUpdated");
+  if (type === "withdrawal_updated") {
+    const requested = body.match(/^(.+?) requested (\S+) for “(.+?)” on “(.+?)”\.$/i);
+    if (requested) {
+      return t("notifications.body.withdrawalRequested", {
+        entrepreneur: requested[1],
+        amount: requested[2],
+        milestone: requested[3],
+        project: requested[4],
+      });
+    }
+
+    const updated = body.match(/^Your (\S+) withdrawal request for “(.+?)” is (.+?)\.$/i);
+    if (updated) {
+      const statusKey = updated[3].toLowerCase().replace(/\s+/g, "_");
+      return t("notifications.body.withdrawalStatusUpdated", {
+        amount: updated[1],
+        milestone: updated[2],
+        status: t(`status.${statusKey}`, { defaultValue: updated[3] }),
+      });
+    }
+  }
+  if (type === "project_completion_hold") {
+    const hold = body.match(/^The required 3-day quality and handover hold for “(.+?)” ends at (.+)\.$/i);
+    if (hold) {
+      return t("notifications.body.projectQualityHoldStarted", {
+        title: hold[1],
+        end: hold[2],
+      });
+    }
+    const completed = body.match(/^Project “(.+?)” completed after the required 3-day quality and handover hold\.$/i);
+    if (completed) {
+      return t("notifications.body.projectQualityHoldCompleted", { title: completed[1] });
+    }
+  }
   return body;
 };

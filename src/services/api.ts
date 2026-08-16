@@ -96,6 +96,12 @@ const serverMessageKeys: Record<string, string> = {
   "Project does not exist.": "projectNotFound",
   "Message body is empty.": "messageEmpty",
   "Message body cannot be empty.": "messageEmpty",
+  "Add a message or an attachment.": "messageEmpty",
+  "Message attachments may not exceed 10 MB.": "attachmentSize",
+  "This attachment file type is not supported.": "attachmentType",
+  "The attachment content type does not match its file extension.": "attachmentType",
+  "The uploaded attachment is not a valid PDF document.": "attachmentType",
+  "The uploaded attachment is not a valid image.": "attachmentType",
   "Amount must be greater than zero.": "amountPositive",
   "Full name is required.": "fullNameRequired",
   "Current password is incorrect.": "currentPasswordIncorrect",
@@ -124,6 +130,8 @@ const serverMessageKeys: Record<string, string> = {
   "Only the sender may delete this message.": "senderDeleteOnly",
   "You can only cancel your own investments.": "cancelOwnInvestment",
   "Only pending investments can be cancelled.": "cancelPendingInvestment",
+  "Investments must be sent back before deleting this entrepreneur account.": "entrepreneurInvestmentsMustBeReturned",
+  "Return of investments must be done before deleting this entrepreneur account.": "entrepreneurReturnsMustBeCompleted",
 };
 
 const translateServerMessage = (message: string) => {

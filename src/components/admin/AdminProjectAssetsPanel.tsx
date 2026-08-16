@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getErrorMessage } from "@/services/api";
+import DemoFillButton from "@/components/demo/DemoFillButton";
+import { formDemoData } from "@/demo/formDemoData";
 import adminProjectsService, {
   type AdminProjectDocument,
   type AdminProjectImage,
@@ -260,7 +262,7 @@ const AdminProjectAssetsPanel = ({
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="new-gallery-alt">{t("adminForm.altText")}</Label>
+            <div className="flex items-center justify-between gap-2"><Label htmlFor="new-gallery-alt">{t("adminForm.altText")}</Label><DemoFillButton onClick={() => setImageAlt(formDemoData.imageAlt)} /></div>
             <Input
               id="new-gallery-alt"
               maxLength={160}
@@ -317,7 +319,7 @@ const AdminProjectAssetsPanel = ({
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="new-document-title">{t("adminForm.title")}</Label>
+            <div className="flex items-center justify-between gap-2"><Label htmlFor="new-document-title">{t("adminForm.title")}</Label><DemoFillButton onClick={() => setDocumentTitle(formDemoData.documentTitle)} /></div>
             <Input
               id="new-document-title"
               maxLength={120}

@@ -27,6 +27,8 @@ import EmptyState from "@/components/dashboard/EmptyState";
 import { useAuth } from "@/hooks/useAuth";
 import projectsService, { Project } from "@/services/projectsService";
 import investmentsService, { Investment } from "@/services/investmentsService";
+import { fundedInvestments } from "@/lib/investmentTotals";
+import messagingService, { Conversation } from "@/services/messagingService";
 import {
   AlertCircle,
   ArrowRight,
@@ -51,6 +53,28 @@ const shortDate = (value: string) => formatDate(value, { month: "short", day: "n
 const amountOf = (investment: Investment) => Number(investment.amount || 0);
 const projectRaised = (project: Project) => Number(project.funded_amount || 0);
 const projectGoal = (project: Project) => Number(project.goal_amount || 0);
+
+const conversationName = (conversation: Conversation, currentUserId?: string) =>
+  conversation.participants.find((participant) => participant.user.id !== currentUserId)?.user.full_name
+  || conversation.title;
+
+const initialsOf = (name: string) => name
+  .trim()
+  .split(/\s+/)
+  .slice(0, 2)
+  .map((part) => part[0]?.toUpperCase())
+  .join("") || "M";
+
+const messageTime = (value: string | null, language: string, justNow: string) => {
+  if (!value) return "";
+  const seconds = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 1000));
+  if (seconds < 60) return justNow;
+  const locale = language.startsWith("ar") ? "ar-PS-u-nu-latn" : "en-US-u-nu-latn";
+  const formatter = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
+  if (seconds < 3600) return formatter.format(-Math.floor(seconds / 60), "minute");
+  if (seconds < 86400) return formatter.format(-Math.floor(seconds / 3600), "hour");
+  return formatDate(value, { dateStyle: "medium" }, language.startsWith("ar") ? "ar" : "en");
+};
 
 const groupInvestmentsByMonth = (investments: Investment[]) => {
   const byMonth = investments.reduce<Record<string, { raised: number; investors: Set<string> }>>((acc, investment) => {
@@ -86,7 +110,7 @@ const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?:
 };
 
 const EntrepreneurDashboard = () => {
-  const { t } = useTranslation();
+  const { t, i18n: activeI18n } = useTranslation();
   const { user } = useAuth();
   const navigate = useNavigate();
   const projectsQuery = useQuery({
@@ -99,6 +123,11 @@ const EntrepreneurDashboard = () => {
     queryFn: investmentsService.listInvestments,
     ...dashboardPollingOptions,
   });
+  const conversationsQuery = useQuery({
+    queryKey: ["conversations"],
+    queryFn: messagingService.listConversations,
+    ...dashboardPollingOptions,
+  });
 
   const projects = projectsQuery.data?.results ?? [];
   const investments = investmentsQuery.data?.results ?? [];
@@ -109,8 +138,14 @@ const EntrepreneurDashboard = () => {
   const pendingProjects = projects.filter((project) => project.status === "draft" || !project.is_verified).length;
   const totalRaised = projects.reduce((sum, project) => sum + projectRaised(project), 0);
   const totalInvestors = projects.reduce((sum, project) => sum + (project.investor_count ?? 0), 0);
-  const monthly = groupInvestmentsByMonth(investments);
+  const monthly = groupInvestmentsByMonth(fundedInvestments(investments));
   const firstProject = projects[0];
+  const conversations = conversationsQuery.data?.results ?? [];
+  const recentConversations = conversations.slice(0, 3);
+  const unreadMessageCount = conversations.reduce(
+    (total, conversation) => total + conversation.unread_count,
+    0,
+  );
   const isLoading = projectsQuery.isLoading || investmentsQuery.isLoading;
 
   const kpiCards = [
@@ -398,7 +433,7 @@ const EntrepreneurDashboard = () => {
                       <div className="flex-1 min-w-0">
                         <div className="mb-2 flex flex-wrap items-center gap-2">
                           <p className="font-semibold text-foreground group-hover:text-primary transition-colors duration-300">{project.title}</p>
-                          <StatusBadge status={project.status} />
+                          <StatusBadge status={project.status} label={project.status === "completed" && project.repayment_status !== "completed" ? t("projects.badges.repayingInvestors") : undefined} />
                           <Badge variant="outline" className="text-xs border-primary/20">{project.category_detail?.name ?? t("projects.projectFallback")}</Badge>
                         </div>
                         <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
@@ -537,52 +572,47 @@ const EntrepreneurDashboard = () => {
                   </div>
                   <h3 className="font-semibold text-foreground">{t("dashboard.messages")}</h3>
                 </div>
-                <Badge variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/20 border-0">{t("dashboard.newCount", { count: formatNumber(2) })}</Badge>
+                <Badge variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/20 border-0">{t("dashboard.newCount", { count: formatNumber(unreadMessageCount) })}</Badge>
               </div>
               <div className="space-y-3">
-                {[
-                  { id: 1, sender: "Sarah Ahmed", message: t("dashboard.sampleMessageInterest"), time: t("dashboard.minutesAgo", { count: 5 }), unread: true, initials: "SA" },
-                  { id: 2, sender: "Layla Khaled", message: t("dashboard.sampleMessageProposal"), time: t("dashboard.daysAgo", { count: 1 }), unread: false, initials: "LK", status: "premium" },
-                  { id: 3, sender: "Mohammad H.", message: t("dashboard.sampleMessageGoal"), time: t("dashboard.daysAgo", { count: 2 }), unread: false, initials: "MH" }
-                ].map((msg) => (
-                  <Link to="/dashboard/entrepreneur/messages" key={msg.id} className="block group">
-                    <div className={`p-3 rounded-xl border transition-all duration-200 flex items-start gap-3 ${msg.unread ? 'bg-primary/5 border-primary/20 hover:bg-primary/10' : 'bg-transparent border-border hover:border-primary/30 hover:bg-muted/50'}`}>
-                      <div className={`relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
-                        msg.status === "premium"
-                          ? 'bg-gradient-to-br from-warning to-warning/70 text-secondary-foreground shadow-sm'
-                          : msg.unread 
-                          ? 'bg-primary text-primary-foreground shadow-sm' 
-                          : 'bg-primary/10 text-primary'
-                      }`}>
-                        {msg.initials}
-                        {msg.status === "premium" && (
-                          <div className="absolute -top-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-warning text-secondary-foreground shadow-sm">
-                            <Sparkles className="h-2 w-2" />
+                {conversationsQuery.isLoading ? (
+                  <p className="py-6 text-center text-sm text-muted-foreground">{t("messages.loadingConversations")}</p>
+                ) : conversationsQuery.isError ? (
+                  <div className="py-4 text-center text-sm text-destructive">
+                    <p>{t("messages.loadConversationsError")}</p>
+                    <Button className="mt-3" size="sm" variant="outline" onClick={() => conversationsQuery.refetch()}>{t("common.retry")}</Button>
+                  </div>
+                ) : recentConversations.length === 0 ? (
+                  <p className="py-6 text-center text-sm text-muted-foreground">{t("messages.emptyConversations")}</p>
+                ) : recentConversations.map((conversation) => {
+                  const name = conversationName(conversation, user?.id) || t("messages.conversation");
+                  const unread = conversation.unread_count > 0;
+                  return (
+                    <Link to={`/dashboard/entrepreneur/messages?conversation=${conversation.id}`} key={conversation.id} className="block group">
+                      <div className={`p-3 rounded-xl border transition-all duration-200 flex items-start gap-3 ${unread ? 'bg-primary/5 border-primary/20 hover:bg-primary/10' : 'bg-transparent border-border hover:border-primary/30 hover:bg-muted/50'}`}>
+                        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold ${unread ? 'bg-primary text-primary-foreground shadow-sm' : 'bg-primary/10 text-primary'}`}>
+                          {initialsOf(name)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className={`text-sm truncate ${unread ? 'font-semibold text-foreground' : 'font-medium text-foreground'}`}>
+                              {name}
+                            </p>
+                            <span className="text-xs text-muted-foreground shrink-0">
+                              {messageTime(conversation.last_message_at, activeI18n.resolvedLanguage ?? "en", t("messages.justNow"))}
+                            </span>
                           </div>
+                          <p className={`text-xs truncate mt-0.5 ${unread ? 'text-foreground font-medium' : 'text-muted-foreground'}`}>
+                            {conversation.last_message_preview?.preview ?? t("messages.noMessages")}
+                          </p>
+                        </div>
+                        {unread && (
+                          <Badge className="h-5 min-w-5 justify-center rounded-full px-1.5 text-[10px]">{formatNumber(conversation.unread_count)}</Badge>
                         )}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-1.5">
-                            <p className={`text-sm truncate ${msg.unread ? 'font-semibold text-foreground' : 'font-medium text-foreground'}`}>
-                              {msg.sender}
-                            </p>
-                            {msg.status === "premium" && (
-                              <Badge variant="secondary" className="px-1 py-0 h-4 text-[10px] bg-warning/10 text-warning border-0">{t("dashboard.premium")}</Badge>
-                            )}
-                          </div>
-                          <span className="text-xs text-muted-foreground shrink-0">{msg.time}</span>
-                        </div>
-                        <p className={`text-xs truncate mt-0.5 ${msg.unread ? 'text-foreground font-medium' : 'text-muted-foreground'}`}>
-                          {msg.message}
-                        </p>
-                      </div>
-                      {msg.unread && (
-                        <div className="w-2 h-2 rounded-full bg-primary mt-1.5 shrink-0 shadow-sm" />
-                      )}
-                    </div>
-                  </Link>
-                ))}
+                    </Link>
+                  );
+                })}
               </div>
               <Button variant="ghost" className="w-full mt-2 text-xs text-muted-foreground hover:text-primary transition-colors" asChild>
                 <Link to="/dashboard/entrepreneur/messages">{t("dashboard.messages")} <ArrowRight className="ms-1.5 h-3.5 w-3.5 rtl-flip" /></Link>

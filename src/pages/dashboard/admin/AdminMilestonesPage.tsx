@@ -3,7 +3,7 @@ import i18n from "@/i18n";
 import { formatCurrency as formatLocaleCurrency, formatDate, formatNumber } from "@/i18n/format";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Edit3, Flag, Plus, Search, Trash2 } from "lucide-react";
+import { Edit3, Flag, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import DashboardLayout from "../DashboardLayout";
 import AdminDeleteDialog from "@/components/admin/AdminDeleteDialog";
@@ -111,11 +111,6 @@ const AdminMilestonesPage = () => {
     onError: (error) => toast.error(getErrorMessage(error, t("admin.deleteFailed", { item: t("admin.milestoneItem") }))),
   });
 
-  const openCreate = () => {
-    setEditing(null);
-    setDialogOpen(true);
-  };
-
   const openEdit = (milestone: AdminMilestone) => {
     setEditing(milestone);
     setDialogOpen(true);
@@ -131,26 +126,22 @@ const AdminMilestonesPage = () => {
           icon={Flag}
           title={t("admin.milestonesTitle")}
           description={t("admin.milestonesText")}
-          actions={
-            <Button onClick={openCreate}>
-              <Plus className="h-4 w-4" />{t("admin.newMilestone")}</Button>
-          }
         />
 
-        <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
-          <div className="flex flex-col gap-4 border-b border-border p-5 lg:flex-row lg:items-center lg:justify-between">
+        <section className="overflow-hidden rounded-2xl border border-border/60 bg-card shadow-sm">
+          <div className="border-b border-border/60 p-5 sm:p-6">
             <div>
               <h2 className="font-semibold text-foreground">{t("admin.deliverySchedule")}</h2>
               <p className="mt-1 text-sm text-muted-foreground">
                 {data ? t("admin.milestoneRecords", { count: data.count }) : t("admin.loadingMilestones")}
               </p>
             </div>
-            <div className="grid gap-2 sm:grid-cols-3 lg:w-[42rem]">
+            <div className="mt-5 grid gap-2 rounded-2xl border border-border/60 bg-muted/25 p-2 sm:grid-cols-[minmax(14rem,1fr)_12rem_minmax(12rem,0.8fr)]">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   aria-label={t("admin.searchMilestonesLabel")}
-                  className="pl-9"
+                  className="border-0 bg-background ps-9 shadow-sm"
                   placeholder={t("admin.searchMilestones")}
                   value={search}
                   onChange={(event) => {
@@ -166,7 +157,7 @@ const AdminMilestonesPage = () => {
                   setPage(1);
                 }}
               >
-                <SelectTrigger aria-label={t("admin.filterMilestoneStatus")}><SelectValue placeholder={t("admin.status")} /></SelectTrigger>
+                <SelectTrigger className="border-0 bg-background shadow-sm" aria-label={t("admin.filterMilestoneStatus")}><SelectValue placeholder={t("admin.status")} /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">{t("admin.allStatuses")}</SelectItem>
                   <SelectItem value="pending">{t("status.pending")}</SelectItem>
@@ -182,7 +173,7 @@ const AdminMilestonesPage = () => {
                   setPage(1);
                 }}
               >
-                <SelectTrigger aria-label={t("admin.filterMilestoneProject")}><SelectValue placeholder={t("dashboard.project")} /></SelectTrigger>
+                <SelectTrigger className="border-0 bg-background shadow-sm" aria-label={t("admin.filterMilestoneProject")}><SelectValue placeholder={t("dashboard.project")} /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">{t("admin.allProjects")}</SelectItem>
                   {(projectsQuery.data || []).map((option) => (
@@ -214,8 +205,8 @@ const AdminMilestonesPage = () => {
             <>
               <div className="hidden md:block">
                 <Table>
-                  <TableHeader>
-                    <TableRow>
+                  <TableHeader className="bg-muted/25">
+                    <TableRow className="border-border/60 hover:bg-transparent">
                       <TableHead>{t("admin.milestoneProject")}</TableHead>
                       <TableHead>{t("admin.progress")}</TableHead>
                       <TableHead>{t("common.status")}</TableHead>
@@ -226,20 +217,17 @@ const AdminMilestonesPage = () => {
                   </TableHeader>
                   <TableBody>
                     {records.map((milestone) => (
-                      <TableRow key={milestone.id}>
-                        <TableCell>
-                          <p className="font-semibold text-foreground">{milestone.title}</p>
-                          <p className="mt-0.5 max-w-64 truncate text-xs text-muted-foreground">
-                            {projectName(milestone)}
-                          </p>
+                      <TableRow key={milestone.id} className="h-20 border-border/50">
+                        <TableCell className="py-4">
+                          <p className="max-w-64 truncate text-xs font-medium uppercase tracking-wide text-muted-foreground">{projectName(milestone)}</p>
+                          <p className="mt-1 font-semibold text-foreground">{milestone.title}</p>
+                          <p className="mt-1 text-xs text-muted-foreground">{t("admin.order")} <bdi dir="ltr">#{milestone.order}</bdi></p>
                         </TableCell>
                         <TableCell>
                           <p className="font-semibold text-foreground">
                             <bdi dir="ltr">{formatNumber(milestone.percentage_of_project)}%</bdi>
                           </p>
-                          <p className="text-xs text-muted-foreground">
-                            {t("admin.order")} <bdi dir="ltr">{milestone.order}</bdi>
-                          </p>
+                          <div className="mt-2 h-1.5 w-24 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary" style={{ width: `${Math.min(Number(milestone.percentage_of_project), 100)}%` }} /></div>
                         </TableCell>
                         <TableCell><StatusBadge status={milestone.status} /></TableCell>
                         <TableCell className="text-muted-foreground">{date(milestone.target_date)}</TableCell>

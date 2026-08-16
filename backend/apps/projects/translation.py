@@ -40,6 +40,7 @@ def translate_project_content(project, target_language):
             {
                 "description": project.description,
                 "cost_items": project.cost_items,
+                "faqs": project.faqs,
                 "milestones": [
                     {
                         "id": str(milestone.id),
@@ -79,11 +80,66 @@ def translate_project_content(project, target_language):
             }
         )
 
+    translated_faqs = []
+    for faq in project.faqs or []:
+        translated_faqs.append(
+            {
+                "question": _translate_text(faq.get("question"), language),
+                "answer": _translate_text(faq.get("answer"), language),
+            }
+        )
+
     result = {
         "language": language,
         "description": _translate_text(project.description, language),
         "cost_items": translated_cost_items,
+        "faqs": translated_faqs,
         "milestones": translated_milestones,
     }
+    cache.set(cache_key, result, settings.PROJECT_TRANSLATION_CACHE_SECONDS)
+    return result
+
+
+def translate_project_edit_content(edit_request, target_language):
+    """Translate only user-authored fields present in a staged project edit."""
+    language = "ar" if target_language == "ar" else "en"
+    payload = edit_request.payload or {}
+    fingerprint = sha256(
+        json.dumps(payload, sort_keys=True, ensure_ascii=False).encode("utf-8")
+    ).hexdigest()
+    cache_key = f"project-edit-translation:{edit_request.pk}:{language}:{fingerprint}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    result = {"language": language}
+    if "description" in payload:
+        result["description"] = _translate_text(payload.get("description"), language)
+    if "cost_items" in payload:
+        result["cost_items"] = [
+            {
+                **item,
+                "description": _translate_text(item.get("description"), language),
+            }
+            for item in (payload.get("cost_items") or [])
+        ]
+    if "faqs" in payload:
+        result["faqs"] = [
+            {
+                "question": _translate_text(faq.get("question"), language),
+                "answer": _translate_text(faq.get("answer"), language),
+            }
+            for faq in (payload.get("faqs") or [])
+        ]
+    if "milestones" in payload:
+        result["milestones"] = [
+            {
+                **milestone,
+                "title": _translate_text(milestone.get("title"), language),
+                "description": _translate_text(milestone.get("description"), language),
+                "deliverables": _translate_text(milestone.get("deliverables"), language),
+            }
+            for milestone in (payload.get("milestones") or [])
+        ]
     cache.set(cache_key, result, settings.PROJECT_TRANSLATION_CACHE_SECONDS)
     return result

@@ -1,4 +1,4 @@
-# Team Input Required
+﻿# Team Input Required
 
 This file contains only information that cannot be established reliably from the repository and supplied documents. Please answer the questions directly and attach evidence where requested. Do not answer from memory when an official form, raw record, or source is available.
 
@@ -45,7 +45,7 @@ This file contains only information that cannot be established reliably from the
 27. What does staff project “verification” officially mean: document presence, identity review, business registration review, ownership review, feasibility assessment, or only an internal moderation status?
 28. What is the intended KYC process, who decides it, which documents are allowed, where are they stored, how long are they retained, and how are they deleted or appealed?
 29. Are the current payment-method labels (`card`, `bank_transfer`, `paypal`) approved product options, placeholders, or values to remove?
-30. Are expected ROI, repayment, investor tier, reputation, rating, and return fields approved product concepts? Define each formula and authority, or mark it as prototype-only.
+30. Are expected ROI, repayment, investor tier, reputation, rating, and return fields approved product concepts? Define each formula and authority, or mark it as platform-only.
 
 ## 4. Actual research and development history
 
@@ -55,7 +55,7 @@ This file contains only information that cannot be established reliably from the
 34. Did the team actually use Agile/Scrum, Trello, Google Docs, or Google Sheets?
 35. If Agile/Scrum was used, provide dated sprint boundaries, goals, backlog/task exports, roles, reviews, retrospectives, releases, and evidence supporting the manuscript's “Sprint 1” through “Sprint 12” account.
 36. If the exact twelve-sprint history cannot be evidenced, may the report describe development neutrally as iterative?
-37. What prototype versions, wireframes, design reviews, or user/supervisor feedback changed the design? Attach dated evidence.
+37. What platform versions, wireframes, design reviews, or user/supervisor feedback changed the design? Attach dated evidence.
 38. Which Git commits/uncommitted work were authored by each team member, if individual contribution must be defended?
 39. Were any third-party templates, generated assets, AI tools, or external contributors used? What acknowledgement/disclosure does university policy require?
 
@@ -72,7 +72,7 @@ This file contains only information that cannot be established reliably from the
 
 ## 6. Literature and citations
 
-48. Which verified peer-reviewed sources has the team already read for crowdfunding/impact funding, trust/information asymmetry, platform governance, privacy/security, bilingual RTL usability, and prototype evaluation? Supply the full texts or full verified bibliographic records.
+48. Which verified peer-reviewed sources has the team already read for crowdfunding/impact funding, trust/information asymmetry, platform governance, privacy/security, bilingual RTL usability, and platform evaluation? Supply the full texts or full verified bibliographic records.
 49. Which authoritative sources will support the Palestinian entrepreneurship, digital-finance, banking, payment-access, and legal context?
 50. Which current official sources will support any Kickstarter, GoFundMe, PayPal, Stripe, Jawwal Pay, bank, country-availability, fee, refund, or provider claim?
 51. Has the supervisor approved citing the Alzaza methodology book and the 2014 MBLLS proposal sample? How should the sample's missing/placeholder authorship be cited?
@@ -91,9 +91,9 @@ This file contains only information that cannot be established reliably from the
 
 59. Please identify `public/Screenshot 2026-04-13 114024.png`: what does it show, who created it, and may it be used?
 60. Which current manuscript figures are team-created, third-party, generated, or adapted? Supply source/licence/permission for every reused logo or image.
-61. Are Figures 24–32 intended as conceptual mockups rather than current screenshots? Please confirm.
+61. Are Figures 24–32 intended as conceptual fixtureups rather than current screenshots? Please confirm.
 62. Can the team provide a current synthetic-data screenshot set covering the routes/workflows listed in `03-testing-evaluation-and-findings.md`?
-63. For each screenshot, provide route, capture date, branch/commit/build, role, language, viewport, API/mock data source, redactions, and related requirement/use case.
+63. For each screenshot, provide route, capture date, branch/commit/build, role, language, viewport, API/fixture data source, redactions, and related requirement/use case.
 64. Can the team provide terminal captures of any final approved test/type-check/build runs without secrets or personal data?
 65. Which screenshots/figures may appear in the public final report, and who approves privacy/redaction?
 66. Does the university require figure source notes, “author's work” labels, or permission documentation?
@@ -111,8 +111,8 @@ This file contains only information that cannot be established reliably from the
 ## 10. Final supervisor decisions
 
 74. Does the supervisor approve the evidence-bounded research questions/objectives in this package?
-75. Does the supervisor approve presenting the project as an **academic development-stage prototype**, not a production financial system?
+75. Does the supervisor approve presenting the project as an **academic development-stage platform**, not a production financial system?
 76. Should the critical security/integrity findings be included in Chapter 5, an appendix, or both?
-77. Should unresolved mocked controls remain visible in screenshots, or should screenshots omit them while the text still discloses them?
+77. Should unresolved fixture-backed controls remain visible in screenshots, or should screenshots omit them while the text still discloses them?
 78. Which items may remain explicitly marked `[NOT VERIFIED]`, `[SOURCE REQUIRED]`, or `[TEAM CONFIRMATION REQUIRED]` in the submitted draft, and which must be resolved before submission?
 

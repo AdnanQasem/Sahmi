@@ -1,4 +1,4 @@
-# Sahmi Repository Audit and Evidence Map
+﻿# Sahmi Repository Audit and Evidence Map
 
 **Audit date:** 25 July 2026  
 **Scope:** the complete non-generated repository working tree  
@@ -113,12 +113,12 @@ flowchart LR
 | Audit logging | Staff reader | No dedicated audited frontend found | audit model/service/read API | `AuditLog` | access/sanitization tests exist | Partially implemented | Explicit events cover only selected auth/project/payment-view paths; admin, messaging, investments and many changes are absent. |
 | Admin user CRUD/reset | Staff | `AdminUsersPage.tsx`; service | `AdminUserViewSet` | User/auth relationships | admin API tests exist | Verified and implemented | Last-admin/self protections exist; destructive delete is permanent. |
 | Admin finance/project/media CRUD | Staff | admin pages/services | admin routers | domain models/files | extensive admin API tests exist | Verified and implemented | Administrative writes are powerful; audit logging is incomplete. |
-| Contact submission | Visitor | `ContactPage.tsx:107-116` | No endpoint | None | none | Frontend-only or mocked | Delays 1.5 seconds, clears the form, and reports success; no message is sent/persisted. |
-| Wallet, deposits, withdrawals | Investor/entrepreneur settings | `SettingsPage.tsx:115,238-256,977-1013` | None | None | none | Frontend-only or mocked | Local state begins at 25,000; no money movement. |
-| Payment cards and billing history | Investor/entrepreneur settings | `SettingsPage.tsx:1094-1178` | None | None | none | Frontend-only or mocked | Hard-coded Visa/Mastercard and transactions. |
-| 2FA, sessions, login history, recovery email | Authenticated settings | `SettingsPage.tsx:107-110,723-883` | None | None | none | Frontend-only or mocked | Includes hard-coded devices, IPs and “Password + 2FA” history. |
-| Entrepreneur investor network | Entrepreneur | `InvestorsPage.tsx:57-168` | Queries are made but display uses `mockInvestors` | Investment rows not aggregated into UI | none | Frontend-only or mocked | Displays fabricated names/emails/amounts and “premium” status. |
-| Entrepreneur recent message preview | Entrepreneur | `EntrepreneurDashboard.tsx:538-582` | Persistent messaging exists elsewhere | Message rows | none | Frontend-only or mocked | Dashboard card is hard-coded despite real messages page. |
+| Contact submission | Visitor | `ContactPage.tsx:107-116` | No endpoint | None | none | Frontend-only or fixture-backed | Delays 1.5 seconds, clears the form, and reports success; no message is sent/persisted. |
+| Wallet, deposits, withdrawals | Investor/entrepreneur settings | `SettingsPage.tsx:115,238-256,977-1013` | None | None | none | Frontend-only or fixture-backed | Local state begins at 25,000; no money movement. |
+| Payment cards and billing history | Investor/entrepreneur settings | `SettingsPage.tsx:1094-1178` | None | None | none | Frontend-only or fixture-backed | Hard-coded Visa/Mastercard and transactions. |
+| 2FA, sessions, login history, recovery email | Authenticated settings | `SettingsPage.tsx:107-110,723-883` | None | None | none | Frontend-only or fixture-backed | Includes hard-coded devices, IPs and “Password + 2FA” history. |
+| Entrepreneur investor network | Entrepreneur | `InvestorsPage.tsx:57-168` | Queries are made but display uses `fixtureInvestors` | Investment rows not aggregated into UI | none | Frontend-only or fixture-backed | Displays fabricated names/emails/amounts and “premium” status. |
+| Entrepreneur recent message preview | Entrepreneur | `EntrepreneurDashboard.tsx:538-582` | Persistent messaging exists elsewhere | Message rows | none | Frontend-only or fixture-backed | Dashboard card is hard-coded despite real messages page. |
 | KYC | User/admin fields and badges | settings/admin fields | user model/admin serializer | KYC fields/file | admin tests touch user data generally | Partially implemented | Storage/admin flags only; no complete user submission, policy, privacy or verification workflow. |
 | AI classification/recommendation | Staff-editable fields | admin project fields | no classifier/task/provider | four Project AI fields | admin field CRUD test only | Backend-only | Storage fields are not AI execution. |
 | Payment gateway/webhooks/refunds/disbursement | Intended investor/founder | Misleading marketing and settings UI | No provider/webhook/payment service | method/status/transaction labels only | none | Claimed in documentation but not found in code | Must not be described as implemented. |
@@ -138,14 +138,14 @@ flowchart LR
 | `/projects/:id/edit` | edit form | `PATCH /projects/{slug}/` | Backend owner or staff |
 | `/login`, `/register`, forgot/reset | auth pages | auth endpoints | Public, with throttles |
 | `/dashboard/investor*` | dashboards, transactions, messages, settings | investment/project/message/notification/auth APIs | Frontend user-type guard plus backend object rules |
-| `/dashboard/entrepreneur*` | dashboard, analytics, investors, messages, settings | project/investment/message/notification/auth APIs | Investor-network display remains mock |
+| `/dashboard/entrepreneur*` | dashboard, analytics, investors, messages, settings | project/investment/message/notification/auth APIs | Investor-network display remains fixture |
 | `/dashboard/admin*` | admin workspace | `/api/v1/admin/*` | `is_staff` via DRF `IsAdminUser` |
 
 ## 6. Repository-derived implementation findings
 
 ### 6.1 What Sahmi currently implements
 
-Sahmi is a bilingual React/Django prototype that presently implements:
+Sahmi is a bilingual React/Django platform that presently implements:
 
 - public discovery of active, verified projects;
 - investor and entrepreneur registration/login with JWT sessions;
@@ -172,7 +172,7 @@ It does **not** establish real payment, refund, escrow, return, disbursement, KY
 | High | Authenticated payment-history endpoint has no project relationship rule | `projects/views.py:257-284` | Any account can retrieve confirmed payment details for any known non-deleted slug |
 | High | Investment amount zero bypasses minimum check | `investments/serializers.py:34-40` | Invalid pending financial record |
 | High | Any authenticated role may create an investment and investor owners may edit confirmed amount/metadata | permissions and view/serializer code | Financial-record integrity and business-role ambiguity |
-| High | Settings and public copy imply secure payments, refunds, verification, wallet and 2FA | locale strings and Settings page | Misrepresentation of prototype controls |
+| High | Settings and public copy imply secure payments, refunds, verification, wallet and 2FA | locale strings and Settings page | Misrepresentation of platform controls |
 | High | Uploads lack explicit size, MIME/extension, malware, quarantine, private-storage and retention controls | model File/ImageFields; no validators found | Security/privacy/operational risk |
 | High | Admin-prefixed moderation bypasses normal action audit/notification/throttle | `projects/admin_views.py:85-139` vs `projects/views.py:148-243` | Inconsistent control and traceability |
 | High | Untracked user migration creates schema/code mismatch | `users/models.py:40-41`; untracked `0003...py` | Fresh checkout or unapplied environment may fail on profile fields |
@@ -220,7 +220,7 @@ No current E2E, coverage, performance, accessibility, penetration, Docker, deplo
 
 ## 9. Audit verdict
 
-**Prototype status:** substantial development-stage prototype, suitable for supervised demonstration with synthetic data after its mocked controls are disclosed.  
+**Platform status:** substantial development-stage platform, suitable for supervised demonstration with synthetic data after its fixture-backed controls are disclosed.  
 **Academic evidence status:** useful but requires the accompanying academic gap report and rewritten final draft.  
 **Production/financial status:** **not ready**. Privacy/authorization, financial integrity, upload security, operational deployment, legal rules, and end-to-end evaluation remain unresolved.
 

@@ -3,14 +3,35 @@ import i18n from "@/i18n";
 import { formatCurrency as formatLocaleCurrency, formatDate } from "@/i18n/format";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CircleDollarSign, Edit3, Plus, Search, Trash2 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  Building2,
+  Calendar,
+  CheckCircle2,
+  CircleDollarSign,
+  Clock,
+  CreditCard,
+  Landmark,
+  LayoutGrid,
+  PieChart,
+  RotateCcw,
+  Search,
+  SlidersHorizontal,
+  Table as TableIcon,
+  Trash2,
+  User,
+  Wallet,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
 import DashboardLayout from "../DashboardLayout";
+import StatCard from "@/components/dashboard/StatCard";
 import AdminDeleteDialog from "@/components/admin/AdminDeleteDialog";
 import AdminInvestmentDialog from "@/components/admin/AdminInvestmentDialog";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import AdminPagination from "@/components/admin/AdminPagination";
 import StatusBadge from "@/components/dashboard/StatusBadge";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -50,8 +71,44 @@ const investorName = (investment: AdminInvestment) =>
   investment.investor_name ||
   i18n.t("admin.unknownInvestor");
 
+const investorEmail = (investment: AdminInvestment) =>
+  investment.investor_detail?.email || "";
+
 const projectName = (investment: AdminInvestment) =>
   investment.project_detail?.title || i18n.t("admin.unknownProject");
+
+const getInitials = (name: string) => {
+  const clean = name.trim();
+  if (!clean) return "IN";
+  const parts = clean.split(/\s+/);
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  }
+  return clean.slice(0, 2).toUpperCase();
+};
+
+const PaymentBadge = ({ method }: { method: string }) => {
+  let Icon = CircleDollarSign;
+  let bgClass = "bg-primary/10 text-primary border-primary/20";
+
+  if (method === "card") {
+    Icon = CreditCard;
+    bgClass = "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20";
+  } else if (method === "bank_transfer") {
+    Icon = Landmark;
+    bgClass = "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20";
+  } else if (method === "paypal") {
+    Icon = Wallet;
+    bgClass = "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20";
+  }
+
+  return (
+    <span className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium ${bgClass}`}>
+      <Icon className="h-3.5 w-3.5" />
+      {paymentLabel(method)}
+    </span>
+  );
+};
 
 const AdminInvestmentsPage = () => {
   const { t } = useTranslation();
@@ -60,6 +117,7 @@ const AdminInvestmentsPage = () => {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
   const [paymentMethod, setPaymentMethod] = useState("all");
+  const [viewMode, setViewMode] = useState<"table" | "grid">("table");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<AdminInvestment | null>(null);
   const [deleting, setDeleting] = useState<AdminInvestment | null>(null);
@@ -74,6 +132,16 @@ const AdminInvestmentsPage = () => {
         status: status === "all" ? undefined : status,
         payment_method: paymentMethod === "all" ? undefined : paymentMethod,
         ordering: "-investment_date",
+      }),
+  });
+
+  const summaryQuery = useQuery({
+    queryKey: ["admin", "investments", "summary", search, status, paymentMethod],
+    queryFn: () =>
+      adminFinanceService.investmentSummary({
+        search: search.trim() || undefined,
+        status: status === "all" ? undefined : status,
+        payment_method: paymentMethod === "all" ? undefined : paymentMethod,
       }),
   });
 
@@ -126,11 +194,6 @@ const AdminInvestmentsPage = () => {
     onError: (error) => toast.error(getErrorMessage(error, t("admin.deleteFailed", { item: t("admin.investmentItem") }))),
   });
 
-  const openCreate = () => {
-    setEditing(null);
-    setDialogOpen(true);
-  };
-
   const openEdit = (investment: AdminInvestment) => {
     setEditing(investment);
     setDialogOpen(true);
@@ -139,6 +202,22 @@ const AdminInvestmentsPage = () => {
   const data = investmentsQuery.data;
   const records = data?.results || [];
 
+  const summaryStats = {
+    totalVolume: Number(summaryQuery.data?.funded_total || 0),
+    totalCount: summaryQuery.data?.total_count ?? data?.count ?? 0,
+    confirmedCount: summaryQuery.data?.funded_count ?? 0,
+    pendingCount: summaryQuery.data?.pending_count ?? 0,
+  };
+
+  const hasActiveFilters = Boolean(search || status !== "all" || paymentMethod !== "all");
+
+  const resetFilters = () => {
+    setSearch("");
+    setStatus("all");
+    setPaymentMethod("all");
+    setPage(1);
+  };
+
   return (
     <DashboardLayout roleBase="/dashboard/admin">
       <div className="space-y-8">
@@ -146,26 +225,75 @@ const AdminInvestmentsPage = () => {
           icon={CircleDollarSign}
           title={t("admin.ledgerTitle")}
           description={t("admin.ledgerText")}
-          actions={
-            <Button onClick={openCreate}>
-              <Plus className="h-4 w-4" />{t("admin.newInvestment")}</Button>
-          }
         />
 
-        <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
-          <div className="flex flex-col gap-4 border-b border-border p-5 lg:flex-row lg:items-center lg:justify-between">
+        {/* Analytics Stat Cards */}
+        <section aria-label="Investment Summary Statistics">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <StatCard
+              label={t("admin.totalInvested", { defaultValue: "Total Volume" })}
+              value={currency(summaryStats.totalVolume)}
+              subtext={t("admin.confirmedAcrossLedger", { defaultValue: "Confirmed and completed records" })}
+              icon={CircleDollarSign}
+              iconBgClass="bg-primary/10"
+              iconColorClass="text-primary"
+              index={0}
+            />
+            <StatCard
+              label={t("admin.totalRecords", { defaultValue: "Total Transactions" })}
+              value={String(summaryStats.totalCount)}
+              subtext={t("admin.investmentEntries", { defaultValue: "Investment entries" })}
+              icon={PieChart}
+              iconBgClass="bg-secondary/10"
+              iconColorClass="text-secondary"
+              index={1}
+            />
+            <StatCard
+              label={t("status.confirmed")}
+              value={String(summaryStats.confirmedCount)}
+              subtext={t("admin.successfulInvestments", { defaultValue: "Verified transactions" })}
+              icon={CheckCircle2}
+              iconBgClass="bg-success/10"
+              iconColorClass="text-success"
+              index={2}
+            />
+            <StatCard
+              label={t("status.pending")}
+              value={String(summaryStats.pendingCount)}
+              subtext={t("admin.awaitingConfirmation", { defaultValue: "Requires attention" })}
+              icon={Clock}
+              iconBgClass="bg-warning/10"
+              iconColorClass="text-warning"
+              index={3}
+            />
+          </div>
+        </section>
+
+        {/* Main Section */}
+        <section className="overflow-hidden rounded-2xl border border-border bg-card/90 shadow-sm backdrop-blur-md">
+          {/* Header & Filter Controls */}
+          <div className="flex flex-col gap-4 border-b border-border p-6 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <h2 className="font-semibold text-foreground">{t("admin.allInvestments")}</h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-xl font-bold tracking-tight text-foreground">{t("admin.allInvestments")}</h2>
+                {data && (
+                  <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
+                    {data.count}
+                  </span>
+                )}
+              </div>
               <p className="mt-1 text-sm text-muted-foreground">
                 {data ? t("admin.financialRecords", { count: data.count }) : t("admin.loadingLedger")}
               </p>
             </div>
-            <div className="grid gap-2 sm:grid-cols-3 lg:w-[42rem]">
-              <div className="relative sm:col-span-1">
+
+            <div className="flex flex-wrap items-center gap-2.5">
+              {/* Search input */}
+              <div className="relative min-w-[200px] flex-1 sm:w-64">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   aria-label={t("admin.searchInvestmentsLabel")}
-                  className="pl-9"
+                  className="pl-9 pr-8"
                   placeholder={t("admin.searchInvestments")}
                   value={search}
                   onChange={(event) => {
@@ -173,7 +301,20 @@ const AdminInvestmentsPage = () => {
                     setPage(1);
                   }}
                 />
+                {search && (
+                  <button
+                    onClick={() => {
+                      setSearch("");
+                      setPage(1);
+                    }}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
               </div>
+
+              {/* Status Select */}
               <Select
                 value={status}
                 onValueChange={(value) => {
@@ -181,7 +322,9 @@ const AdminInvestmentsPage = () => {
                   setPage(1);
                 }}
               >
-                <SelectTrigger aria-label={t("admin.filterInvestmentStatus")}><SelectValue placeholder={t("admin.status")} /></SelectTrigger>
+                <SelectTrigger aria-label={t("admin.filterInvestmentStatus")} className="w-[140px]">
+                  <SelectValue placeholder={t("admin.status")} />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">{t("admin.allStatuses")}</SelectItem>
                   <SelectItem value="pending">{t("status.pending")}</SelectItem>
@@ -192,6 +335,8 @@ const AdminInvestmentsPage = () => {
                   <SelectItem value="refunded">{t("status.refunded")}</SelectItem>
                 </SelectContent>
               </Select>
+
+              {/* Payment Method Select */}
               <Select
                 value={paymentMethod}
                 onValueChange={(value) => {
@@ -199,7 +344,9 @@ const AdminInvestmentsPage = () => {
                   setPage(1);
                 }}
               >
-                <SelectTrigger aria-label={t("admin.filterInvestmentMethod")}><SelectValue placeholder={t("admin.payment")} /></SelectTrigger>
+                <SelectTrigger aria-label={t("admin.filterInvestmentMethod")} className="w-[150px]">
+                  <SelectValue placeholder={t("admin.payment")} />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">{t("admin.allPaymentMethods")}</SelectItem>
                   <SelectItem value="bank_transfer">{t("payment.bank_transfer")}</SelectItem>
@@ -207,123 +354,181 @@ const AdminInvestmentsPage = () => {
                   <SelectItem value="paypal">{t("payment.paypal")}</SelectItem>
                 </SelectContent>
               </Select>
+
+              {/* Reset Filters */}
+              {hasActiveFilters && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={resetFilters}
+                  title={t("common.resetFilters", { defaultValue: "Reset filters" })}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                </Button>
+              )}
+
+              {/* Layout View Switcher */}
+              <div className="hidden border-l border-border pl-2.5 sm:flex sm:items-center sm:gap-1">
+                <Button
+                  variant={viewMode === "table" ? "secondary" : "ghost"}
+                  size="icon"
+                  onClick={() => setViewMode("table")}
+                  className="h-9 w-9"
+                  title="Table View"
+                >
+                  <TableIcon className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant={viewMode === "grid" ? "secondary" : "ghost"}
+                  size="icon"
+                  onClick={() => setViewMode("grid")}
+                  className="h-9 w-9"
+                  title="Grid View"
+                >
+                  <LayoutGrid className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           </div>
 
+          {/* Body Content */}
           {investmentsQuery.isPending ? (
-            <div className="space-y-3 p-5">
-              {Array.from({ length: 5 }).map((_, index) => (
+            <div className="space-y-4 p-6">
+              {Array.from({ length: 6 }).map((_, index) => (
                 <Skeleton key={index} className="h-16 w-full rounded-xl" />
               ))}
             </div>
           ) : investmentsQuery.isError ? (
-            <div className="p-10 text-center">
+            <div className="p-12 text-center">
               <p className="font-medium text-destructive">{t("admin.ledgerLoadError")}</p>
-              <Button className="mt-4" variant="outline" onClick={() => void investmentsQuery.refetch()}>{t("admin.tryAgain")}</Button>
+              <Button className="mt-4" variant="outline" onClick={() => void investmentsQuery.refetch()}>
+                {t("admin.tryAgain")}
+              </Button>
             </div>
           ) : records.length === 0 ? (
-            <div className="p-12 text-center">
-              <CircleDollarSign className="mx-auto h-10 w-10 text-muted-foreground/50" />
-              <h3 className="mt-4 font-semibold text-foreground">{t("admin.noInvestments")}</h3>
+            <div className="p-16 text-center">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-muted/60 text-muted-foreground/60">
+                <CircleDollarSign className="h-8 w-8" />
+              </div>
+              <h3 className="mt-4 text-lg font-semibold text-foreground">{t("admin.noInvestments")}</h3>
               <p className="mt-1 text-sm text-muted-foreground">{t("admin.adjustOrCreate")}</p>
+              {hasActiveFilters && (
+                <Button variant="outline" className="mt-4 gap-2" onClick={resetFilters}>
+                  <RotateCcw className="h-4 w-4" />
+                  {t("common.clearFilters", { defaultValue: "Clear filters" })}
+                </Button>
+              )}
             </div>
-          ) : (
+          ) : viewMode === "table" ? (
+            /* Table View */
             <>
-              <div className="hidden md:block">
+              <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
-                    <TableRow>
-                      <TableHead>{t("admin.investorProject")}</TableHead>
-                      <TableHead>{t("common.amount")}</TableHead>
-                      <TableHead>{t("common.status")}</TableHead>
-                      <TableHead>{t("admin.payment")}</TableHead>
-                      <TableHead>{t("common.date")}</TableHead>
-                      <TableHead className="w-24 text-right">{t("admin.actions")}</TableHead>
+                    <TableRow className="bg-muted/40 hover:bg-muted/40">
+                      <TableHead className="py-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                        {t("admin.investorProject")}
+                      </TableHead>
+                      <TableHead className="py-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                        {t("common.amount")} & {t("admin.quantityShort")}
+                      </TableHead>
+                      <TableHead className="py-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                        {t("common.status")}
+                      </TableHead>
+                      <TableHead className="py-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                        {t("admin.payment")}
+                      </TableHead>
+                      <TableHead className="py-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                        {t("common.date")}
+                      </TableHead>
+                      <TableHead className="w-24 py-4 text-right text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                        {t("admin.actions")}
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {records.map((investment) => (
-                      <TableRow key={investment.id}>
-                        <TableCell>
-                          <p className="font-semibold text-foreground">{investorName(investment)}</p>
-                          <p className="mt-0.5 max-w-64 truncate text-xs text-muted-foreground">
-                            {projectName(investment)}
-                          </p>
-                        </TableCell>
-                        <TableCell>
-                          <p className="font-semibold text-foreground">{currency(investment.amount)}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {t("admin.quantityShort")} <bdi dir="ltr">{investment.quantity}</bdi>
-                          </p>
-                        </TableCell>
-                        <TableCell><StatusBadge status={investment.status} /></TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {paymentLabel(investment.payment_method)}
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {dateTime(investment.investment_date)}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex justify-end gap-1">
-                            <Button variant="ghost" size="icon" onClick={() => openEdit(investment)}>
-                              <Edit3 className="h-4 w-4" />
-                              <span className="sr-only">{t("admin.editInvestment")}</span>
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="text-destructive hover:text-destructive"
-                              onClick={() => setDeleting(investment)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                              <span className="sr-only">{t("admin.deleteInvestment")}</span>
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    <AnimatePresence mode="wait">
+                      {records.map((investment, index) => {
+                        const name = investorName(investment);
+                        const email = investorEmail(investment);
+                        const project = projectName(investment);
+
+                        return (
+                          <TableRow
+                            key={investment.id}
+                            className="group transition-colors duration-150 hover:bg-muted/30"
+                          >
+                            <TableCell className="py-4">
+                              <div className="flex items-center gap-3">
+                                <Avatar className="h-10 w-10 border border-border shadow-xs">
+                                  <AvatarFallback className="bg-primary/10 text-xs font-bold text-primary">
+                                    {getInitials(name)}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div className="min-w-0">
+                                  <p className="font-semibold text-foreground group-hover:text-primary transition-colors">
+                                    {name}
+                                  </p>
+                                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                    <Building2 className="h-3 w-3 shrink-0 opacity-70" />
+                                    <span className="max-w-[200px] truncate">{project}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell className="py-4">
+                              <div>
+                                <p className="font-bold text-foreground tabular-nums">
+                                  {currency(investment.amount)}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  {t("admin.quantityShort")} <bdi dir="ltr" className="font-medium text-foreground">{investment.quantity}</bdi> {t("common.shares", { defaultValue: "shares" })}
+                                </p>
+                              </div>
+                            </TableCell>
+                            <TableCell className="py-4">
+                              <StatusBadge status={investment.status} />
+                            </TableCell>
+                            <TableCell className="py-4">
+                              <PaymentBadge method={investment.payment_method} />
+                            </TableCell>
+                            <TableCell className="py-4 text-xs text-muted-foreground">
+                              <div className="flex items-center gap-1.5">
+                                <Calendar className="h-3.5 w-3.5 opacity-60" />
+                                {dateTime(investment.investment_date)}
+                              </div>
+                            </TableCell>
+                            <TableCell className="py-4">
+                              <div className="flex justify-end gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-muted-foreground hover:bg-primary/10 hover:text-primary"
+                                  onClick={() => openEdit(investment)}
+                                  title={t("admin.editInvestment")}
+                                >
+                                  <SlidersHorizontal className="h-4 w-4" />
+                                  <span className="sr-only">{t("admin.editInvestment")}</span>
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                                  onClick={() => setDeleting(investment)}
+                                  title={t("admin.deleteInvestment")}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                  <span className="sr-only">{t("admin.deleteInvestment")}</span>
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </AnimatePresence>
                   </TableBody>
                 </Table>
-              </div>
-
-              <div className="divide-y divide-border md:hidden">
-                {records.map((investment) => (
-                  <article key={investment.id} className="space-y-4 p-5">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="truncate font-semibold text-foreground">{investorName(investment)}</p>
-                        <p className="mt-1 truncate text-sm text-muted-foreground">{projectName(investment)}</p>
-                      </div>
-                      <StatusBadge status={investment.status} />
-                    </div>
-                    <div className="grid grid-cols-2 gap-3 rounded-xl bg-muted/40 p-3 text-sm">
-                      <div>
-                        <p className="text-xs text-muted-foreground">{t("common.amount")}</p>
-                        <p className="mt-1 font-semibold text-foreground">{currency(investment.amount)}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">{t("admin.payment")}</p>
-                        <p className="mt-1 font-medium text-foreground">{paymentLabel(investment.payment_method)}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="text-xs text-muted-foreground">{dateTime(investment.investment_date)}</p>
-                      <div className="flex gap-1">
-                        <Button variant="outline" size="sm" onClick={() => openEdit(investment)}>
-                          <Edit3 className="h-4 w-4" />{t("common.edit")}</Button>
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          className="text-destructive"
-                          onClick={() => setDeleting(investment)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                          <span className="sr-only">{t("admin.deleteInvestment")}</span>
-                        </Button>
-                      </div>
-                    </div>
-                  </article>
-                ))}
               </div>
               <AdminPagination
                 page={page}
@@ -332,6 +537,94 @@ const AdminInvestmentsPage = () => {
                 onPageChange={setPage}
               />
             </>
+          ) : (
+            /* Grid Card View */
+            <div className="p-6">
+              <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+                {records.map((investment, index) => {
+                  const name = investorName(investment);
+                  const project = projectName(investment);
+
+                  return (
+                    <motion.div
+                      key={investment.id}
+                      initial={{ opacity: 0, y: 15 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.3, delay: index * 0.04 }}
+                      whileHover={{ y: -3 }}
+                      className="group relative overflow-hidden rounded-2xl border border-border bg-card p-5 shadow-xs transition-all duration-300 hover:border-primary/30 hover:shadow-lg"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <Avatar className="h-11 w-11 border border-border">
+                            <AvatarFallback className="bg-primary/10 font-bold text-primary">
+                              {getInitials(name)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="min-w-0">
+                            <h3 className="truncate font-semibold text-foreground group-hover:text-primary transition-colors">
+                              {name}
+                            </h3>
+                            <p className="truncate text-xs text-muted-foreground">{project}</p>
+                          </div>
+                        </div>
+                        <StatusBadge status={investment.status} />
+                      </div>
+
+                      <div className="mt-5 grid grid-cols-2 gap-3 rounded-xl bg-muted/40 p-3.5 text-xs">
+                        <div>
+                          <p className="text-muted-foreground">{t("common.amount")}</p>
+                          <p className="mt-1 text-base font-bold text-foreground tabular-nums">
+                            {currency(investment.amount)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">{t("admin.quantityShort")}</p>
+                          <p className="mt-1 text-sm font-semibold text-foreground">
+                            <bdi dir="ltr">{investment.quantity}</bdi> {t("common.shares", { defaultValue: "shares" })}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 flex items-center justify-between gap-2 text-xs">
+                        <PaymentBadge method={investment.payment_method} />
+                        <span className="text-muted-foreground flex items-center gap-1">
+                          <Calendar className="h-3 w-3" />
+                          {dateTime(investment.investment_date)}
+                        </span>
+                      </div>
+
+                      <div className="mt-4 flex items-center justify-end gap-2 border-t border-border/60 pt-3">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 gap-1.5 text-xs"
+                          onClick={() => openEdit(investment)}
+                        >
+                          <SlidersHorizontal className="h-3.5 w-3.5" />
+                          {t("common.edit")}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 gap-1.5 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive"
+                          onClick={() => setDeleting(investment)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                          {t("common.delete", { defaultValue: "Delete" })}
+                        </Button>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
+              <AdminPagination
+                page={page}
+                count={data?.count || 0}
+                pageSize={PAGE_SIZE}
+                onPageChange={setPage}
+              />
+            </div>
           )}
         </section>
       </div>

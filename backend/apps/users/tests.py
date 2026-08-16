@@ -1,17 +1,171 @@
 from urllib.parse import parse_qs, urlparse
 import base64
 import tempfile
+from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.core import mail
+from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import override_settings
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 
+from .models import PendingRegistration
+
 
 User = get_user_model()
+
+
+class EntrepreneurFinancialDeletionTests(APITestCase):
+    def setUp(self):
+        from apps.projects.models import ProjectCategory
+
+        self.admin = User.objects.create_user(
+            username="deletion-admin",
+            email="deletion-admin@example.com",
+            full_name="Deletion Admin",
+            password="password",
+            is_staff=True,
+        )
+        self.entrepreneur = User.objects.create_user(
+            username="deletion-owner",
+            email="deletion-owner@example.com",
+            full_name="Deletion Owner",
+            password="password",
+            user_type=User.UserType.ENTREPRENEUR,
+        )
+        self.investor = User.objects.create_user(
+            username="deletion-investor",
+            email="deletion-investor@example.com",
+            full_name="Deletion Investor",
+            password="password",
+            user_type=User.UserType.INVESTOR,
+        )
+        self.category = ProjectCategory.objects.create(
+            name="Deletion finance",
+            slug="deletion-finance",
+        )
+        self.client.force_authenticate(self.admin)
+
+    def project(self, *, status_value, slug):
+        from apps.projects.models import Project
+
+        return Project.objects.create(
+            entrepreneur=self.entrepreneur,
+            title=f"Deletion project {slug}",
+            slug=slug,
+            description="Financial deletion guard test.",
+            short_description="Deletion guard",
+            category=self.category,
+            location="Hebron",
+            goal_amount=Decimal("100.00"),
+            funded_amount=Decimal("100.00"),
+            minimum_investment=Decimal("10.00"),
+            expected_roi=Decimal("10.00"),
+            is_verified=True,
+            status=status_value,
+        )
+
+    def delete_entrepreneur(self):
+        return self.client.delete(
+            reverse("admin-user-detail", args=[self.entrepreneur.pk])
+        )
+
+    def test_unfinished_funded_project_requires_investments_to_be_sent_back(self):
+        from apps.investments.models import Investment
+        from apps.projects.models import Project
+
+        project = self.project(status_value=Project.Status.IMPLEMENTATION, slug="refund-first")
+        Investment.objects.create(
+            investor=self.investor,
+            project=project,
+            amount=Decimal("100.00"),
+            expected_return=Decimal("10.00"),
+            status=Investment.Status.CONFIRMED,
+        )
+
+        response = self.delete_entrepreneur()
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            response.data["detail"],
+            "Investments must be sent back before deleting this entrepreneur account.",
+        )
+        self.assertTrue(User.objects.filter(pk=self.entrepreneur.pk).exists())
+
+    def test_completed_project_requires_full_return_of_investment(self):
+        from apps.investments.models import Investment, Repayment
+        from apps.projects.models import Project
+
+        project = self.project(status_value=Project.Status.CLOSED, slug="roi-first")
+        investment = Investment.objects.create(
+            investor=self.investor,
+            project=project,
+            amount=Decimal("100.00"),
+            expected_return=Decimal("10.00"),
+            status=Investment.Status.COMPLETED,
+        )
+        Repayment.objects.create(
+            investment=investment,
+            amount=Decimal("50.00"),
+            scheduled_date="2030-01-01",
+            actual_payment_date="2026-08-16",
+            status=Repayment.Status.PAID,
+        )
+
+        response = self.delete_entrepreneur()
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            response.data["detail"],
+            "Return of investments must be done before deleting this entrepreneur account.",
+        )
+        self.assertTrue(User.objects.filter(pk=self.entrepreneur.pk).exists())
+
+    def test_admin_can_delete_after_unfinished_investments_are_refunded(self):
+        from apps.investments.models import Investment
+        from apps.projects.models import Project
+
+        project = self.project(status_value=Project.Status.CANCELLED, slug="refunded")
+        Investment.objects.create(
+            investor=self.investor,
+            project=project,
+            amount=Decimal("100.00"),
+            expected_return=Decimal("10.00"),
+            status=Investment.Status.REFUNDED,
+        )
+
+        response = self.delete_entrepreneur()
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(User.objects.filter(pk=self.entrepreneur.pk).exists())
+
+    def test_admin_can_delete_after_completed_roi_is_fully_paid(self):
+        from apps.investments.models import Investment, Repayment
+        from apps.projects.models import Project
+
+        project = self.project(status_value=Project.Status.CLOSED, slug="roi-paid")
+        investment = Investment.objects.create(
+            investor=self.investor,
+            project=project,
+            amount=Decimal("100.00"),
+            expected_return=Decimal("10.00"),
+            status=Investment.Status.COMPLETED,
+        )
+        Repayment.objects.create(
+            investment=investment,
+            amount=Decimal("110.00"),
+            scheduled_date="2030-01-01",
+            actual_payment_date="2026-08-16",
+            status=Repayment.Status.PAID,
+        )
+
+        response = self.delete_entrepreneur()
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(User.objects.filter(pk=self.entrepreneur.pk).exists())
 
 
 class UserSettingsPersistenceTests(APITestCase):
@@ -128,10 +282,10 @@ class AuthenticationPrivilegeTests(APITestCase):
                     format="json",
                 )
 
-                self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-                user = User.objects.get(email=f"{user_type}@example.com")
-                self.assertEqual(user.user_type, user_type)
-                self.assertFalse(user.is_staff)
+                self.assertEqual(response.status_code, status.HTTP_202_ACCEPTED)
+                self.assertFalse(User.objects.filter(email=f"{user_type}@example.com").exists())
+                registration = PendingRegistration.objects.get(email=f"{user_type}@example.com")
+                self.assertEqual(registration.user_type, user_type)
 
         response = self.client.post(
             reverse("register"),
@@ -278,8 +432,73 @@ class PreferredLanguageTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.user.refresh_from_db()
         self.assertEqual(self.user.preferred_language, User.PreferredLanguage.ENGLISH)
+
+
+class EmailVerificationTests(APITestCase):
+    def setUp(self):
+        cache.clear()
+
+    def registration_payload(self, email="confirm@example.com"):
+        return {
+            "email": email,
+            "full_name": "Confirmation User",
+            "password": "StrongPassword123!",
+            "user_type": User.UserType.INVESTOR,
+        }
+
+    def test_registration_sends_confirmation_and_link_verifies_email(self):
+        response = self.client.post(reverse("register"), self.registration_payload(), format="json")
+        self.assertEqual(response.status_code, status.HTTP_202_ACCEPTED)
+        self.assertTrue(response.data["email_confirmation_sent"])
+        self.assertFalse(User.objects.filter(email="confirm@example.com").exists())
+        pending = PendingRegistration.objects.get(email="confirm@example.com")
+        self.assertNotEqual(pending.password, "StrongPassword123!")
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, ["confirm@example.com"])
+        verification_url = mail.outbox[0].body.splitlines()[3]
+        query = parse_qs(urlparse(verification_url).query)
+
+        verification = self.client.post(
+            reverse("verify-email"),
+            {"uid": query["uid"][0], "token": query["token"][0]},
+            format="json",
+        )
+        self.assertEqual(verification.status_code, status.HTTP_201_CREATED)
+        self.assertIn("access", verification.data)
+        self.assertIn("refresh", verification.data)
+        user = User.objects.get(email="confirm@example.com")
+        self.assertIsNotNone(user.email_verified_at)
+        self.assertTrue(user.check_password("StrongPassword123!"))
+        self.assertFalse(user.is_verified)
+        self.assertFalse(PendingRegistration.objects.filter(email="confirm@example.com").exists())
+
+    def test_invalid_confirmation_token_is_rejected(self):
+        self.client.post(reverse("register"), self.registration_payload("invalid@example.com"), format="json")
+        verification_url = mail.outbox[0].body.splitlines()[3]
+        query = parse_qs(urlparse(verification_url).query)
+        response = self.client.post(
+            reverse("verify-email"),
+            {"uid": query["uid"][0], "token": "invalid-token"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(User.objects.filter(email="invalid@example.com").exists())
+        self.assertTrue(PendingRegistration.objects.filter(email="invalid@example.com").exists())
+
+    def test_resend_uses_generic_response_and_sends_for_unconfirmed_account(self):
+        self.client.post(reverse("register"), self.registration_payload("resend@example.com"), format="json")
+        mail.outbox.clear()
+        response = self.client.post(reverse("verify-email-resend"), {"email": "resend@example.com"}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(mail.outbox), 1)
+        missing = self.client.post(reverse("verify-email-resend"), {"email": "missing@example.com"}, format="json")
+        self.assertEqual(missing.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(mail.outbox), 1)
+
+
 class PasswordResetTests(APITestCase):
     def setUp(self):
+        cache.clear()
         self.user = User.objects.create_user(
             email="reset@example.com",
             username="reset",

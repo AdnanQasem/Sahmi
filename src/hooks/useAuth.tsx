@@ -10,6 +10,7 @@ interface AuthContextType {
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (data: RegisterPayload) => Promise<void>;
+  verifyEmail: (uid: string, token: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<User | null>;
   isAuthenticated: boolean;
@@ -56,18 +57,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const register = async (data: RegisterPayload) => {
     try {
-      const response = await authService.register(data);
-      localStorage.setItem("accessToken", response.access);
-      localStorage.setItem("refreshToken", response.refresh);
-      localStorage.setItem("user", JSON.stringify(response.user));
-      await changeLanguage(response.user.preferred_language);
-      setUser(response.user);
+      await authService.register(data);
       toast.success(t("auth.registrationSuccess"));
     } catch (error: unknown) {
       const message = getErrorMessage(error, t("auth.registrationFailed"));
       toast.error(message);
       throw error;
     }
+  };
+
+  const verifyEmail = async (uid: string, token: string) => {
+    const response = await authService.verifyEmail(uid, token);
+    localStorage.setItem("accessToken", response.access);
+    localStorage.setItem("refreshToken", response.refresh);
+    localStorage.setItem("user", JSON.stringify(response.user));
+    await changeLanguage(response.user.preferred_language);
+    setUser(response.user);
   };
 
   const logout = async () => {
@@ -95,6 +100,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         loading,
         login,
         register,
+        verifyEmail,
         logout,
         refreshUser,
         isAuthenticated: !!user,

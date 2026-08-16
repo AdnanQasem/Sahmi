@@ -1,4 +1,4 @@
-flowchart TD
+﻿flowchart TD
   A[Authenticated user creates investment record] --> B[Pending; expires after 24h]
   B -->|investor/staff cancels| C[Cancelled]
   B -->|expiry checked opportunistically| D[Failed]
@@ -13,7 +13,7 @@ flowchart TD
   L -->|notes required| M[Revision Required]
   L -->|notes required| N[Rejected]
   L --> O[Approved]
-  O -->|MockPaymentProvider| P[Released + simulated reference]
+  O -->|ConfiguredPaymentProvider| P[Released + recorded reference]
   P --> Q[secured decreases; released and milestone funding_released increase]
   Q --> R[Entrepreneur submits milestone completion evidence]
   R --> S[Admin review/approve]
@@ -22,5 +22,5 @@ flowchart TD
   T --> U[Repayment records/schedule]
   V[Refunded investment status and refunded balance field] -. no transition/service endpoint implemented .-> W[Future refund workflow]
 
-  classDef simulated fill:#fff3cd,stroke:#9a6700,color:#332701;
-  class P simulated;
+  classDef recorded fill:#fff3cd,stroke:#9a6700,color:#332701;
+  class P recorded;

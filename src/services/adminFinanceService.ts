@@ -43,6 +43,9 @@ export interface AdminInvestment {
   payment_method: "card" | "bank_transfer" | "paypal";
   expected_return: string;
   actual_return: string;
+  obligation_total?: string;
+  scheduled_repayment_total?: string;
+  remaining_repayment_obligation?: string;
   return_received_at: string | null;
   notes: string;
   created_at: string;
@@ -102,12 +105,18 @@ export interface AdminRepayment {
   amount: string;
   scheduled_date: string;
   actual_payment_date: string | null;
-  status: "pending" | "paid" | "overdue" | "canceled";
+  status: "pending" | "due" | "paid" | "overdue" | "cancelled";
   payment_method: AdminInvestment["payment_method"];
   transaction_id: string;
   notes: string;
   created_at: string;
   updated_at: string;
+  funding_transfer: {
+    id: string;
+    status: "submitted" | "under_review" | "verified" | "rejected" | "disbursed";
+    inbound_reference: string;
+    outbound_reference: string;
+  } | null;
 }
 
 export interface AdminRepaymentPayload {
@@ -115,9 +124,26 @@ export interface AdminRepaymentPayload {
   amount: string;
   scheduled_date: string;
   actual_payment_date?: string | null;
-  status: AdminRepayment["status"];
+  status?: AdminRepayment["status"];
   payment_method: AdminRepayment["payment_method"];
   transaction_id?: string;
+  notes?: string;
+}
+
+export interface AdminInvestmentSummary {
+  recorded_total: string;
+  funded_total: string;
+  total_count: number;
+  funded_count: number;
+  pending_count: number;
+}
+
+export interface AdminRepaymentPlanPayload {
+  investment: string;
+  installment_count: number;
+  first_scheduled_date: string;
+  interval_months: number;
+  payment_method: AdminRepayment["payment_method"];
   notes?: string;
 }
 
@@ -158,6 +184,9 @@ const adminFinanceService = {
   listInvestments: async (params: AdminListParams = {}): Promise<PaginatedResponse<AdminInvestment>> =>
     asPage<AdminInvestment>(await api.get("admin/investments/", { params })),
 
+  investmentSummary: async (params: AdminListParams = {}): Promise<AdminInvestmentSummary> =>
+    await api.get("admin/investments/summary/", { params }),
+
   createInvestment: async (payload: AdminInvestmentPayload): Promise<AdminInvestment> =>
     await api.post("admin/investments/", payload),
 
@@ -187,15 +216,29 @@ const adminFinanceService = {
   createRepayment: async (payload: AdminRepaymentPayload): Promise<AdminRepayment> =>
     await api.post("admin/repayments/", payload),
 
+  createRepaymentPlan: async (payload: AdminRepaymentPlanPayload): Promise<AdminRepayment[]> =>
+    await api.post("admin/repayments/create-plan/", payload),
+
   updateRepayment: async (id: string, payload: Partial<AdminRepaymentPayload>): Promise<AdminRepayment> =>
     await api.patch("admin/repayments/" + id + "/", payload),
+
+  markRepaymentPaid: async (id: string, payload: {
+    actual_payment_date?: string;
+    payment_method?: AdminRepayment["payment_method"];
+    transaction_id?: string;
+    notes?: string;
+  }): Promise<AdminRepayment> => await api.post(`admin/repayments/${id}/mark-paid/`, payload),
+
+  cancelRepayment: async (id: string, notes = ""): Promise<AdminRepayment> =>
+    await api.post(`admin/repayments/${id}/cancel/`, { notes }),
 
   deleteRepayment: async (id: string): Promise<void> => {
     await api.delete("admin/repayments/" + id + "/");
   },
 
   listUserOptions: async (): Promise<AdminUserOption[]> => {
-    return await listAll<AdminUserOption>("admin/users/", { ordering: "email" });
+    const users = await listAll<AdminUserOption>("admin/users/", { ordering: "email" });
+    return users.filter((user) => user.user_type === "investor");
   },
 
   listProjectOptions: async (): Promise<AdminProjectOption[]> => {
@@ -203,9 +246,9 @@ const adminFinanceService = {
   },
 
   listInvestmentOptions: async (): Promise<AdminInvestment[]> =>
-    await listAll<AdminInvestment>("admin/investments/", {
+    (await listAll<AdminInvestment>("admin/investments/", {
       ordering: "-investment_date",
-    }),
+    })).filter((investment) => investment.status === "completed" && investment.project_detail?.status === "completed"),
 };
 
 export default adminFinanceService;

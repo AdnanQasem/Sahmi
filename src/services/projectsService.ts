@@ -59,7 +59,7 @@ export interface ProjectRepayment {
   amount: number;
   scheduled_date: string;
   actual_payment_date: string | null;
-  status: "pending" | "paid" | "overdue" | "canceled";
+  status: "pending" | "due" | "paid" | "overdue" | "cancelled";
   payment_method: string;
 }
 
@@ -127,6 +127,11 @@ export interface Project {
   funding_reached_at?: string | null;
   pending_payment_deadline?: string | null;
   funding_finalized_at?: string | null;
+  quality_hold_started_at?: string | null;
+  quality_hold_until?: string | null;
+  completion_handover_approved_at?: string | null;
+  completion_handover_approved_by?: string | null;
+  completion_handover_notes?: string;
   minimum_investment: string;
   expected_roi: string;
   cost_items: ProjectCostItem[];
@@ -147,6 +152,8 @@ export interface Project {
   days_left: number | null;
   funding_percent: number;
   repayment_status?: "on_track" | "delayed" | "completed";
+  total_repaid?: string;
+  next_repayment_date?: string | null;
   view_count?: number;
   rating?: string;
   reviews_count?: number;
@@ -180,8 +187,11 @@ export interface ProjectContentTranslation {
   language: "en" | "ar";
   description: string;
   cost_items: ProjectCostItem[];
+  faqs: ProjectFaq[];
   milestones: Array<Pick<ProjectMilestone, "id" | "title" | "description" | "deliverables">>;
 }
+
+export type ProjectEditContentTranslation = Partial<ProjectContentTranslation> & Pick<ProjectContentTranslation, "language">;
 
 export interface ProjectModerationPayload {
   status: Extract<Project["status"], "fundraising" | "paused" | "failed" | "cancelled">;
@@ -261,8 +271,11 @@ const projectsService = {
   getProjectTranslation: async (
     slug: string,
     language: "en" | "ar",
-  ): Promise<ProjectContentTranslation> => {
-    return await api.get(`projects/${slug}/translation/`, { params: { language } });
+    editRequestId?: string,
+  ): Promise<ProjectContentTranslation | ProjectEditContentTranslation> => {
+    return await api.get(`projects/${slug}/translation/`, {
+      params: { language, ...(editRequestId ? { edit_request: editRequestId } : {}) },
+    });
   },
 
   createProject: async (payload: ProjectCreatePayload): Promise<Project> => {

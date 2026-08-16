@@ -21,6 +21,7 @@ class Notification(UUIDTimestampModel):
         FUNDING_GOAL_REACHED = "funding_goal_reached", "Funding goal reached"
         WITHDRAWAL_UPDATED = "withdrawal_updated", "Withdrawal updated"
         FUNDS_RELEASED = "funds_released", "Funds released"
+        PROJECT_COMPLETION_HOLD = "project_completion_hold", "Project completion hold"
         SYSTEM = "system", "System"
 
     class DeliveryStatus(models.TextChoices):

@@ -1,4 +1,5 @@
 import uuid
+from pathlib import Path
 
 from django.conf import settings
 from django.core.validators import MaxLengthValidator
@@ -7,6 +8,12 @@ from django.db import models
 from apps.core.models import UUIDTimestampModel
 
 MAX_MESSAGE_LENGTH = 5000
+MAX_MESSAGE_ATTACHMENT_SIZE = 10 * 1024 * 1024
+
+
+def message_attachment_upload_path(instance, filename):
+    extension = Path(filename).suffix.lower()
+    return f"message-attachments/{instance.conversation_id}/{uuid.uuid4().hex}{extension}"
 
 
 class Conversation(UUIDTimestampModel):
@@ -107,9 +114,18 @@ class Message(UUIDTimestampModel):
         related_name="sent_messages",
     )
     body = models.TextField(
+        blank=True,
         validators=[MaxLengthValidator(MAX_MESSAGE_LENGTH)],
         help_text="Plain-text only. Never rendered as HTML.",
     )
+    attachment = models.FileField(
+        upload_to=message_attachment_upload_path,
+        blank=True,
+        null=True,
+    )
+    attachment_name = models.CharField(max_length=255, blank=True)
+    attachment_content_type = models.CharField(max_length=120, blank=True)
+    attachment_size = models.PositiveBigIntegerField(default=0)
     edited_at = models.DateTimeField(null=True, blank=True)
     deleted_at = models.DateTimeField(null=True, blank=True)
 

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Send, Search, Loader2, RefreshCw, MessageSquare, UserPlus } from "lucide-react";
+import { Send, Search, Loader2, RefreshCw, MessageSquare, Paperclip, UserPlus, X } from "lucide-react";
 import DashboardLayout from "./DashboardLayout";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,12 @@ import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { formatDate } from "@/i18n/format";
 import { dashboardPollingInterval, dashboardPollingOptions } from "@/lib/dashboardPolling";
+import MessageAttachment from "@/components/messages/MessageAttachment";
+import DemoFillButton from "@/components/demo/DemoFillButton";
+import { formDemoData } from "@/demo/formDemoData";
+
+const MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024;
+const ATTACHMENT_ACCEPT = ".png,.jpg,.jpeg,.gif,.webp,.pdf,.txt,.csv,.doc,.docx,.xls,.xlsx,.ppt,.pptx";
 
 const relativeTime = (value: string | null | undefined, language: string, justNow: string) => {
   if (!value) return "";
@@ -37,10 +43,12 @@ const MessagesPage = () => {
       : "/dashboard/entrepreneur";
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
+  const [attachment, setAttachment] = useState<File | null>(null);
   const [search, setSearch] = useState("");
   const [newMessageOpen, setNewMessageOpen] = useState(false);
   const [userSearch, setUserSearch] = useState("");
   const sendingRef = useRef(false);
+  const attachmentInputRef = useRef<HTMLInputElement>(null);
 
   const conversations = useQuery({
     queryKey: ["conversations"],
@@ -81,9 +89,13 @@ const MessagesPage = () => {
     }
   }, [conversations.data, queryClient, searchParams]);
   const send = useMutation({
-    mutationFn: ({ id, body }: { id: string; body: string }) => messagingService.sendMessage(id, body),
+    mutationFn: ({ id, body, file }: { id: string; body: string; file: File | null }) => file
+      ? messagingService.sendMessage(id, body, file)
+      : messagingService.sendMessage(id, body),
     onSuccess: () => {
       setDraft("");
+      setAttachment(null);
+      if (attachmentInputRef.current) attachmentInputRef.current.value = "";
       void queryClient.invalidateQueries({ queryKey: ["messages", selectedId] });
       void queryClient.invalidateQueries({ queryKey: ["conversations"] });
     },
@@ -108,9 +120,18 @@ const MessagesPage = () => {
   };
   const handleSend = () => {
     const body = draft.trim();
-    if (!selectedId || !body || send.isPending || sendingRef.current) return;
+    if (!selectedId || (!body && !attachment) || send.isPending || sendingRef.current) return;
     sendingRef.current = true;
-    send.mutate({ id: selectedId, body });
+    send.mutate({ id: selectedId, body, file: attachment });
+  };
+  const chooseAttachment = (file: File | undefined) => {
+    if (!file) return;
+    if (file.size > MAX_ATTACHMENT_SIZE) {
+      toast.error(t("messages.attachmentTooLarge"));
+      if (attachmentInputRef.current) attachmentInputRef.current.value = "";
+      return;
+    }
+    setAttachment(file);
   };
   const filtered = useMemo(() => (conversations.data?.results ?? []).filter((conversation) => {
     const other = conversation.participants.find((participant) => participant.user.id !== user?.id)?.user;
@@ -151,10 +172,20 @@ const MessagesPage = () => {
               {!messages.isLoading && !messages.isError && messages.data?.results.length === 0 && <p className="p-8 text-center text-sm text-muted-foreground">{t("messages.noMessages")}</p>}
               <div className="space-y-3">{messages.data?.results.map((message) => {
                 const mine = message.sender.id === user?.id;
-                return <div key={message.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}><div className={`max-w-[75%] rounded-2xl px-4 py-2 ${mine ? "bg-primary text-primary-foreground" : "bg-muted"}`}><p dir="auto" className="whitespace-pre-wrap break-words text-sm">{message.is_deleted ? t("messages.deleted") : message.body}</p><p className="mt-1 text-[10px] opacity-70">{relativeTime(message.created_at, i18n.resolvedLanguage ?? "en", t("messages.justNow"))}</p></div></div>;
+                return <div key={message.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}><div className={`max-w-[85%] rounded-2xl px-4 py-2 sm:max-w-[75%] ${mine ? "bg-primary text-primary-foreground" : "bg-muted"}`}>{message.is_deleted ? <p className="text-sm">{t("messages.deleted")}</p> : <>{message.body && <p dir="auto" className="whitespace-pre-wrap break-words text-sm">{message.body}</p>}{message.attachment && <MessageAttachment messageId={message.id} attachment={message.attachment} />}</>}<p className="mt-1 text-[10px] opacity-70">{relativeTime(message.created_at, i18n.resolvedLanguage ?? "en", t("messages.justNow"))}</p></div></div>;
               })}</div>
             </ScrollArea>
-            <div className="flex gap-2 border-t p-4"><Input aria-label={t("messages.messageLabel")} value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); handleSend(); } }} placeholder={t("messages.placeholder")} disabled={send.isPending} /><Button aria-label={t("messages.send")} onClick={handleSend} disabled={!draft.trim() || send.isPending}>{send.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}</Button></div>
+            <div className="border-t p-4">
+              {attachment && <div className="mb-3 flex items-center gap-3 rounded-xl border bg-muted/40 px-3 py-2"><Paperclip className="h-4 w-4 shrink-0 text-primary"/><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium" dir="auto">{attachment.name}</p><p className="text-xs text-muted-foreground">{(attachment.size / (1024 * 1024)).toFixed(1)} MB</p></div><Button type="button" size="icon" variant="ghost" className="h-8 w-8" disabled={send.isPending} onClick={() => { setAttachment(null); if (attachmentInputRef.current) attachmentInputRef.current.value = ""; }} aria-label={t("messages.removeAttachment")}><X className="h-4 w-4"/></Button></div>}
+              <div className="flex gap-2">
+                <input ref={attachmentInputRef} type="file" className="sr-only" accept={ATTACHMENT_ACCEPT} onChange={(event) => chooseAttachment(event.target.files?.[0])} />
+                <Button type="button" size="icon" variant="outline" aria-label={t("messages.attachFile")} title={t("messages.attachFile")} disabled={send.isPending} onClick={() => attachmentInputRef.current?.click()}><Paperclip className="h-4 w-4"/></Button>
+                <Input aria-label={t("messages.messageLabel")} value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); handleSend(); } }} placeholder={t("messages.placeholder")} disabled={send.isPending} />
+                <Button aria-label={t("messages.send")} onClick={handleSend} disabled={(!draft.trim() && !attachment) || send.isPending}>{send.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}</Button>
+              </div>
+              <DemoFillButton className="mt-2" onClick={() => setDraft(formDemoData.message)} disabled={send.isPending} />
+              <p className="mt-2 text-xs text-muted-foreground">{t("messages.attachmentHelp")}</p>
+            </div>
           </>}
         </section>
       </div>

@@ -27,6 +27,8 @@ import type {
   AdminRepayment,
   AdminRepaymentPayload,
 } from "@/services/adminFinanceService";
+import DemoFillButton from "@/components/demo/DemoFillButton";
+import { formDemoData } from "@/demo/formDemoData";
 
 interface AdminRepaymentDialogProps {
   open: boolean;
@@ -41,10 +43,7 @@ const blankForm: AdminRepaymentPayload = {
   investment: "",
   amount: "",
   scheduled_date: "",
-  actual_payment_date: null,
-  status: "pending",
   payment_method: "bank_transfer",
-  transaction_id: "",
   notes: "",
 };
 
@@ -77,10 +76,7 @@ const AdminRepaymentDialog = ({
             investment: repayment.investment,
             amount: repayment.amount,
             scheduled_date: repayment.scheduled_date,
-            actual_payment_date: repayment.actual_payment_date,
-            status: repayment.status,
             payment_method: repayment.payment_method,
-            transaction_id: repayment.transaction_id || "",
             notes: repayment.notes || "",
           }
         : blankForm,
@@ -97,8 +93,6 @@ const AdminRepaymentDialog = ({
     if (!form.investment || !form.amount || !form.scheduled_date) return;
     onSubmit({
       ...form,
-      actual_payment_date: form.actual_payment_date || null,
-      transaction_id: form.transaction_id?.trim(),
       notes: form.notes?.trim(),
     });
   };
@@ -115,6 +109,16 @@ const AdminRepaymentDialog = ({
             {t("adminForm.repaymentHelp")}
           </DialogDescription>
         </DialogHeader>
+        <DemoFillButton
+          disabled={pending || investments.length === 0}
+          onClick={() => setForm((current) => ({
+            ...current,
+            investment: current.investment || investments[0]?.id || "",
+            amount: formDemoData.repayment.amount,
+            scheduled_date: current.scheduled_date || new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10),
+            notes: formDemoData.repayment.notes,
+          }))}
+        />
 
         <form className="space-y-5" onSubmit={submit}>
           <div className="space-y-2">
@@ -155,30 +159,6 @@ const AdminRepaymentDialog = ({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="repayment-status">{t("adminForm.status")}</Label>
-              <Select
-                value={form.status}
-                onValueChange={(value) => update("status", value as AdminRepayment["status"])}
-              >
-                <SelectTrigger id="repayment-status"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pending">{t("status.pending")}</SelectItem>
-                  <SelectItem value="paid">{t("status.paid")}</SelectItem>
-                  <SelectItem value="overdue">{t("status.overdue")}</SelectItem>
-                  <SelectItem value="canceled">{t("status.canceled")}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="actual-payment-date">{t("adminForm.actualPayment")}</Label>
-              <Input
-                id="actual-payment-date"
-                type="date"
-                value={form.actual_payment_date || ""}
-                onChange={(event) => update("actual_payment_date", event.target.value || null)}
-              />
-            </div>
-            <div className="space-y-2">
               <Label htmlFor="repayment-payment-method">{t("adminForm.paymentMethod")}</Label>
               <Select
                 value={form.payment_method}
@@ -193,15 +173,6 @@ const AdminRepaymentDialog = ({
                   <SelectItem value="paypal">{t("payment.paypal")}</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="repayment-transaction">{t("adminForm.transactionId")}</Label>
-              <Input
-                id="repayment-transaction"
-                maxLength={120}
-                value={form.transaction_id || ""}
-                onChange={(event) => update("transaction_id", event.target.value)}
-              />
             </div>
           </div>
 

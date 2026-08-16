@@ -30,6 +30,7 @@ import EmptyState from "@/components/dashboard/EmptyState";
 import { useAuth } from "@/hooks/useAuth";
 import investmentsService, { Investment } from "@/services/investmentsService";
 import projectsService, { Project } from "@/services/projectsService";
+import { calculateInvestmentTotals } from "@/lib/investmentTotals";
 import TransactionDetailsDialog, {
   amountOf,
   currency,
@@ -116,18 +117,19 @@ const InvestorDashboard = () => {
 
   const investments = investmentsQuery.data?.results ?? [];
   const availableProjects = projectsQuery.data?.results ?? [];
-  const totalInvested = investments.reduce((sum, investment) => sum + amountOf(investment), 0);
-  const expectedReturns = investments.reduce((sum, investment) => sum + expectedOf(investment), 0);
+  const investmentTotals = calculateInvestmentTotals(investments);
+  const totalInvested = investmentTotals.principal;
+  const expectedReturns = investmentTotals.expectedProfit;
   const activeInvestments = investments.filter((investment) => ["pending", "confirmed"].includes(investment.status)).length;
-  const performance = buildPerformance(investments);
-  const allocation = buildAllocation(investments);
+  const performance = buildPerformance(investmentTotals.funded);
+  const allocation = buildAllocation(investmentTotals.funded);
   const isLoading = investmentsQuery.isLoading || projectsQuery.isLoading;
 
   const kpiCards = [
     {
       label: t("dashboard.totalInvested"),
       value: currency(totalInvested),
-      subtext: t("dashboard.investmentCount", { count: investments.length }),
+      subtext: t("dashboard.investmentCount", { count: investmentTotals.funded.length }),
       icon: DollarSign,
       trend: "neutral" as const,
       iconColorClass: "text-primary",

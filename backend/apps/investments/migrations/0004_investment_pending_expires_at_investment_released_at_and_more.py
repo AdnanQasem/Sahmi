@@ -60,7 +60,7 @@ class Migration(migrations.Migration):
                 ('review_notes', models.TextField(blank=True)),
                 ('reviewed_at', models.DateTimeField(blank=True, null=True)),
                 ('released_at', models.DateTimeField(blank=True, null=True)),
-                ('simulated_transaction_id', models.CharField(blank=True, max_length=120)),
+                ('payout_reference', models.CharField(blank=True, max_length=120)),
                 ('milestone', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name='withdrawal_requests', to='investments.milestone')),
                 ('project', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='withdrawal_requests', to='projects.project')),
                 ('released_by', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='released_withdrawals', to=settings.AUTH_USER_MODEL)),

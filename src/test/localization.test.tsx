@@ -7,6 +7,7 @@ import i18n, { changeLanguage, LANGUAGE_STORAGE_KEY } from "@/i18n";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import Navbar from "@/components/Navbar";
 import StatusBadge from "@/components/dashboard/StatusBadge";
+import { translateNotificationType, translateSystemNotificationBody } from "@/i18n/labels";
 
 
 const auth = vi.hoisted(() => ({ updateCurrentUser: vi.fn() }));
@@ -48,6 +49,18 @@ describe("English and Arabic localization", () => {
     await changeLanguage("ar");
     render(<LocalizedForm />);
     expect(screen.getByLabelText("البريد الإلكتروني")).toBeInTheDocument();
+  });
+
+  it("translates admin withdrawal notifications into Arabic", async () => {
+    await changeLanguage("ar");
+
+    expect(translateNotificationType(i18n.t, "withdrawal_updated"))
+      .toBe("تم تحديث طلب السحب");
+    expect(translateSystemNotificationBody(
+      i18n.t,
+      "withdrawal_updated",
+      "Project Owner requested 250.00 for “Equipment” on “Green Workshop”.",
+    )).toBe("طلب Project Owner مبلغ 250.00 للمرحلة «Equipment» في مشروع «Green Workshop».");
   });
   it("keeps the persisted locale available to a refreshed application", async () => {
     await changeLanguage("ar");

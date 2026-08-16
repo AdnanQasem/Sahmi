@@ -101,25 +101,9 @@ const AdminCategoriesPage = () => {
           title={t("admin.categoriesTitle")}
           description={t("admin.categoriesText")}
           actions={
-            <>
-              <Button
-                variant="outline"
-                className="bg-card/80"
-                onClick={() => {
-                  void categoriesQuery.refetch();
-                  void projectsQuery.refetch();
-                }}
-                disabled={categoriesQuery.isFetching || projectsQuery.isFetching}
-              >
-                <RefreshCw
-                  className={
-                    "h-4 w-4 " +
-                    (categoriesQuery.isFetching || projectsQuery.isFetching ? "animate-spin" : "")
-                  }
-                />{t("admin.refresh")}</Button>
-              <Button onClick={openCreateDialog}>
-                <FolderPlus className="h-4 w-4" />{t("admin.addCategory")}</Button>
-            </>
+            <Button onClick={openCreateDialog}>
+              <FolderPlus className="h-4 w-4" />{t("admin.addCategory")}
+            </Button>
           }
         />
 

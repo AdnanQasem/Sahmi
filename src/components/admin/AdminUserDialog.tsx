@@ -68,7 +68,6 @@ interface FormState {
   reputation_score: string;
   is_active: boolean;
   is_staff: boolean;
-  is_superuser: boolean;
   groups: string;
   user_permissions: string;
 }
@@ -101,7 +100,6 @@ const emptyForm: FormState = {
   reputation_score: "0.00",
   is_active: true,
   is_staff: false,
-  is_superuser: false,
   groups: "",
   user_permissions: "",
 };
@@ -218,7 +216,6 @@ const AdminUserDialog = ({
             reputation_score: user.reputation_score || "0.00",
             is_active: user.is_active,
             is_staff: user.is_staff,
-            is_superuser: user.is_superuser,
             groups: user.groups.map(String).join(", "),
             user_permissions: user.user_permissions.map(String).join(", "),
           }
@@ -285,7 +282,6 @@ const AdminUserDialog = ({
       reputation_score: form.reputation_score || "0.00",
       is_active: form.is_active,
       is_staff: form.is_staff,
-      is_superuser: form.is_superuser,
       groups: groups.values,
       user_permissions: permissions.values,
     };
@@ -675,22 +671,8 @@ const AdminUserDialog = ({
                   label={t("adminForm.staffAccess")}
                   description={t("adminForm.staffAccessHelp")}
                   checked={form.is_staff}
-                  disabled={isPending || permissionLocked || form.user_type === "admin" || form.is_superuser}
-                  onCheckedChange={(checked) => {
-                    update("is_staff", checked);
-                    if (!checked) update("is_superuser", false);
-                  }}
-                />
-                <ToggleRow
-                  id="admin-user-superuser"
-                  label={t("adminForm.superuser")}
-                  description={t("adminForm.superuserHelp")}
-                  checked={form.is_superuser}
-                  disabled={isPending || permissionLocked}
-                  onCheckedChange={(checked) => {
-                    update("is_superuser", checked);
-                    if (checked) update("is_staff", true);
-                  }}
+                  disabled={isPending || permissionLocked || form.user_type === "admin"}
+                  onCheckedChange={(checked) => update("is_staff", checked)}
                 />
               </div>
 

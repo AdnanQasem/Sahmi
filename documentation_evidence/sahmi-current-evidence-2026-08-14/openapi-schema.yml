@@ -1,4 +1,4 @@
-openapi: 3.0.3
+﻿openapi: 3.0.3
 info:
   title: Sahmi API
   version: 1.0.0
@@ -8838,7 +8838,7 @@ components:
           format: date-time
           readOnly: true
           nullable: true
-        simulated_transaction_id:
+        payout_reference:
           type: string
           readOnly: true
         created_at:
@@ -8866,7 +8866,7 @@ components:
       - review_notes
       - reviewed_at
       - reviewed_by
-      - simulated_transaction_id
+      - payout_reference
       - status
       - updated_at
     WithdrawalRequestStatusEnum:

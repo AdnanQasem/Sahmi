@@ -21,6 +21,8 @@ export interface User {
   risk_preference?: "low" | "medium" | "high";
   profile_picture?: string | null;
   is_verified?: boolean;
+  email_verified?: boolean;
+  email_verified_at?: string | null;
   is_kyc_verified?: boolean;
   date_joined?: string;
   last_login?: string | null;
@@ -30,6 +32,12 @@ export interface AuthResponse {
   access: string;
   refresh: string;
   user: User;
+  email_confirmation_sent?: boolean;
+}
+
+export interface RegistrationPendingResponse {
+  message: string;
+  email_confirmation_sent: true;
 }
 
 export interface RegisterPayload {
@@ -81,9 +89,15 @@ const authService = {
     return user;
   },
 
-  register: async (userData: RegisterPayload): Promise<AuthResponse> => {
+  register: async (userData: RegisterPayload): Promise<RegistrationPendingResponse> => {
     return await api.post("auth/register/", userData);
   },
+
+  verifyEmail: async (uid: string, token: string): Promise<AuthResponse & { message: string }> =>
+    api.post("auth/verify-email/", { uid, token }),
+
+  resendEmailVerification: async (email: string): Promise<{ message: string }> =>
+    api.post("auth/verify-email/resend/", { email }),
 
   logout: async () => {
     const refresh = localStorage.getItem("refreshToken");

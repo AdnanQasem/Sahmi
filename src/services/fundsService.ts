@@ -21,7 +21,7 @@ export interface WithdrawalRequest {
   reviewed_at: string | null;
   released_by: string | null;
   released_at: string | null;
-  simulated_transaction_id: string;
+  payout_reference: string;
   created_at: string;
   updated_at: string;
 }

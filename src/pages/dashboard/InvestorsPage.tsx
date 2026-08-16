@@ -103,7 +103,7 @@ const InvestorsPage = () => {
 
     investments
       .filter((investment) => ownedProjectIds.has(investment.project_detail?.id ?? investment.project))
-      .filter((investment) => !["failed", "cancelled", "refunded"].includes(investment.status))
+      .filter((investment) => ["confirmed", "completed"].includes(investment.status))
       .forEach((investment) => {
         const identity = investment.investor.trim();
         const investedAt = new Date(investment.investment_date);

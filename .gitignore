@@ -19,6 +19,19 @@ venv/
 backend/db.sqlite3
 backend/media/
 
+# Local AI/tooling and generated documentation previews
+.agent/
+.agents/
+.claude/
+.tmp*/
+Figure*-inspect.png
+figure*_preview*.jpg
+figure*_temp.png
+ahmi-backups
+bun.lock
+bun.lockb
+*.patch
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

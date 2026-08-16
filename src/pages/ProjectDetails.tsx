@@ -24,6 +24,8 @@ import ProjectCard from "@/components/ProjectCard";
 import projectsService, { Project, ConfirmedPayment } from "@/services/projectsService";
 import ProjectCostTable from "@/components/projects/ProjectCostTable";
 import ProjectTimeline from "@/components/projects/ProjectTimeline";
+import ProjectUpdateChange from "@/components/projects/ProjectUpdateChange";
+import ProjectRepaymentProcess from "@/components/projects/ProjectRepaymentProcess";
 import { toProjectCard } from "@/lib/mappers";
 import { calculateFundingPercent, fundingProgressBarWidth, fundingProgressColor } from "@/lib/fundingProgress";
 import investmentsService from "@/services/investmentsService";
@@ -79,7 +81,7 @@ const ProjectDetails = () => {
   const repaymentsQuery = useQuery({
     queryKey: ["project-repayments", id],
     queryFn: () => projectsService.getProjectRepayments(id as string),
-    enabled: !!id && !!projectQuery.data?.implementation_complete && Number(projectQuery.data?.funding_percent) >= 100,
+    enabled: !!id && isAuthenticated && projectQuery.data?.status === "completed",
   });
 
   const [newPaymentIds, setNewPaymentIds] = useState<Set<string>>(new Set());
@@ -96,6 +98,7 @@ const ProjectDetails = () => {
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: ["project", id] }),
           queryClient.invalidateQueries({ queryKey: ["project-payments", id] }),
+          queryClient.invalidateQueries({ queryKey: ["project-repayments", id] }),
           queryClient.invalidateQueries({ queryKey: ["projects"] }),
         ]);
       } catch (err) {
@@ -271,6 +274,7 @@ const ProjectDetails = () => {
   const translatedContent = translationQuery.data;
   const publicDescription = translatedContent?.description || project.description;
   const publicCostItems = translatedContent?.cost_items || project.cost_items || [];
+  const publicFaqs = translatedContent?.faqs || project.faqs || [];
   const translatedMilestones = new Map(
     (translatedContent?.milestones || []).map((milestone) => [milestone.id, milestone]),
   );
@@ -278,11 +282,12 @@ const ProjectDetails = () => {
     ...milestone,
     ...(milestone.id ? translatedMilestones.get(milestone.id) : undefined),
   }));
+  const usesRepaymentTab = project.status === "completed";
   const projectTabs = [
     ["overview", "projects.tabs.overview"],
     ["funding-plan", "projects.tabs.fundingPlan"],
     ["timeline", "projects.tabs.timeline"],
-    ["recent-payments", project.implementation_complete && percent >= 100 ? "projects.tabs.recentRepayments" : "projects.tabs.recentPayments"],
+    ["recent-payments", usesRepaymentTab ? "projects.tabs.recentRepayments" : "projects.tabs.recentPayments"],
     ["updates", "projects.tabs.updates"],
     ["team", "projects.tabs.team"],
     ["faq", "projects.tabs.faq"],
@@ -295,7 +300,7 @@ const ProjectDetails = () => {
   const postFundingStatusLabel = project.status === "implementation"
     ? t("projects.badges.inImplementation")
     : project.status === "completed"
-      ? t("projects.badges.projectCompleted")
+      ? t(project.repayment_status === "completed" ? "projects.badges.projectCompleted" : "projects.badges.repayingInvestors")
       : t("projects.badges.fullyFunded");
 
   const handleInvest = (event: React.FormEvent<HTMLFormElement>) => {
@@ -303,6 +308,9 @@ const ProjectDetails = () => {
     setFieldErrors({});
     if (!isAuthenticated) {
       setShowLoginPrompt(true);
+      return;
+    }
+    if (user?.user_type !== "investor") {
       return;
     }
     setShowLoginPrompt(false);
@@ -411,7 +419,7 @@ const ProjectDetails = () => {
                   <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold text-foreground">
                     <FileText className="h-4 w-4 text-primary" />{t("projects.transparencyReport")}</h4>
                   <ul className="space-y-2 text-sm text-muted-foreground">
-                    <li className="flex items-start gap-2"><CheckCircle className="mt-0.5 h-4 w-4 text-success" /> {t("common.status")}: {t(`status.${project.status}`, { defaultValue: project.status })}</li>
+                    <li className="flex items-start gap-2"><CheckCircle className="mt-0.5 h-4 w-4 text-success" /> {t("common.status")}: {["fully_funded", "implementation", "completed"].includes(project.status) ? postFundingStatusLabel : t(`status.${project.status}`, { defaultValue: project.status })}</li>
                     <li className="flex items-start gap-2"><CheckCircle className="mt-0.5 h-4 w-4 text-success" /> {t("projects.verificationLabel")}: {t(project.is_verified ? "projects.verifiedByTeam" : "projects.pendingReview")}</li>
                     <li className="flex items-start gap-2"><CheckCircle className="mt-0.5 h-4 w-4 text-success" /> {t("projects.minimumInvestment")}: {formatCurrency(Number(project.minimum_investment))}</li>
                     <li className="flex items-start gap-2"><CheckCircle className="mt-0.5 h-4 w-4 text-success" /> {t("projects.expectedRoi")}: {formatPercent(Number(project.expected_roi))}</li>
@@ -421,7 +429,6 @@ const ProjectDetails = () => {
 
               <TabsContent value="funding-plan">
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-foreground">{t("projects.tabs.fundingPlan")}</h3>
                   <div>
                     <div className="mb-1 flex justify-between text-sm">
                       <span className="text-foreground">{t("projects.tabs.fundingPlan")}</span>
@@ -453,9 +460,19 @@ const ProjectDetails = () => {
 
               <TabsContent value="recent-payments" className="space-y-4">
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-foreground">{t(project.implementation_complete && percent >= 100 ? "projects.repaymentSchedule" : "projects.recentBackers")}</h3>
-                  {project.implementation_complete && percent >= 100 ? (
-                    repaymentsQuery.isLoading ? <div className="text-sm text-muted-foreground">{t("common.loading")}</div>
+                  {project.status === "completed" && (
+                    <ProjectRepaymentProcess
+                      repaymentStatus={project.repayment_status}
+                      nextRepaymentDate={project.next_repayment_date}
+                      totalRepaid={project.total_repaid}
+                      repayments={repaymentsQuery.data}
+                    />
+                  )}
+                  <h3 className="text-lg font-semibold text-foreground">{t(project.status === "completed" ? "projects.repaymentSchedule" : "projects.recentBackers")}</h3>
+                  {project.status === "completed" ? (
+                    !isAuthenticated ? <div className="rounded-lg border border-border bg-card p-4 text-sm text-muted-foreground">{t("repaymentDashboard.signInToView")}</div>
+                    : repaymentsQuery.isLoading ? <div className="text-sm text-muted-foreground">{t("common.loading")}</div>
+                    : repaymentsQuery.isError ? <div className="rounded-lg border border-border bg-card p-4 text-sm text-muted-foreground">{t("repaymentDashboard.notAuthorized")}</div>
                     : !repaymentsQuery.data?.length ? <div className="rounded-lg border border-border bg-card p-4 text-sm text-muted-foreground">{t("projects.noRepayments")}</div>
                     : <div className="grid gap-3">{repaymentsQuery.data.map((repayment) => (
                       <div key={repayment.id} className="grid gap-3 rounded-xl border border-border bg-card p-4 sm:grid-cols-3 sm:items-center">
@@ -514,10 +531,7 @@ const ProjectDetails = () => {
                     <p className="text-xs font-medium text-muted-foreground">{formatDate(update.published_at, { dateStyle: "medium", timeStyle: "short" })}</p>
                     <h3 className="mt-1 font-semibold text-foreground">{t("projects.publishedChanges")}</h3>
                     <div className="mt-4 space-y-3">{Object.entries(update.changes).map(([field, change]) => (
-                      <div key={field} className="rounded-lg bg-muted/40 p-3 text-sm">
-                        <p className="font-semibold text-foreground">{t(`projectFields.${field}`, { defaultValue: field.replace(/_/g, " ") })}</p>
-                        <div className="mt-2 grid gap-2 sm:grid-cols-2"><div><span className="text-xs text-muted-foreground">{t("projects.before")}</span><pre className="whitespace-pre-wrap break-words font-sans text-foreground/65">{typeof change.before === "object" ? JSON.stringify(change.before, null, 2) : String(change.before ?? "—")}</pre></div><div><span className="text-xs text-muted-foreground">{t("projects.after")}</span><pre className="whitespace-pre-wrap break-words font-sans text-foreground">{typeof change.after === "object" ? JSON.stringify(change.after, null, 2) : String(change.after ?? "—")}</pre></div></div>
-                      </div>
+                      <ProjectUpdateChange key={field} field={field} change={change} />
                     ))}</div>
                   </article>
                 ))}</div>}
@@ -539,8 +553,8 @@ const ProjectDetails = () => {
               </TabsContent>
 
               <TabsContent value="faq">
-                {!project.faqs?.length ? <div className="rounded-lg border border-border bg-card p-4 text-sm text-muted-foreground">{t("projects.noFaq")}</div>
-                : <div className="space-y-3">{project.faqs.map((faq, index) => <details key={index} className="rounded-xl border border-border bg-card p-4"><summary className="cursor-pointer font-semibold text-foreground">{faq.question}</summary><p className="mt-3 whitespace-pre-line text-sm leading-6 text-muted-foreground">{faq.answer}</p></details>)}</div>}
+                {!publicFaqs.length ? <div className="rounded-lg border border-border bg-card p-4 text-sm text-muted-foreground">{t("projects.noFaq")}</div>
+                : <div className="space-y-3">{publicFaqs.map((faq, index) => <details key={index} className="rounded-xl border border-border bg-card p-4"><summary className="cursor-pointer font-semibold text-foreground">{faq.question}</summary><p className="mt-3 whitespace-pre-line text-sm leading-6 text-muted-foreground">{faq.answer}</p></details>)}</div>}
               </TabsContent>
             </Tabs>
           </div>
@@ -575,7 +589,11 @@ const ProjectDetails = () => {
                         )}
                       </div>
                     </div>
-                    {project.status === "fundraising" ? (
+                    {project.status === "fundraising" && isAuthenticated && (user?.user_type !== "investor" || user?.is_staff) ? (
+                      <div className="rounded-lg bg-muted/50 p-4 text-center text-sm font-medium text-muted-foreground">
+                        {t("projects.investorsOnly")}
+                      </div>
+                    ) : project.status === "fundraising" ? (
                       <form className="space-y-3" onSubmit={handleInvest}>
                         <Input
                           type="number"
@@ -588,7 +606,7 @@ const ProjectDetails = () => {
                         />
                         {fieldErrors.amount && <p className="text-xs text-destructive">{fieldErrors.amount}</p>}
                         <Button size="lg" className="w-full" type="submit" disabled={investMutation.isPending}>
-                          <Heart className="me-2 h-4 w-4" /> {investMutation.isPending ? t("common.submitting") : t("projects.contributeNow")}
+                          <Heart className="me-2 h-4 w-4" /> {investMutation.isPending ? t("common.submitting") : t("projects.investNow")}
                         </Button>
                       </form>
                     ) : (
@@ -650,7 +668,7 @@ const ProjectDetails = () => {
             <div className="mb-6">
               <Badge variant="success" className="mb-3 gap-1">
                 <CheckCircle className="h-3.5 w-3.5" />
-                {t("projects.badges.projectCompleted")}
+                {postFundingStatusLabel}
               </Badge>
               <h2 className="text-2xl font-bold text-foreground">{t("projects.successStory.title")}</h2>
               <p className="mt-2 text-sm text-muted-foreground">{t("projects.successStory.description")}</p>

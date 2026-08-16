@@ -35,9 +35,10 @@ describe("funding progress cards", () => {
   });
 
   it.each([
-    ["implementation" as const, "In Implementation"],
-    ["completed" as const, "Project Completed"],
-  ])("shows the correct post-funding badge for %s projects", (status, label) => {
+    ["implementation" as const, "on_track" as const, "In Implementation"],
+    ["completed" as const, "on_track" as const, "Repaying Investors"],
+    ["completed" as const, "completed" as const, "Project Completed"],
+  ])("shows the correct post-funding badge for %s projects with a %s repayment plan", (status, repaymentStatus, label) => {
     render(
       <MemoryRouter>
         <ProjectCard
@@ -53,6 +54,7 @@ describe("funding progress cards", () => {
             investors: 20,
             daysLeft: 0,
             status,
+            repaymentStatus,
             verified: true,
           }}
         />

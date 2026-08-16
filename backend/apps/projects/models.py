@@ -64,6 +64,14 @@ class Project(UUIDTimestampModel):
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, blank=True, null=True,
         related_name="finalized_project_funding",
     )
+    quality_hold_started_at = models.DateTimeField(blank=True, null=True)
+    quality_hold_until = models.DateTimeField(blank=True, null=True)
+    completion_handover_approved_at = models.DateTimeField(blank=True, null=True)
+    completion_handover_approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, blank=True, null=True,
+        related_name="approved_project_handovers",
+    )
+    completion_handover_notes = models.TextField(blank=True)
     minimum_investment = models.DecimalField(max_digits=10, decimal_places=2, default=100)
     expected_roi = models.DecimalField(max_digits=5, decimal_places=2, default=0)
     cost_items = models.JSONField(default=list, blank=True)

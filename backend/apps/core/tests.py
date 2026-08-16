@@ -11,6 +11,7 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 
+from apps.audit.models import AuditLog
 from apps.investments.models import Investment, Milestone, Repayment
 from apps.projects.models import Project, ProjectCategory
 
@@ -168,15 +169,21 @@ class AdminAuthorizationAndUserTests(AdminAPIBase):
             {
                 "user_type": User.UserType.ADMIN,
                 "is_staff": False,
-                "is_superuser": True,
                 "is_kyc_verified": True,
             },
             format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
         self.assertTrue(response.data["is_staff"])
-        self.assertTrue(response.data["is_superuser"])
+        self.assertFalse(response.data["is_superuser"])
         self.assertNotIn("password", response.data)
+
+        response = self.client.patch(
+            reverse("admin-user-detail", args=[managed.pk]),
+            {"is_superuser": True},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
         new_password = "Different-Reset-Pass-2026!"
         response = self.client.post(
@@ -226,9 +233,9 @@ class AdminAuthorizationAndUserTests(AdminAPIBase):
             {"is_superuser": False},
             format="json",
         )
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
         response = self.client.delete(detail_url)
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
         self.assertTrue(User.objects.filter(pk=self.staff.pk).exists())
 
     def test_user_search_filter_and_ordering(self):
@@ -243,6 +250,68 @@ class AdminAuthorizationAndUserTests(AdminAPIBase):
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual([item["id"] for item in response.data["results"]], [str(self.owner.pk)])
+
+
+class ApplicationAdminCreationBoundaryTests(AdminAPIBase):
+    def setUp(self):
+        super().setUp()
+        self.application_admin = User.objects.create_user(
+            email="application-admin@example.com",
+            username="application-admin",
+            full_name="Application Admin",
+            password="password",
+            user_type=User.UserType.ADMIN,
+            is_staff=True,
+            is_superuser=False,
+        )
+        self.client.force_authenticate(self.application_admin)
+
+    def test_application_admin_cannot_create_managed_records(self):
+        for route_name in (
+            "admin-user-list",
+            "admin-project-list",
+            "admin-project-image-list",
+            "admin-project-document-list",
+            "admin-investment-list",
+            "admin-milestone-list",
+            "admin-repayment-list",
+        ):
+            with self.subTest(route_name=route_name):
+                response = self.client.post(reverse(route_name), {}, format="json")
+                self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN, response.data)
+
+        response = self.client.post(
+            reverse("admin-repayment-create-plan"),
+            {},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN, response.data)
+        self.assertEqual(
+            AuditLog.objects.filter(
+                actor=self.application_admin,
+                action="admin.create_denied",
+                result=AuditLog.Result.DENIED,
+            ).count(),
+            8,
+        )
+
+    def test_application_admin_can_still_create_categories(self):
+        response = self.client.post(
+            reverse("admin-category-list"),
+            {"name": "Healthcare", "slug": "healthcare"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+
+    def test_application_admin_cannot_grant_superuser_access(self):
+        response = self.client.patch(
+            reverse("admin-user-detail", args=[self.owner.pk]),
+            {"is_superuser": True},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST, response.data)
+        self.owner.refresh_from_db()
+        self.assertFalse(self.owner.is_superuser)
 
 
 class AdminProjectAPITests(AdminAPIBase):
@@ -460,7 +529,7 @@ class AdminFinanceAPITests(AdminAPIBase):
         Investment.objects.filter(pk=investment_id).update(status=Investment.Status.CONFIRMED)
         Project.objects.filter(pk=self.project.pk).update(
             funded_amount=self.project.goal_amount,
-            status=Project.Status.IMPLEMENTATION,
+            status=Project.Status.CLOSED,
         )
 
         milestone_response = self.client.post(
@@ -483,6 +552,7 @@ class AdminFinanceAPITests(AdminAPIBase):
             actual_completion_date=date(2027, 2, 15),
             funding_released=self.project.goal_amount,
         )
+        Investment.objects.filter(pk=investment_id).update(status=Investment.Status.COMPLETED)
 
         repayment_response = self.client.post(
             reverse("admin-repayment-list"),
@@ -490,15 +560,20 @@ class AdminFinanceAPITests(AdminAPIBase):
                 "investment": investment_id,
                 "amount": "125.00",
                 "scheduled_date": "2027-03-01",
-                "status": Repayment.Status.PAID,
-                "actual_payment_date": "2027-02-28",
+                "status": Repayment.Status.PENDING,
                 "payment_method": Investment.PaymentMethod.BANK_TRANSFER,
-                "transaction_id": "REPAY-1",
             },
             format="json",
         )
         self.assertEqual(repayment_response.status_code, status.HTTP_201_CREATED, repayment_response.data)
         self.assertEqual(repayment_response.data["investor_detail"]["id"], str(self.investor.pk))
+
+        repayment_response = self.client.post(
+            reverse("admin-repayment-mark-paid", args=[repayment_response.data["id"]]),
+            {"actual_payment_date": date.today().isoformat(), "transaction_id": "REPAY-1"},
+            format="json",
+        )
+        self.assertEqual(repayment_response.status_code, status.HTTP_200_OK, repayment_response.data)
 
         filtered = self.client.get(
             reverse("admin-repayment-list"),
@@ -512,11 +587,9 @@ class AdminFinanceAPITests(AdminAPIBase):
             {"notes": "Reconciled"},
             format="json",
         )
-        self.assertEqual(patch_response.status_code, status.HTTP_200_OK)
-        self.assertEqual(patch_response.data["notes"], "Reconciled")
+        self.assertEqual(patch_response.status_code, status.HTTP_400_BAD_REQUEST)
 
         for route_name, object_id in (
-            ("admin-repayment-detail", repayment_response.data["id"]),
             ("admin-milestone-detail", milestone_response.data["id"]),
             ("admin-investment-detail", investment_id),
         ):
@@ -563,7 +636,7 @@ class RelatedPartyWritePermissionTests(AdminAPIBase):
             },
             format="json",
         )
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
         self.assertEqual(
             self.client.patch(
                 reverse("milestone-detail", args=[milestone.pk]),
@@ -578,7 +651,7 @@ class RelatedPartyWritePermissionTests(AdminAPIBase):
                 {"notes": "Hacked"},
                 format="json",
             ).status_code,
-            status.HTTP_404_NOT_FOUND,
+            status.HTTP_405_METHOD_NOT_ALLOWED,
         )
 
     def test_related_users_cannot_reassign_records_to_unrelated_objects(self):
@@ -634,7 +707,7 @@ class RelatedPartyWritePermissionTests(AdminAPIBase):
             {'investment': str(other_investment.pk)},
             format='json',
         )
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
         repayment.refresh_from_db()
         self.assertEqual(repayment.investment_id, self.investment.pk)
 
@@ -663,4 +736,4 @@ class RelatedPartyWritePermissionTests(AdminAPIBase):
             },
             format="json",
         )
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED, response.data)

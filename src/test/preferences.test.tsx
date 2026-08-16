@@ -42,7 +42,7 @@ it("persists profile and account fields through the authenticated user API", asy
   fireEvent.click(screen.getByText("Save Changes"));
   await waitFor(() => expect(mocks.updateCurrentUser).toHaveBeenCalledWith(expect.objectContaining({ email: "new@example.com", timezone: "Asia/Hebron" })));
 });
-it("changes passwords through the backend and does not show simulated billing or 2FA", async () => {
+it("changes passwords through the backend and does not show unsupported billing or 2FA", async () => {
   render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><SettingsPage /></QueryClientProvider>);
   expect(screen.queryByText("Billing")).not.toBeInTheDocument();
   expect(screen.queryByText("Two-Factor Authentication")).not.toBeInTheDocument();

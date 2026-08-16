@@ -19,6 +19,7 @@ type ProjectStatus =
 
 interface StatusBadgeProps {
   status: ProjectStatus | string;
+  label?: string;
 }
 
 const statusConfig: Record<
@@ -127,6 +128,11 @@ const statusConfig: Record<
     className:
       "bg-success/20 text-success border-success/40",
   },
+  due: {
+    label: "Due",
+    className: "bg-warning/15 text-warning border-warning/30",
+    pulse: true,
+  },
   overdue: {
     label: "Overdue",
     className:
@@ -140,7 +146,7 @@ const statusConfig: Record<
   },
 };
 
-const StatusBadge = ({ status }: StatusBadgeProps) => {
+const StatusBadge = ({ status, label }: StatusBadgeProps) => {
   const { t } = useTranslation();
   const config = statusConfig[status] ?? {
     label: status.replace(/_/g, " "),
@@ -169,7 +175,7 @@ const StatusBadge = ({ status }: StatusBadgeProps) => {
           transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
         />
       )}
-      <span className="relative">{t(`status.${status}`, { defaultValue: config.label })}</span>
+      <span className="relative">{label ?? t(`status.${status}`, { defaultValue: config.label })}</span>
     </motion.span>
   );
 };

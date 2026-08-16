@@ -63,7 +63,7 @@ const HomePage = () => {
   const { t, i18n } = useTranslation();
   const { user } = useAuth();
   const isRtl = i18n.dir() === "rtl";
-  const canCreateProject = !user || user.user_type === "entrepreneur" || user.user_type === "admin";
+  const canCreateProject = !user || (user.user_type === "entrepreneur" && !user.is_staff);
   const featuredProjectsQuery = useQuery({
     queryKey: ["projects", "featured"],
     queryFn: () => projectsService.listProjects({ page_size: 12, status: "fundraising", is_verified: true, ordering: "-investor_count" }),
@@ -310,12 +310,14 @@ const HomePage = () => {
               {t("home.journeyPrompt")}
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button size="lg" className="group bg-gradient-to-r from-primary to-primary/80 hover:from-primary hover:to-secondary shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all" asChild>
-                <Link to="/start-project">
-                  {t("home.submitProject")}
-                  <ArrowRight className="ms-2 h-4 w-4 transition-transform group-hover:translate-x-1 rtl:rotate-180" />
-                </Link>
-              </Button>
+              {canCreateProject && (
+                <Button size="lg" className="group bg-gradient-to-r from-primary to-primary/80 hover:from-primary hover:to-secondary shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all" asChild>
+                  <Link to="/start-project">
+                    {t("home.submitProject")}
+                    <ArrowRight className="ms-2 h-4 w-4 transition-transform group-hover:translate-x-1 rtl:rotate-180" />
+                  </Link>
+                </Button>
+              )}
               <Button size="lg" variant="outline" className="hover:bg-muted border-border" asChild>
                 <Link to="/how-it-works">
                   {t("home.learnMore")}

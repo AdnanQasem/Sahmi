@@ -12,7 +12,7 @@ const socialLinks = [
 const Footer = () => {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const canCreateProject = !user || user.user_type === "entrepreneur" || user.user_type === "admin";
+  const canCreateProject = !user || (user.user_type === "entrepreneur" && !user.is_staff);
 
   return (
     <footer className="border-t border-border bg-card">

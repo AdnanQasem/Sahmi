@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { useState, useRef } from "react";
-import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
+import { Link, Navigate, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -64,8 +64,6 @@ const LoginPage = () => {
 
   const { login, isAuthenticated } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
-  const from = (location.state as { from?: { pathname: string } } | null)?.from?.pathname ?? "/projects";
 
   const heroRef = useRef(null);
   const { scrollYProgress } = useScroll({
@@ -75,7 +73,7 @@ const LoginPage = () => {
   const heroY = useTransform(scrollYProgress, [0, 1], ["0%", "20%"]);
 
   if (isAuthenticated) {
-    return <Navigate to={from} replace />;
+    return <Navigate to="/dashboard" replace />;
   }
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -84,7 +82,7 @@ const LoginPage = () => {
     setFieldErrors({});
     try {
       await login(email, password);
-      navigate(from, { replace: true });
+      navigate("/dashboard", { replace: true });
     } catch (error) {
       setFieldErrors(getFieldErrors(error));
     } finally {

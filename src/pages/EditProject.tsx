@@ -17,6 +17,7 @@ import ProjectTimelineEditor from "@/components/projects/ProjectTimelineEditor";
 import { emptyProjectMilestone, validateProjectMilestones } from "@/lib/projectMilestones";
 import ProjectDocumentFields from "@/components/projects/ProjectDocumentFields";
 import ProjectFaqEditor from "@/components/projects/ProjectFaqEditor";
+import DemoFillButton from "@/components/demo/DemoFillButton";
 
 const EditProject = () => {
   const { t } = useTranslation();
@@ -184,6 +185,13 @@ const EditProject = () => {
           </Button>
           <h1 className="mb-2 text-2xl font-bold text-foreground">{t("projects.editTitle")}</h1>
           <p className="text-sm text-muted-foreground">{t("projects.formIntro")}</p>
+          <DemoFillButton
+            className="mt-4"
+            disabled={!categoriesQuery.data?.length}
+            onClick={() => void import("@/demo/projectDemoPresets").then((tools) => {
+              setForm((current) => tools.applyProjectDemoPreset(current, tools.projectDemoPresets[0], categoriesQuery.data || []).form);
+            })}
+          />
         </div>
       </section>
 

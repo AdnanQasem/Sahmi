@@ -16,6 +16,8 @@ import StatusBadge from "@/components/dashboard/StatusBadge";
 import type { Project } from "@/services/projectsService";
 import { formatCurrency, formatDate, formatPercent } from "@/i18n/format";
 import AdminProjectReviewDetails from "@/components/admin/AdminProjectReviewDetails";
+import DemoFillButton from "@/components/demo/DemoFillButton";
+import { formDemoData } from "@/demo/formDemoData";
 
 interface AdminProjectReviewDialogProps {
   project: Project | null;
@@ -118,7 +120,7 @@ const AdminProjectReviewDialog = ({
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-3">
                 <Label htmlFor="review-notes">{t("adminForm.reviewNotes")}</Label>
-                <span className="text-[11px] text-muted-foreground">{t("adminForm.requiredReject")}</span>
+                <div className="flex items-center gap-2"><span className="text-[11px] text-muted-foreground">{t("adminForm.requiredReject")}</span><DemoFillButton onClick={() => onNotesChange(formDemoData.review)} disabled={isPending} /></div>
               </div>
               <Textarea
                 id="review-notes"

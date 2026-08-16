@@ -47,7 +47,7 @@ class AdminUserSerializer(serializers.ModelSerializer):
             "last_login",
             "date_joined",
         ]
-        read_only_fields = ["id", "last_login", "date_joined"]
+        read_only_fields = ["id", "is_superuser", "last_login", "date_joined"]
         extra_kwargs = {
             "username": {"required": False, "allow_blank": True},
         }
@@ -67,6 +67,11 @@ class AdminUserSerializer(serializers.ModelSerializer):
         requested_is_staff = attrs.get('is_staff', serializers.empty)
         request = self.context.get("request")
 
+        if "is_superuser" in self.initial_data:
+            raise serializers.ValidationError({
+                "is_superuser": "Superuser access cannot be managed through the application admin API."
+            })
+
         resulting_user_type = attrs.get(
             "user_type",
             getattr(instance, "user_type", User.UserType.INVESTOR),
@@ -79,6 +84,7 @@ class AdminUserSerializer(serializers.ModelSerializer):
             "is_superuser",
             getattr(instance, "is_superuser", False),
         )
+
         resulting_is_active = attrs.get(
             "is_active",
             getattr(instance, "is_active", True),
@@ -86,7 +92,9 @@ class AdminUserSerializer(serializers.ModelSerializer):
 
         if resulting_user_type == User.UserType.ADMIN:
             resulting_is_staff = True
+            resulting_is_superuser = False
             attrs["is_staff"] = True
+            attrs["is_superuser"] = False
 
         if resulting_is_superuser and not resulting_is_staff:
             raise serializers.ValidationError(

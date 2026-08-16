@@ -1,4 +1,4 @@
-# Sahmi ChatGPT Handoff Index
+﻿# Sahmi ChatGPT Handoff Index
 
 **Created:** 25 July 2026  
 **Purpose:** self-contained evidence package for continuing academic writing without repository access  
@@ -651,7 +651,7 @@ The figure folders were still inventoried for filenames/dimensions/caption mappi
 | routes/endpoints/models/fields | High | current source read |
 | role/permission behavior | High source confidence | runtime not freshly executed; object gaps explicitly recorded |
 | feature classification | High | frontend/backend/data/test layers reconciled |
-| mock/hard-coded behavior | High | direct source evidence |
+| fixture/hard-coded behavior | High | direct source evidence |
 | security/integrity findings | High source confidence | not a penetration test or compliance certification |
 | current frontend test/type-check results | High | exact prior audit command/result/date |
 | current backend runtime result | None | not executed by graduation audit/handoff |

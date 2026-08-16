@@ -1,4 +1,5 @@
 from django.db.models import Q
+from django.http import FileResponse
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
@@ -242,7 +243,8 @@ class ConversationViewSet(viewsets.GenericViewSet):
             message = send_message(
                 conversation=conversation,
                 sender=request.user,
-                body=serializer.validated_data["body"],
+                body=serializer.validated_data.get("body", ""),
+                attachment=serializer.validated_data.get("attachment"),
             )
         except ValueError as exc:
             raise ValidationError(str(exc))
@@ -267,6 +269,21 @@ class MessageViewSet(viewsets.GenericViewSet):
         return Message.objects.filter(
             conversation__participants__user=self.request.user
         ).distinct()
+
+    @action(detail=True, methods=["get"], url_path="attachment")
+    def attachment(self, request, *args, **kwargs):
+        message = self._get_object_or_404()
+        if message.is_deleted or not message.attachment:
+            raise NotFound("Attachment not found.")
+        response = FileResponse(
+            message.attachment.open("rb"),
+            as_attachment=not message.attachment_content_type.startswith("image/"),
+            filename=message.attachment_name,
+            content_type=message.attachment_content_type or "application/octet-stream",
+        )
+        response["X-Content-Type-Options"] = "nosniff"
+        response["Cache-Control"] = "private, max-age=300"
+        return response
 
     def _get_object_or_404(self):
         try:

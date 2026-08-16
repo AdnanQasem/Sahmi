@@ -80,7 +80,7 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 LANGUAGE_CODE = "en-us"
-TIME_ZONE = "UTC"
+TIME_ZONE = config("DJANGO_TIME_ZONE", default="Asia/Hebron")
 USE_I18N = True
 USE_TZ = True
 
@@ -123,6 +123,7 @@ NOTIFICATION_READ_THROTTLE_RATE = config("DJANGO_NOTIFICATION_READ_THROTTLE_RATE
 ADMIN_VERIFICATION_THROTTLE_RATE = config("DJANGO_ADMIN_VERIFICATION_THROTTLE_RATE", default="30/hour")
 PROJECT_TRANSLATION_THROTTLE_RATE = config("DJANGO_PROJECT_TRANSLATION_THROTTLE_RATE", default="60/hour")
 CONTACT_MESSAGE_THROTTLE_RATE = config("DJANGO_CONTACT_MESSAGE_THROTTLE_RATE", default="5/hour")
+EMAIL_VERIFICATION_THROTTLE_RATE = config("DJANGO_EMAIL_VERIFICATION_THROTTLE_RATE", default="10/hour")
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": ("rest_framework_simplejwt.authentication.JWTAuthentication",),
@@ -148,6 +149,7 @@ REST_FRAMEWORK = {
         "refresh": REFRESH_THROTTLE_RATE,
         "password_change": PASSWORD_CHANGE_THROTTLE_RATE,
         "password_reset": PASSWORD_RESET_THROTTLE_RATE,
+        "email_verification": EMAIL_VERIFICATION_THROTTLE_RATE,
         "message_send": MESSAGE_SEND_THROTTLE_RATE,
         "conversation_create": CONVERSATION_CREATE_THROTTLE_RATE,
         "notification_read": NOTIFICATION_READ_THROTTLE_RATE,
@@ -198,7 +200,18 @@ DEMO_SINGLE_NOTIFICATION_EMAILS = {
 }
 CELERY_BROKER_URL = config("REDIS_URL", default="redis://localhost:6379/0")
 CELERY_RESULT_BACKEND = CELERY_BROKER_URL
+CELERY_TIMEZONE = TIME_ZONE
+CELERY_BEAT_SCHEDULE = {
+    "sync-scheduled-project-implementation": {
+        "task": "apps.investments.tasks.sync_scheduled_implementation_task",
+        "schedule": 60.0,
+    },
+    "refresh-open-repayment-statuses": {
+        "task": "apps.investments.tasks.refresh_open_repayment_statuses_task",
+        "schedule": 60.0,
+    },
+}
 PAYMENT_PROVIDER = config(
     "PAYMENT_PROVIDER",
-    default="apps.investments.payments.MockPaymentProvider",
+    default="apps.investments.payments.ConfiguredPaymentProvider",
 )

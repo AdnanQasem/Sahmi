@@ -9,10 +9,14 @@ from .views import (
     PasswordResetConfirmView,
     PasswordResetRequestView,
     RegisterView,
+    EmailVerificationResendView,
+    EmailVerificationView,
 )
 
 urlpatterns = [
     path("register/", RegisterView.as_view(), name="register"),
+    path("verify-email/", EmailVerificationView.as_view(), name="verify-email"),
+    path("verify-email/resend/", EmailVerificationResendView.as_view(), name="verify-email-resend"),
     path("login/", LoginView.as_view(), name="login"),
     path("refresh-token/", RefreshTokenView.as_view(), name="refresh-token"),
     path("logout/", LogoutView.as_view(), name="logout"),

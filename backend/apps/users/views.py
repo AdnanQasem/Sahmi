@@ -3,6 +3,7 @@ import logging
 from django.conf import settings
 from django.contrib.auth.tokens import default_token_generator
 from django.core.mail import send_mail
+from django.db import transaction
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
 from django.contrib.auth import update_session_auth_hash
@@ -22,6 +23,7 @@ from apps.core.throttling import (
     LoginRateThrottle,
     PasswordChangeRateThrottle,
     PasswordResetRateThrottle,
+    EmailVerificationRateThrottle,
     RefreshRateThrottle,
     RegisterRateThrottle,
 )
@@ -31,10 +33,13 @@ from .serializers import (
     PasswordChangeSerializer,
     PasswordResetConfirmSerializer,
     PasswordResetRequestSerializer,
+    EmailVerificationResendSerializer,
+    EmailVerificationSerializer,
     RegisterSerializer,
     UserSerializer,
     build_auth_payload,
 )
+from .email_verification import send_email_confirmation
 
 
 class RegisterView(generics.CreateAPIView):
@@ -46,16 +51,73 @@ class RegisterView(generics.CreateAPIView):
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        user = serializer.save()
+        try:
+            with transaction.atomic():
+                registration = serializer.save()
+                send_email_confirmation(registration)
+        except Exception:
+            logger.exception("Registration confirmation email delivery failed")
+            return Response(
+                {"detail": "The confirmation email could not be delivered. Please check the address and try again."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        return Response(
+            {
+                "message": "Check your email to finish creating your account.",
+                "email_confirmation_sent": True,
+            },
+            status=status.HTTP_202_ACCEPTED,
+        )
+
+
+class EmailVerificationView(APIView):
+    permission_classes = [permissions.AllowAny]
+    renderer_classes = [JSONRenderer]
+    throttle_classes = [EmailVerificationRateThrottle]
+
+    def post(self, request):
+        serializer = EmailVerificationSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        with transaction.atomic():
+            user = serializer.save()
         audit_log(
-            action="user.register",
+            action="user.email.verify",
             actor=user,
             target_type="user",
             target_id=str(user.id),
-            metadata={"user_type": user.user_type},
             request=request,
         )
-        return Response(build_auth_payload(user, context={"request": request}), status=status.HTTP_201_CREATED)
+        payload = build_auth_payload(user, context={"request": request})
+        payload["message"] = "Email confirmed and account created successfully."
+        return Response(payload, status=status.HTTP_201_CREATED)
+
+
+class EmailVerificationResendView(APIView):
+    permission_classes = [permissions.AllowAny]
+    renderer_classes = [JSONRenderer]
+    throttle_classes = [EmailVerificationRateThrottle]
+
+    def post(self, request):
+        serializer = EmailVerificationResendSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        from .models import PendingRegistration
+
+        registration = PendingRegistration.objects.filter(
+            email__iexact=serializer.validated_data["email"],
+        ).first()
+        if registration:
+            try:
+                send_email_confirmation(registration)
+            except Exception:
+                logger.exception("Confirmation email redelivery failed")
+                return Response(
+                    {"detail": "The confirmation email could not be delivered. Please try again later."},
+                    status=status.HTTP_503_SERVICE_UNAVAILABLE,
+                )
+        return Response(
+            {"message": "If a pending registration exists for that email, a confirmation link has been sent."},
+            status=status.HTTP_200_OK,
+        )
 
 
 class LoginView(TokenObtainPairView):

@@ -92,7 +92,6 @@ export interface AdminUserWritePayload {
   reputation_score?: string;
   is_active?: boolean;
   is_staff?: boolean;
-  is_superuser?: boolean;
   groups?: number[];
   user_permissions?: number[];
 }

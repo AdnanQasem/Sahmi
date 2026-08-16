@@ -11,7 +11,6 @@ import {
   CheckCircle2,
   ClipboardCheck,
   FolderOpen,
-  Plus,
   RefreshCw,
   Search,
   Trash2,
@@ -246,10 +245,6 @@ const AdminProjectsPage = () => {
                     (projectsQuery.isFetching || categoriesQuery.isFetching ? "animate-spin" : "")
                   }
                 />{t("admin.refresh")}</Button>
-              <Button asChild>
-                <Link to="/dashboard/admin/projects/new">
-                  <Plus className="h-4 w-4" />{t("admin.addProject")}</Link>
-              </Button>
             </>
           }
         />

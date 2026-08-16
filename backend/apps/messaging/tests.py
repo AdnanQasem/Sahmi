@@ -1,6 +1,7 @@
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.utils import timezone
 from rest_framework import status
@@ -190,6 +191,53 @@ class MessagingAPITests(TestCase):
         self.assertEqual(send.data["body"], "Hello via API")
         self.assertEqual(send.data["sender"]["id"], str(self.alice.pk))
         self.assertNotIn("password", send.data["sender"])
+
+    def test_participants_can_send_and_download_picture_attachments(self):
+        create = self.client_alice.post(
+            "/api/v1/conversations/",
+            {"kind": "direct", "other_user_id": str(self.bob.pk)},
+            format="json",
+        )
+        picture = SimpleUploadedFile(
+            "project-photo.png",
+            b"\x89PNG\r\n\x1a\n" + b"picture-content",
+            content_type="image/png",
+        )
+        send = self.client_alice.post(
+            f"/api/v1/conversations/{create.data['id']}/messages/",
+            {"body": "", "attachment": picture},
+            format="multipart",
+        )
+        self.assertEqual(send.status_code, status.HTTP_201_CREATED, send.content[:500])
+        self.assertEqual(send.data["body"], "")
+        self.assertEqual(send.data["attachment"]["name"], "project-photo.png")
+        self.assertTrue(send.data["attachment"]["is_image"])
+        message = Message.objects.get(pk=send.data["id"])
+        self.addCleanup(message.attachment.delete, False)
+
+        participant_download = self.client_bob.get(
+            f"/api/v1/messages/{message.id}/attachment/"
+        )
+        self.assertEqual(participant_download.status_code, status.HTTP_200_OK)
+        self.assertEqual(participant_download["X-Content-Type-Options"], "nosniff")
+        b"".join(participant_download.streaming_content)
+        participant_download.close()
+        outsider_download = self.client_outsider.get(
+            f"/api/v1/messages/{message.id}/attachment/"
+        )
+        self.assertEqual(outsider_download.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_message_attachment_rejects_unsupported_files(self):
+        conversation = get_or_create_direct_conversation(self.alice, self.bob)
+        upload = SimpleUploadedFile(
+            "unsafe.html", b"<script>alert(1)</script>", content_type="text/html"
+        )
+        send = self.client_alice.post(
+            f"/api/v1/conversations/{conversation.id}/messages/",
+            {"attachment": upload},
+            format="multipart",
+        )
+        self.assertEqual(send.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_empty_message_rejected(self):
         create = self.client_alice.post(

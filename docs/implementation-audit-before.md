@@ -1,4 +1,4 @@
-# Implementation Audit — Before
+﻿# Implementation Audit — Before
 
 > This report describes the state of the Sahmi repository at the moment work began
 > on the `feature/backend-messaging-security-hardening` branch. It was produced by
@@ -261,9 +261,9 @@ environment-based SMTP plus a console backend for development.
 
 - `src/pages/dashboard/MessagesPage.tsx` (~830 lines). Lines 31-57 declare
   `Message` and `Conversation` interfaces. Line 59 defines
-  `const mockConversations: Conversation[] = [ ... ]` with at least two
+  `const fixtureConversations: Conversation[] = [ ... ]` with at least two
   hardcoded conversations ("Sarah Ahmed", "Mohammad Hassan", etc.). Line 172
-  defines `const mockMessages: Record<string, Message[]>`. The page renders
+  defines `const fixtureMessages: Record<string, Message[]>`. The page renders
   these hardcoded arrays; **no API call** is made.
 - No conversation-id, no participants list, no `mark-read`, no unread-count API.
 - Layout: DashboardLayout wrapping a left conversation list and right message
@@ -357,13 +357,13 @@ environment-based SMTP plus a console backend for development.
 - No custom schema extensions, no operation IDs customised; default
   `AutoSchema` is used.
 
-## Summary — mock areas, security gaps, missing APIs
+## Summary — fixture areas, security gaps, missing APIs
 
-**Mock / hardcoded:**
+**Fixture / hardcoded:**
 
-- `src/pages/dashboard/MessagesPage.tsx` — `mockConversations`,
-  `mockMessages`.
-- `src/pages/dashboard/InvestorsPage.tsx` — `mockInvestors`.
+- `src/pages/dashboard/MessagesPage.tsx` — `fixtureConversations`,
+  `fixtureMessages`.
+- `src/pages/dashboard/InvestorsPage.tsx` — `fixtureInvestors`.
 - SettingsPage notification preferences — local `useState`, not persisted.
 - No notification bell in the dashboard header.
 
@@ -411,7 +411,7 @@ environment-based SMTP plus a console backend for development.
    created and status changed through the new controlled endpoint).
 4. Phase 6: add SMTP env config, console backend default, real Celery task
    `send_notification_email`, add a `celery` service to `docker-compose.yml`.
-5. Phase 7: replace `mockConversations` / `mockMessages` with React Query-backed
+5. Phase 7: replace `fixtureConversations` / `fixtureMessages` with React Query-backed
    service calls; add a notification bell in `DashboardLayout` header; wire
    SettingsPage preference toggles to persistent preferences endpoint.
 6. Phase 8: fix `User.save()` so it never silently grants `is_staff`; add a

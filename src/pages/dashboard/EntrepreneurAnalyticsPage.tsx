@@ -29,6 +29,7 @@ import { calculateFundingPercent } from "@/lib/fundingProgress";
 import StatusBadge from "@/components/dashboard/StatusBadge";
 import investmentsService, { Investment } from "@/services/investmentsService";
 import projectsService, { Project } from "@/services/projectsService";
+import { fundedInvestments } from "@/lib/investmentTotals";
 import {
   Activity,
   ArrowRight,
@@ -211,10 +212,7 @@ const EntrepreneurAnalyticsPage = () => {
   );
   const isLoading = projectsQuery.isLoading || investmentsQuery.isLoading;
 
-  const confirmedInvestments = investments.filter(
-    (investment) => investment.status === "confirmed" || investment.status === "completed"
-  );
-  const paidInvestments = confirmedInvestments.length ? confirmedInvestments : investments;
+  const confirmedInvestments = fundedInvestments(investments);
   const totalRaised = projects.reduce((sum, project) => sum + projectRaised(project), 0);
   const totalGoal = projects.reduce((sum, project) => sum + projectGoal(project), 0);
   const totalInvestors = projects.reduce((sum, project) => sum + Number(project.investor_count || 0), 0);
@@ -225,14 +223,14 @@ const EntrepreneurAnalyticsPage = () => {
   const avgFunding = projects.length
     ? Math.round(projects.reduce((sum, project) => sum + projectFundingPercent(project), 0) / projects.length)
     : 0;
-  const averageTicket = paidInvestments.length
-    ? paidInvestments.reduce((sum, investment) => sum + amountOf(investment), 0) / paidInvestments.length
+  const averageTicket = confirmedInvestments.length
+    ? confirmedInvestments.reduce((sum, investment) => sum + amountOf(investment), 0) / confirmedInvestments.length
     : 0;
   const expectedReturn = confirmedInvestments.reduce((sum, investment) => sum + expectedOf(investment), 0);
   const conversionRate = totalViews > 0 ? (totalInvestors / totalViews) * 100 : 0;
 
   const [timeframe, setTimeframe] = useState<Timeframe>("6M");
-  const performanceData = buildPerformanceData(investments, timeframe);
+  const performanceData = buildPerformanceData(confirmedInvestments, timeframe);
   const statusMix = buildStatusMix(projects);
   const topProjects = [...projects]
     .sort((a, b) => projectFundingPercent(b) - projectFundingPercent(a))
@@ -559,7 +557,7 @@ const EntrepreneurAnalyticsPage = () => {
                         <Link to={`/projects/${project.slug}`} className="truncate font-semibold text-foreground hover:text-primary">
                           {project.title}
                         </Link>
-                        <StatusBadge status={project.status} />
+                        <StatusBadge status={project.status} label={project.status === "completed" && project.repayment_status !== "completed" ? t("projects.badges.repayingInvestors") : undefined} />
                       </div>
                       <p className="mt-1 line-clamp-1 text-sm text-muted-foreground">
                         {t("analytics.categoryLocation", { category: project.category_detail?.name || project.category || t("analytics.uncategorized"), location: project.location || t("analytics.noLocation") })}
