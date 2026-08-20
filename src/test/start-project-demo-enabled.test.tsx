@@ -53,14 +53,9 @@ it("fills the selected example without submitting or inventing a category", asyn
   for (let step = 0; step < 4; step += 1) {
     fireEvent.click(screen.getByRole("button", { name: /Next/i }));
   }
-  const plan = new File(["%PDF plan"], "plan.pdf", { type: "application/pdf" });
-  const finances = new File(["%PDF finances"], "finances.pdf", { type: "application/pdf" });
-  const ownership = new File(["%PDF ownership"], "ownership.pdf", { type: "application/pdf" });
-  fireEvent.change(screen.getByLabelText(/Business plan/i), { target: { files: [plan] } });
-  fireEvent.change(screen.getByLabelText(/Financial projections/i), { target: { files: [finances] } });
-  fireEvent.change(screen.getByLabelText(/Ownership or registration evidence/i), {
-    target: { files: [ownership] },
-  });
+  expect(screen.getByText("olive-press-business-plan.pdf")).toBeInTheDocument();
+  expect(screen.getByText("olive-press-financial-projections.pdf")).toBeInTheDocument();
+  expect(screen.getByText("olive-press-ownership-proof.pdf")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: /Next/i }));
   fireEvent.click(screen.getByRole("button", { name: /Next/i }));
   screen.getAllByRole("checkbox").forEach((checkbox) => fireEvent.click(checkbox));
@@ -69,9 +64,9 @@ it("fills the selected example without submitting or inventing a category", asyn
   await waitFor(() => expect(services.createProject).toHaveBeenCalledTimes(1));
   const payload = services.createProject.mock.calls[0][0];
   expect(payload.category).toBe("category-from-backend");
-  expect(payload.business_plan).toBe(plan);
-  expect(payload.financial_projections).toBe(finances);
-  expect(payload.ownership_proof).toBe(ownership);
+  expect(payload.business_plan).toEqual(expect.objectContaining({ name: "olive-press-business-plan.pdf", type: "application/pdf" }));
+  expect(payload.financial_projections).toEqual(expect.objectContaining({ name: "olive-press-financial-projections.pdf", type: "application/pdf" }));
+  expect(payload.ownership_proof).toEqual(expect.objectContaining({ name: "olive-press-ownership-proof.pdf", type: "application/pdf" }));
 });
 
 it("still fills demo fields when the clean database has no categories", async () => {

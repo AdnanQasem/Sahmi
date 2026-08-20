@@ -1,15 +1,18 @@
 from decimal import Decimal
 
+from django.db import transaction
 from django.utils import timezone
 from rest_framework import serializers
 
 from apps.projects.serializers import ProjectListSerializer
+from apps.projects.models import SAHMI_PLATFORM_FEE_RATE
 
 from .models import (
     Investment,
     Milestone,
     ProjectFundingAccount,
     Repayment,
+    RepaymentPlan,
     RepaymentTransfer,
     WithdrawalRequest,
 )
@@ -104,7 +107,12 @@ class MilestoneSerializer(serializers.ModelSerializer):
 
 class RepaymentTransferSerializer(serializers.ModelSerializer):
     agreement_accepted = serializers.BooleanField(write_only=True)
-    receipt = serializers.FileField(write_only=True)
+    receipt = serializers.FileField(write_only=True, required=False, allow_null=True)
+    source_of_funds_declaration = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        default="",
+    )
     receipt_url = serializers.SerializerMethodField()
     submitted_by_name = serializers.CharField(source="submitted_by.full_name", read_only=True)
 
@@ -149,10 +157,6 @@ class RepaymentTransferSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 "Only the project entrepreneur can submit repayment funding."
             )
-        if not request.user.is_kyc_verified:
-            raise serializers.ValidationError(
-                "KYC verification is required before submitting repayment funding."
-            )
         if repayment.investment.project.entrepreneur_id != request.user.id:
             raise serializers.ValidationError({
                 "repayment": "You can only fund repayments for your own project."
@@ -160,6 +164,10 @@ class RepaymentTransferSerializer(serializers.ModelSerializer):
         if repayment.status in {Repayment.Status.PAID, Repayment.Status.CANCELLED}:
             raise serializers.ValidationError({
                 "repayment": "This repayment is already final."
+            })
+        if repayment.plan_id and repayment.plan.status != RepaymentPlan.Status.APPROVED:
+            raise serializers.ValidationError({
+                "repayment": "The repayment plan must be approved before it can be funded."
             })
         if hasattr(repayment, "funding_transfer"):
             raise serializers.ValidationError({
@@ -169,10 +177,9 @@ class RepaymentTransferSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({
                 "inbound_transfer_date": "The transfer date cannot be in the future."
             })
-        if len(attrs.get("source_of_funds_declaration", "").strip()) < 20:
-            raise serializers.ValidationError({
-                "source_of_funds_declaration": "Provide a source-of-funds declaration of at least 20 characters."
-            })
+        attrs["source_of_funds_declaration"] = attrs.get(
+            "source_of_funds_declaration", ""
+        ).strip()
         if not attrs.pop("agreement_accepted", False):
             raise serializers.ValidationError({
                 "agreement_accepted": "You must accept the repayment funding agreement."
@@ -202,7 +209,7 @@ class RepaymentTransferSerializer(serializers.ModelSerializer):
 class RepaymentTransferSummarySerializer(serializers.ModelSerializer):
     class Meta:
         model = RepaymentTransfer
-        fields = ["id", "status", "inbound_reference", "outbound_reference"]
+        fields = ["id", "status", "inbound_reference", "outbound_reference", "review_notes", "reviewed_at"]
 
 
 class RepaymentSerializer(serializers.ModelSerializer):
@@ -228,7 +235,7 @@ class RepaymentSerializer(serializers.ModelSerializer):
         model = Repayment
         fields = [
             "id", "investment", "investor_name", "project_id", "project_title",
-            "amount", "scheduled_date", "actual_payment_date", "status",
+            "amount", "recipient", "scheduled_date", "actual_payment_date", "status",
             "payment_method", "transaction_id", "notes", "created_at", "updated_at",
             "funding_transfer",
         ]
@@ -237,6 +244,178 @@ class RepaymentSerializer(serializers.ModelSerializer):
             "actual_payment_date", "payment_method", "transaction_id", "notes",
             "created_at", "updated_at",
         ]
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get("request")
+        is_project_owner = (
+            request and request.user.is_authenticated
+            and instance.investment.project.entrepreneur_id == request.user.pk
+        )
+        if data.get("funding_transfer") and not (request and request.user.is_staff) and not is_project_owner:
+            data["funding_transfer"].pop("review_notes", None)
+            data["funding_transfer"].pop("reviewed_at", None)
+        return data
+
+
+class RepaymentPlanInstallmentSerializer(serializers.ModelSerializer):
+    recipient = serializers.ChoiceField(
+        choices=Repayment.Recipient.choices,
+        default=Repayment.Recipient.INVESTOR,
+    )
+
+    class Meta:
+        model = Repayment
+        fields = ["id", "amount", "recipient", "scheduled_date", "payment_method", "notes", "status"]
+        read_only_fields = ["id", "status"]
+
+
+class RepaymentPlanSerializer(serializers.ModelSerializer):
+    installments = RepaymentPlanInstallmentSerializer(many=True)
+    investor_id = serializers.UUIDField(source="investment.investor_id", read_only=True)
+    investor_name = serializers.CharField(source="investment.investor.full_name", read_only=True)
+    project_id = serializers.UUIDField(source="investment.project_id", read_only=True)
+    project_title = serializers.CharField(source="investment.project.title", read_only=True)
+    principal = serializers.DecimalField(source="investment.amount", max_digits=12, decimal_places=2, read_only=True)
+    expected_return = serializers.DecimalField(source="investment.expected_return", max_digits=12, decimal_places=2, read_only=True)
+    obligation_total = serializers.SerializerMethodField()
+    platform_fee = serializers.SerializerMethodField()
+    total_with_platform_fee = serializers.SerializerMethodField()
+    reviewed_by_name = serializers.CharField(source="reviewed_by.full_name", read_only=True)
+
+    class Meta:
+        model = RepaymentPlan
+        fields = [
+            "id", "investment", "investor_id", "investor_name", "project_id",
+            "project_title", "principal", "expected_return", "obligation_total",
+            "platform_fee", "total_with_platform_fee",
+            "status", "notes", "review_notes", "submitted_by", "submitted_at",
+            "reviewed_by", "reviewed_by_name", "reviewed_at", "installments",
+            "created_at", "updated_at",
+        ]
+        read_only_fields = [
+            "id", "status", "review_notes", "submitted_by", "submitted_at",
+            "reviewed_by", "reviewed_at", "created_at", "updated_at",
+        ]
+
+    def get_obligation_total(self, obj):
+        return f"{obj.investment.amount + obj.investment.expected_return:.2f}"
+
+    def get_platform_fee(self, obj):
+        fee = (obj.investment.amount * SAHMI_PLATFORM_FEE_RATE).quantize(Decimal("0.01"))
+        return f"{fee:.2f}"
+
+    def get_total_with_platform_fee(self, obj):
+        fee = (obj.investment.amount * SAHMI_PLATFORM_FEE_RATE).quantize(Decimal("0.01"))
+        return f"{obj.investment.amount + obj.investment.expected_return + fee:.2f}"
+
+    def validate(self, attrs):
+        request = self.context["request"]
+        if request.user.is_staff or request.user.user_type != "entrepreneur":
+            raise serializers.ValidationError(
+                "Only the project entrepreneur can submit a repayment plan."
+            )
+        investment = attrs.get("investment", getattr(self.instance, "investment", None))
+        if not investment or investment.project.entrepreneur_id != request.user.id:
+            raise serializers.ValidationError({
+                "investment": "Choose an investment belonging to one of your projects."
+            })
+        if self.instance and self.instance.status not in {
+            RepaymentPlan.Status.REVISION_REQUIRED,
+            RepaymentPlan.Status.REJECTED,
+        }:
+            raise serializers.ValidationError({
+                "status": "Only a plan returned for correction or rejected can be resubmitted."
+            })
+        if self.instance and investment.pk != self.instance.investment_id:
+            raise serializers.ValidationError({
+                "investment": "A repayment plan cannot be moved to another investor account."
+            })
+        installments = attrs.get("installments", [])
+        investor_installments = [
+            item for item in installments
+            if item.get("recipient", Repayment.Recipient.INVESTOR) == Repayment.Recipient.INVESTOR
+        ]
+        platform_installments = [
+            item for item in installments
+            if item.get("recipient") == Repayment.Recipient.PLATFORM
+        ]
+        if not investor_installments:
+            raise serializers.ValidationError({"installments": "Add at least one investor repayment."})
+        if len(platform_installments) != 1:
+            raise serializers.ValidationError({
+                "installments": "Add exactly one dated Sahmi platform repayment."
+            })
+        recipient_dates = [
+            (item.get("recipient", Repayment.Recipient.INVESTOR), item["scheduled_date"])
+            for item in installments
+        ]
+        if len(recipient_dates) != len(set(recipient_dates)):
+            raise serializers.ValidationError({
+                "installments": "Each repayment for the same recipient must have a different date."
+            })
+        from .admin_serializers import validate_repayment_eligibility
+        for item in installments:
+            validate_repayment_eligibility(investment, item["scheduled_date"])
+        proposed = sum((item["amount"] for item in investor_installments), Decimal("0.00"))
+        obligation = investment.amount + investment.expected_return
+        if proposed != obligation:
+            raise serializers.ValidationError({
+                "installments": (
+                    f"The repayments must total exactly {obligation:.2f} for this investor; "
+                    f"the submitted total is {proposed:.2f}."
+                )
+            })
+        required_platform_fee = (
+            investment.amount * SAHMI_PLATFORM_FEE_RATE
+        ).quantize(Decimal("0.01"))
+        if platform_installments[0]["amount"] != required_platform_fee:
+            raise serializers.ValidationError({
+                "installments": (
+                    f"The Sahmi platform repayment must be exactly {required_platform_fee:.2f} "
+                    "(3% of this investment)."
+                )
+            })
+        attrs["notes"] = str(attrs.get("notes", "")).strip()
+        return attrs
+
+    @transaction.atomic
+    def create(self, validated_data):
+        installments = validated_data.pop("installments")
+        plan = RepaymentPlan.objects.create(
+            **validated_data,
+            submitted_by=self.context["request"].user,
+            status=RepaymentPlan.Status.SUBMITTED,
+        )
+        Repayment.objects.bulk_create([
+            Repayment(investment=plan.investment, plan=plan, **item)
+            for item in installments
+        ])
+        return plan
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        installments = validated_data.pop("installments")
+        if instance.installments.filter(funding_transfer__isnull=False).exists():
+            raise serializers.ValidationError({
+                "installments": "A funded repayment plan can no longer be replaced."
+            })
+        instance.installments.all().delete()
+        instance.notes = validated_data.get("notes", instance.notes)
+        instance.status = RepaymentPlan.Status.SUBMITTED
+        instance.review_notes = ""
+        instance.reviewed_by = None
+        instance.reviewed_at = None
+        instance.submitted_at = timezone.now()
+        instance.save(update_fields=[
+            "notes", "status", "review_notes", "reviewed_by", "reviewed_at",
+            "submitted_at", "updated_at",
+        ])
+        Repayment.objects.bulk_create([
+            Repayment(investment=instance.investment, plan=instance, **item)
+            for item in installments
+        ])
+        return instance
 
 
 class WithdrawalRequestSerializer(serializers.ModelSerializer):

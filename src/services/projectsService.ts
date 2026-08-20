@@ -110,6 +110,15 @@ export interface ProjectImage {
   alt_text: string;
 }
 
+export interface AdminReviewFeedback {
+  id: string;
+  scope: "project" | "project_edit" | "project_image";
+  status: "revision_required" | "needs_revision" | "rejected";
+  notes: string;
+  reviewed_at: string | null;
+  image_key?: string;
+}
+
 export interface Project {
   id: string;
   entrepreneur?: UserSummary;
@@ -123,6 +132,11 @@ export interface Project {
   location_governorate?: string;
   goal_amount: string;
   funded_amount: string;
+  platform_fee_rate?: string;
+  estimated_platform_fee?: string;
+  platform_fee_due?: string;
+  estimated_investor_repayment?: string;
+  estimated_total_repayment?: string;
   funding_account: ProjectFundingAccount;
   funding_reached_at?: string | null;
   pending_payment_deadline?: string | null;
@@ -162,6 +176,7 @@ export interface Project {
   updated_at?: string;
   implementation_complete?: boolean;
   updates?: ProjectUpdate[];
+  admin_review_feedback?: AdminReviewFeedback[];
   pending_edit_request?: {
     id: string;
     payload: Partial<Project>;

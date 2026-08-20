@@ -40,6 +40,7 @@ import adminProjectsService, {
 } from "@/services/adminProjectsService";
 import DemoFillButton from "@/components/demo/DemoFillButton";
 import { formDemoData } from "@/demo/formDemoData";
+import { createProjectDemoDocuments, loadProjectDemoFiles } from "@/demo/demoFiles";
 
 const AdminProjectEditPage = () => {
   const { t } = useTranslation();
@@ -171,6 +172,9 @@ const AdminProjectEditPage = () => {
   const fillProjectDemo = async () => {
     const { projectDemoPresets } = await import("@/demo/projectDemoPresets");
     const preset = projectDemoPresets[0];
+    const documents = createProjectDemoDocuments(preset);
+    const demoFiles = await loadProjectDemoFiles(preset).catch(() => null);
+    if (!demoFiles) toast.error(t("projects.demoFilesFailed", { defaultValue: "Demo text was filled, but the sample files could not be loaded." }));
     const futureDate = (days: number) => new Date(Date.now() + days * 86400000).toISOString().slice(0, 10);
     setForm((current) => ({
       ...current,
@@ -199,6 +203,10 @@ const AdminProjectEditPage = () => {
       verification_notes: formDemoData.review,
       ai_classified_category: preset.sector,
       ai_generated_summary: preset.summary,
+      business_plan: documents.businessPlan,
+      financial_projections: documents.financialProjections,
+      ownership_proof: documents.ownershipProof,
+      ...(demoFiles ? { cover_image: demoFiles.coverImage } : {}),
     }));
   };
 
@@ -293,6 +301,7 @@ const AdminProjectEditPage = () => {
           <section className="rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-7">
             <AdminProjectAssetsPanel
               projectId={project.id}
+              projectTitle={project.title}
               images={project.images || []}
               documents={project.supporting_documents || []}
             />

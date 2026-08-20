@@ -4,9 +4,14 @@ from django.utils import timezone
 from django.utils.text import slugify
 from pathlib import Path
 from uuid import uuid4
+from decimal import Decimal
 
 from apps.core.models import UUIDTimestampModel
 from .validators import validate_project_pdf
+
+
+SAHMI_PLATFORM_FEE_RATE = Decimal("0.03")
+SAHMI_PLATFORM_FEE_PERCENT = Decimal("3.00")
 
 
 def project_document_upload_path(instance, filename):
@@ -102,6 +107,27 @@ class Project(UUIDTimestampModel):
     rating = models.DecimalField(max_digits=3, decimal_places=2, default=0)
     reviews_count = models.PositiveIntegerField(default=0)
     deleted_at = models.DateTimeField(blank=True, null=True)
+
+    @property
+    def platform_fee_rate(self):
+        return SAHMI_PLATFORM_FEE_PERCENT
+
+    @property
+    def estimated_platform_fee(self):
+        return (self.goal_amount * SAHMI_PLATFORM_FEE_RATE).quantize(Decimal("0.01"))
+
+    @property
+    def platform_fee_due(self):
+        return (self.funded_amount * SAHMI_PLATFORM_FEE_RATE).quantize(Decimal("0.01"))
+
+    @property
+    def estimated_investor_repayment(self):
+        roi = self.goal_amount * (self.expected_roi / Decimal("100"))
+        return (self.goal_amount + roi).quantize(Decimal("0.01"))
+
+    @property
+    def estimated_total_repayment(self):
+        return self.estimated_investor_repayment + self.estimated_platform_fee
 
     class Meta:
         ordering = ["-created_at"]

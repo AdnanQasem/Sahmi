@@ -25,7 +25,7 @@ import FundsPage from "@/pages/dashboard/FundsPage";
 
 it("fills the milestone release string fields without submitting", async () => {
   render(<QueryClientProvider client={new QueryClient()}><MemoryRouter><FundsPage /></MemoryRouter></QueryClientProvider>);
-  const fill = await screen.findByRole("button", { name: "Fill Dummy Data" });
+  const fill = await screen.findByRole("button", { name: "Fill Demo Data" });
   await waitFor(() => expect(fill).toBeEnabled());
   fireEvent.click(fill);
   expect(screen.getByLabelText("Amount")).toHaveValue(500);

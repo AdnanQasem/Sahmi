@@ -18,6 +18,9 @@ import { emptyProjectMilestone, validateProjectMilestones } from "@/lib/projectM
 import ProjectDocumentFields from "@/components/projects/ProjectDocumentFields";
 import ProjectFaqEditor from "@/components/projects/ProjectFaqEditor";
 import DemoFillButton from "@/components/demo/DemoFillButton";
+import { createProjectDemoDocuments, loadProjectDemoFiles, presetForProjectTitle } from "@/demo/demoFiles";
+import DemoFilePreview from "@/components/demo/DemoFilePreview";
+import AdminReviewFeedback from "@/components/projects/AdminReviewFeedback";
 
 const EditProject = () => {
   const { t } = useTranslation();
@@ -185,11 +188,31 @@ const EditProject = () => {
           </Button>
           <h1 className="mb-2 text-2xl font-bold text-foreground">{t("projects.editTitle")}</h1>
           <p className="text-sm text-muted-foreground">{t("projects.formIntro")}</p>
+          {!user?.is_staff && (
+            <AdminReviewFeedback feedback={projectQuery.data.admin_review_feedback} className="mt-5" />
+          )}
           <DemoFillButton
             className="mt-4"
             disabled={!categoriesQuery.data?.length}
-            onClick={() => void import("@/demo/projectDemoPresets").then((tools) => {
-              setForm((current) => tools.applyProjectDemoPreset(current, tools.projectDemoPresets[0], categoriesQuery.data || []).form);
+            onClick={() => void import("@/demo/projectDemoPresets").then(async (tools) => {
+              const preset = presetForProjectTitle(projectQuery.data?.title, tools.projectDemoPresets);
+              const filled = tools.applyProjectDemoPreset(form, preset, categoriesQuery.data || []).form;
+              const documents = createProjectDemoDocuments(preset);
+              setForm({
+                ...filled,
+                business_plan: documents.businessPlan,
+                financial_projections: documents.financialProjections,
+                ownership_proof: documents.ownershipProof,
+              });
+              try {
+                const files = await loadProjectDemoFiles(preset);
+                setForm((current) => ({
+                  ...current,
+                  cover_image: files.coverImage,
+                }));
+              } catch {
+                toast.error(t("projects.demoFilesFailed", { defaultValue: "Demo text was filled, but the sample files could not be loaded." }));
+              }
             })}
           />
         </div>
@@ -261,6 +284,8 @@ const EditProject = () => {
             <div>
               <Label htmlFor="cover_image">{t("projects.replaceCover")}</Label>
               <Input id="cover_image" type="file" accept="image/*" className="mt-1.5" onChange={(event) => updateForm("cover_image", event.target.files?.[0] ?? null)} />
+              {form.cover_image instanceof File && <p className="mt-1 text-xs font-medium text-primary">{form.cover_image.name}</p>}
+              <DemoFilePreview file={form.cover_image} alt={form.title || t("projects.coverImage")} />
             </div>
             <ProjectCostTableEditor
               items={form.cost_items}

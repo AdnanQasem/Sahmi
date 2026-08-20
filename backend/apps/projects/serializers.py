@@ -185,6 +185,7 @@ class ProjectSerializer(serializers.ModelSerializer):
     implementation_complete = serializers.SerializerMethodField()
     updates = serializers.SerializerMethodField()
     funding_account = serializers.SerializerMethodField()
+    admin_review_feedback = serializers.SerializerMethodField()
 
     class Meta:
         model = Project
@@ -192,6 +193,8 @@ class ProjectSerializer(serializers.ModelSerializer):
             "id", "entrepreneur", "title", "slug", "description", "short_description",
             "category", "category_detail", "location", "location_governorate",
             "goal_amount", "funded_amount", "funding_account", "funding_reached_at",
+            "platform_fee_rate", "estimated_platform_fee", "platform_fee_due",
+            "estimated_investor_repayment", "estimated_total_repayment",
             "pending_payment_deadline", "funding_finalized_at", "funding_finalized_by",
             "quality_hold_started_at", "quality_hold_until",
             "completion_handover_approved_at", "completion_handover_approved_by",
@@ -204,10 +207,12 @@ class ProjectSerializer(serializers.ModelSerializer):
             "ai_generated_summary", "milestone_count", "repayment_status",
             "total_repaid", "next_repayment_date", "view_count", "investor_count",
             "rating", "reviews_count", "supporting_documents", "milestones", "days_left",
-            "funding_percent", "implementation_complete", "updates", "created_at", "updated_at",
+            "funding_percent", "implementation_complete", "updates", "admin_review_feedback", "created_at", "updated_at",
         ]
         read_only_fields = [
             "id", "entrepreneur", "slug", "funded_amount", "funding_account",
+            "platform_fee_rate", "estimated_platform_fee", "platform_fee_due",
+            "estimated_investor_repayment", "estimated_total_repayment",
             "funding_reached_at", "pending_payment_deadline", "funding_finalized_at", "funding_finalized_by",
             "quality_hold_started_at", "quality_hold_until",
             "completion_handover_approved_at", "completion_handover_approved_by",
@@ -216,8 +221,48 @@ class ProjectSerializer(serializers.ModelSerializer):
             "verified_at", "verification_notes", "ai_classified_category",
             "ai_confidence_score", "ai_classification_at", "ai_generated_summary",
             "milestone_count", "total_repaid", "view_count", "investor_count",
-            "rating", "reviews_count", "implementation_complete", "updates", "created_at", "updated_at",
+            "rating", "reviews_count", "implementation_complete", "updates", "admin_review_feedback", "created_at", "updated_at",
         ]
+
+    def get_admin_review_feedback(self, obj):
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            return []
+        if not (request.user.is_staff or request.user.pk == obj.entrepreneur_id):
+            return []
+
+        feedback = []
+        if not obj.is_verified and obj.verification_notes:
+            feedback.append({
+                "id": f"project:{obj.pk}",
+                "scope": "project",
+                "status": "revision_required",
+                "notes": obj.verification_notes,
+                "reviewed_at": obj.verified_at,
+            })
+
+        latest_edit = next(iter(obj.edit_requests.all()), None)
+        if latest_edit and latest_edit.status == ProjectEditRequest.Status.REJECTED and latest_edit.review_notes:
+            feedback.append({
+                "id": f"project_edit:{latest_edit.pk}",
+                "scope": "project_edit",
+                "status": "revision_required",
+                "notes": latest_edit.review_notes,
+                "reviewed_at": latest_edit.reviewed_at,
+            })
+        elif latest_edit and latest_edit.status == ProjectEditRequest.Status.PENDING:
+            for image_key, review in (latest_edit.image_reviews or {}).items():
+                if review.get("status") not in {"needs_revision", "rejected"} or not review.get("review_notes"):
+                    continue
+                feedback.append({
+                    "id": f"project_image:{latest_edit.pk}:{image_key}",
+                    "scope": "project_image",
+                    "status": review.get("status"),
+                    "notes": review.get("review_notes"),
+                    "reviewed_at": review.get("reviewed_at"),
+                    "image_key": image_key,
+                })
+        return feedback
 
     def get_funding_account(self, obj):
         try:
@@ -597,6 +642,8 @@ class PublicProjectSerializer(serializers.ModelSerializer):
             "id", "entrepreneur", "title", "slug", "description", "short_description",
             "category_detail", "location", "location_governorate",
             "goal_amount", "funded_amount", "funding_account", "funding_reached_at",
+            "platform_fee_rate", "estimated_platform_fee", "platform_fee_due",
+            "estimated_investor_repayment", "estimated_total_repayment",
             "pending_payment_deadline", "funding_finalized_at", "minimum_investment", "expected_roi", "cost_items", "faqs",
             "funding_period_days", "start_date", "end_date", "status", "is_verified",
             "verified_at", "cover_image", "images", "video_url",
@@ -636,6 +683,8 @@ class ProjectListSerializer(ProjectSerializer):
         fields = [
             "id", "title", "slug", "short_description", "category", "category_detail",
             "location", "goal_amount", "funded_amount", "minimum_investment",
+            "platform_fee_rate", "estimated_platform_fee", "platform_fee_due",
+            "estimated_investor_repayment", "estimated_total_repayment",
             "expected_roi", "status", "is_verified", "cover_image", "investor_count",
             "repayment_status", "funding_account", "days_left", "funding_percent", "created_at", "updated_at",
         ]

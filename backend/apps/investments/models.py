@@ -187,6 +187,46 @@ class Milestone(UUIDTimestampModel):
         super().save(*args, **kwargs)
 
 
+class RepaymentPlan(UUIDTimestampModel):
+    class Status(models.TextChoices):
+        SUBMITTED = "submitted", "Submitted"
+        UNDER_REVIEW = "under_review", "Under review"
+        REVISION_REQUIRED = "revision_required", "Revision required"
+        APPROVED = "approved", "Approved"
+        REJECTED = "rejected", "Rejected"
+
+    investment = models.OneToOneField(
+        Investment,
+        on_delete=models.CASCADE,
+        related_name="repayment_plan",
+    )
+    submitted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="submitted_repayment_plans",
+    )
+    status = models.CharField(
+        max_length=24,
+        choices=Status.choices,
+        default=Status.SUBMITTED,
+    )
+    notes = models.TextField(blank=True)
+    review_notes = models.TextField(blank=True)
+    submitted_at = models.DateTimeField(default=timezone.now)
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="reviewed_repayment_plans",
+    )
+    reviewed_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        ordering = ["-submitted_at"]
+        indexes = [models.Index(fields=["status", "submitted_at"], name="investments_status_d199f7_idx")]
+
+
 class Repayment(UUIDTimestampModel):
     class Status(models.TextChoices):
         PENDING = "pending", "Pending"
@@ -195,8 +235,24 @@ class Repayment(UUIDTimestampModel):
         OVERDUE = "overdue", "Overdue"
         CANCELLED = "cancelled", "Cancelled"
 
+    class Recipient(models.TextChoices):
+        INVESTOR = "investor", "Investor"
+        PLATFORM = "platform", "Sahmi platform"
+
     investment = models.ForeignKey(Investment, on_delete=models.CASCADE, related_name="repayments")
+    plan = models.ForeignKey(
+        RepaymentPlan,
+        on_delete=models.CASCADE,
+        related_name="installments",
+        blank=True,
+        null=True,
+    )
     amount = models.DecimalField(max_digits=12, decimal_places=2)
+    recipient = models.CharField(
+        max_length=20,
+        choices=Recipient.choices,
+        default=Recipient.INVESTOR,
+    )
     scheduled_date = models.DateField()
     actual_payment_date = models.DateField(blank=True, null=True)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
@@ -213,8 +269,8 @@ class Repayment(UUIDTimestampModel):
                 name="repayment_amount_positive",
             ),
             models.UniqueConstraint(
-                fields=["investment", "scheduled_date"],
-                name="unique_repayment_installment_date",
+                fields=["investment", "scheduled_date", "recipient"],
+                name="unique_repayment_recipient_installment_date",
             ),
             models.UniqueConstraint(
                 fields=["transaction_id"],
@@ -258,8 +314,12 @@ class RepaymentTransfer(UUIDTimestampModel):
     currency = models.CharField(max_length=3, default="USD")
     inbound_reference = models.CharField(max_length=120, unique=True)
     inbound_transfer_date = models.DateField()
-    receipt = models.FileField(upload_to=repayment_receipt_upload_path)
-    source_of_funds_declaration = models.TextField()
+    receipt = models.FileField(
+        upload_to=repayment_receipt_upload_path,
+        blank=True,
+        null=True,
+    )
+    source_of_funds_declaration = models.TextField(blank=True)
     agreement_version = models.CharField(max_length=40, default="repayment-funding-v1")
     agreement_accepted_at = models.DateTimeField()
     status = models.CharField(

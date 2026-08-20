@@ -27,6 +27,8 @@ import fundsService, { type WithdrawalPayload, type WithdrawalRequest } from "@/
 import projectsService, { type ProjectMilestone } from "@/services/projectsService";
 import DemoFillButton from "@/components/demo/DemoFillButton";
 import { formDemoData } from "@/demo/formDemoData";
+import { loadDemoProjectImage } from "@/demo/demoFiles";
+import DemoFilePreview from "@/components/demo/DemoFilePreview";
 
 const FundsPage = () => {
   const { t, i18n } = useTranslation();
@@ -52,7 +54,7 @@ const FundsPage = () => {
     queryFn: () => isAdmin ? adminProjectsService.listProjects({ page_size: 100 }) : projectsService.listMyProjects(),
   });
   const withdrawalsQuery = useQuery({ queryKey: ["withdrawals"], queryFn: () => fundsService.list() });
-  const projects = projectsQuery.data?.results ?? [];
+  const projects = useMemo(() => projectsQuery.data?.results ?? [], [projectsQuery.data?.results]);
   const eligibleProjects = projects.filter((project) => project.status === "implementation");
   const selectedProject = eligibleProjects.find((project) => project.id === projectId) ?? eligibleProjects[0];
   const currentMilestone = selectedProject?.milestones
@@ -163,7 +165,7 @@ const FundsPage = () => {
     create.mutate(form);
   };
 
-  const fillReleaseDemo = () => {
+  const fillReleaseDemo = async () => {
     if (!currentMilestone?.id) return;
     const allocation = selectedFundedAmount * Number(currentMilestone.percentage_of_project || 0) / 100;
     const remaining = Math.max(allocation - Number(currentMilestone.funding_released || 0), 0.01);
@@ -174,6 +176,14 @@ const FundsPage = () => {
       evidence_description: formDemoData.release.evidence,
       planned_expenses: formDemoData.release.expenses,
     }));
+    const evidenceFile = await loadDemoProjectImage(selectedProject?.title, "milestone-evidence").catch(() => null);
+    if (evidenceFile) setForm((current) => ({ ...current, evidence_file: evidenceFile }));
+  };
+
+  const fillCompletionDemo = async () => {
+    setCompletionSummary(formDemoData.completionSummary);
+    const evidenceFile = await loadDemoProjectImage(selectedProject?.title, "completion-evidence").catch(() => null);
+    setCompletionEvidence(evidenceFile);
   };
 
   return <DashboardLayout roleBase={roleBase}>
@@ -230,21 +240,8 @@ const FundsPage = () => {
                 </div>
                 {milestone.completion_summary && <p className="mt-2 text-sm text-muted-foreground">{milestone.completion_summary}</p>}
                 {milestone.completion_evidence && <a className="mt-2 inline-block text-sm font-medium text-primary underline" href={milestone.completion_evidence} target="_blank" rel="noreferrer">{t("funds.viewCompletionEvidence")}</a>}
-                {milestone.completion_review_notes && <p className="mt-2 rounded-lg bg-muted p-3 text-sm">{milestone.completion_review_notes}</p>}
+                {milestone.completion_review_notes && <div className="mt-2 rounded-lg border border-warning/30 bg-warning/5 p-3 text-sm"><p className="font-semibold">{t("reviewFeedback.adminNote")}</p><p className="mt-1 whitespace-pre-wrap text-foreground">{milestone.completion_review_notes}</p></div>}
                 {canSubmitCompletion && <Button className="mt-3" size="sm" onClick={() => { setCompletionDialog(milestone); setCompletionSummary(milestone.completion_summary ?? ""); setCompletionEvidence(null); }}><Send className="me-1 h-4 w-4"/>{t(completionStatus === "not_submitted" ? "funds.submitCompletion" : "funds.resubmitCompletion")}</Button>}
-                {isAdmin && ["submitted", "under_review"].includes(completionStatus) && <Button
-                  className="mt-3"
-                  size="sm"
-                  variant={completionStatus === "under_review" ? "default" : "outline"}
-                  disabled={completionAction.isPending}
-                  onClick={() => {
-                    if (completionStatus === "submitted") completionAction.mutate({ type: "review", milestone });
-                    else {
-                      setActiveCompletionReview(milestone);
-                      setCompletionReviewNotes(milestone.completion_review_notes ?? "");
-                    }
-                  }}
-                ><Clock className="me-1 h-4 w-4"/>{t(completionStatus === "under_review" ? "funds.continueCompletionReview" : "funds.reviewCompletion")}</Button>}
               </div>}
             </article>;
           })}
@@ -266,11 +263,11 @@ const FundsPage = () => {
         </div>
       </section>}
 
-      {!isAdmin && <section className="rounded-2xl border bg-card p-5"><div className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-xl font-semibold">{t("funds.requestRelease")}</h2><DemoFillButton onClick={fillReleaseDemo} disabled={!currentMilestone?.id} /></div>{eligibleProjects.length ? <form className="mt-5 grid gap-4 sm:grid-cols-2" onSubmit={submit}>
+      {!isAdmin && <section className="rounded-2xl border bg-card p-5"><div className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-xl font-semibold">{t("funds.requestRelease")}</h2><DemoFillButton onClick={() => void fillReleaseDemo()} disabled={!currentMilestone?.id} /></div>{eligibleProjects.length ? <form className="mt-5 grid gap-4 sm:grid-cols-2" onSubmit={submit}>
         <label className="space-y-2 text-sm"><span>{t("funds.project")}</span><Select value={selectedProject?.id} onValueChange={(value) => { setProjectId(value); setForm({...form,milestone:""}); }}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{eligibleProjects.map((project) => <SelectItem key={project.id} value={project.id}>{project.title}</SelectItem>)}</SelectContent></Select></label>
         <label className="space-y-2 text-sm"><span>{t("funds.milestone")}</span><Select value={form.milestone || undefined} onValueChange={(value) => setForm({...form,milestone:value})}><SelectTrigger><SelectValue placeholder={t("funds.chooseMilestone")} /></SelectTrigger><SelectContent>{currentMilestone?.id && <SelectItem value={currentMilestone.id}>{currentMilestone.title}</SelectItem>}</SelectContent></Select></label>
         <label className="space-y-2 text-sm"><span>{t("common.amount")}</span><Input required min="0.01" step="0.01" type="number" value={form.amount} onChange={(e) => setForm({...form,amount:e.target.value})}/></label>
-        <label className="space-y-2 text-sm"><span>{t("funds.evidenceFile")}</span><Input type="file" accept=".pdf,image/png,image/jpeg,image/webp" onChange={(e) => setForm({...form,evidence_file:e.target.files?.[0] ?? null})}/></label>
+        <label className="space-y-2 text-sm"><span>{t("funds.evidenceFile")}</span><Input type="file" accept=".pdf,image/png,image/jpeg,image/webp" onChange={(e) => setForm({...form,evidence_file:e.target.files?.[0] ?? null})}/>{form.evidence_file && <span className="block text-xs font-medium text-primary">{form.evidence_file.name}</span>}<DemoFilePreview file={form.evidence_file} alt={selectedProject?.title || t("funds.evidence")} /></label>
         <label className="space-y-2 text-sm sm:col-span-2"><span>{t("funds.evidence")}</span><textarea required minLength={10} className="min-h-24 w-full rounded-md border bg-background p-3" value={form.evidence_description} onChange={(e) => setForm({...form,evidence_description:e.target.value})}/></label>
         <label className="space-y-2 text-sm sm:col-span-2"><span>{t("funds.plannedExpenses")}</span><textarea required minLength={10} className="min-h-24 w-full rounded-md border bg-background p-3" value={form.planned_expenses} onChange={(e) => setForm({...form,planned_expenses:e.target.value})}/></label>
         <div className="sm:col-span-2"><Button disabled={create.isPending} type="submit">{create.isPending ? <Loader2 className="me-2 h-4 w-4 animate-spin"/> : <Send className="me-2 h-4 w-4"/>}{t("funds.submitRequest")}</Button></div>
@@ -287,19 +284,9 @@ const FundsPage = () => {
             <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="font-semibold">{request.project_title} · {request.milestone_title}</p><p className="text-sm text-muted-foreground">{formatDate(request.created_at, { dateStyle: "medium" }, i18n.language)} · {formatCurrency(Number(request.amount))}</p></div><Badge variant="outline">{t(`funds.status.${request.status}`)}</Badge></div>
             <div className="mt-3 grid gap-3 sm:grid-cols-2"><div><p className="text-xs font-medium text-muted-foreground">{t("funds.evidence")}</p><p className="text-sm">{request.evidence_description}</p></div><div><p className="text-xs font-medium text-muted-foreground">{t("funds.purpose")}</p><p className="text-sm">{request.planned_expenses}</p></div></div>
             {request.evidence_file && <a className="mt-3 inline-block text-sm font-medium text-primary underline" href={request.evidence_file} target="_blank" rel="noreferrer">{t("funds.viewEvidence")}</a>}
-            {request.review_notes && <p className="mt-3 rounded-lg bg-muted p-3 text-sm">{request.review_notes}</p>}
+            {request.review_notes && <div className="mt-3 rounded-lg border border-warning/30 bg-warning/5 p-3 text-sm"><p className="font-semibold">{t("reviewFeedback.adminNote")}</p><p className="mt-1 whitespace-pre-wrap text-foreground">{request.review_notes}</p></div>}
             {request.payout_reference && <p className="mt-2 text-xs text-muted-foreground">{t("funds.payoutReference")}: <bdi dir="ltr">{request.payout_reference}</bdi></p>}
             {request.project_status !== "completed" && !isAdmin && ["requested","revision_required"].includes(request.status) && <div className="mt-4"><Button size="sm" variant="outline" onClick={() => action.mutate({type:"cancel",request})}>{t("funds.cancelRequest")}</Button></div>}
-            {request.project_status !== "completed" && isAdmin && <div className="mt-4 flex flex-wrap gap-2">
-              {["requested", "under_review"].includes(request.status) && <Button size="sm" variant={request.status === "under_review" ? "default" : "outline"} disabled={action.isPending} onClick={() => {
-                if (request.status === "requested") action.mutate({ type: "review", request });
-                else {
-                  setActiveReviewRequest(request);
-                  setReviewNotes(request.review_notes ?? "");
-                }
-              }}><Clock className="me-1 h-4 w-4"/>{t(request.status === "under_review" ? "funds.continueReview" : "funds.review")}</Button>}
-              {request.status === "approved" && <Button size="sm" onClick={() => action.mutate({type:"release",request})}><HandCoins className="me-1 h-4 w-4"/>{t("funds.release")}</Button>}
-            </div>}
           </div>)}
           {!withdrawalsQuery.isLoading && visibleRequests.length === 0 && <p className="py-4 text-sm text-muted-foreground">{t("funds.noRequests")}</p>}
         </div>
@@ -335,9 +322,9 @@ const FundsPage = () => {
       <Dialog open={!!completionDialog} onOpenChange={(open) => { if (!open && !submitCompletion.isPending) { setCompletionDialog(null); setCompletionSummary(""); setCompletionEvidence(null); } }}>
         <DialogContent className="rounded-2xl">
           <DialogHeader><DialogTitle>{t("funds.submitCompletionTitle")}</DialogTitle><DialogDescription>{t("funds.submitCompletionHelp")}</DialogDescription></DialogHeader>
-          <DemoFillButton onClick={() => setCompletionSummary(formDemoData.completionSummary)} />
+          <DemoFillButton onClick={() => void fillCompletionDemo()} />
           <label className="space-y-2 text-sm"><span>{t("funds.completionSummary")}</span><Textarea minLength={10} rows={5} value={completionSummary} onChange={(event) => setCompletionSummary(event.target.value)} /></label>
-          <label className="space-y-2 text-sm"><span>{t("funds.completionEvidenceFile")}</span><Input type="file" accept=".pdf,image/png,image/jpeg,image/webp" onChange={(event) => setCompletionEvidence(event.target.files?.[0] ?? null)} /></label>
+          <label className="space-y-2 text-sm"><span>{t("funds.completionEvidenceFile")}</span><Input type="file" accept=".pdf,image/png,image/jpeg,image/webp" onChange={(event) => setCompletionEvidence(event.target.files?.[0] ?? null)} />{completionEvidence && <span className="block text-xs font-medium text-primary">{completionEvidence.name}</span>}<DemoFilePreview file={completionEvidence} alt={selectedProject?.title || t("funds.completionEvidenceFile")} /></label>
           <DialogFooter><Button variant="outline" disabled={submitCompletion.isPending} onClick={() => setCompletionDialog(null)}>{t("common.cancel")}</Button><Button disabled={!completionDialog || completionSummary.trim().length < 10 || !completionEvidence || submitCompletion.isPending} onClick={() => completionDialog && completionEvidence && submitCompletion.mutate({ milestone: completionDialog, summary: completionSummary.trim(), evidence: completionEvidence })}>{submitCompletion.isPending ? <Loader2 className="me-2 h-4 w-4 animate-spin"/> : <Send className="me-2 h-4 w-4"/>}{t("funds.submitCompletion")}</Button></DialogFooter>
         </DialogContent>
       </Dialog>

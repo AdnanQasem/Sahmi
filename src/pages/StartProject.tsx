@@ -17,6 +17,9 @@ import { emptyProjectMilestone, validateProjectMilestones } from "@/lib/projectM
 import ProjectDocumentFields from "@/components/projects/ProjectDocumentFields";
 import { validateRequiredProjectDocuments } from "@/lib/projectDocuments";
 import ProjectFaqEditor from "@/components/projects/ProjectFaqEditor";
+import PlatformFeeDisclosure from "@/components/projects/PlatformFeeDisclosure";
+import { createProjectDemoDocuments, loadProjectDemoFiles } from "@/demo/demoFiles";
+import DemoFilePreview from "@/components/demo/DemoFilePreview";
 
 const stepKeys = [
   "projects.steps.basicInfo",
@@ -61,6 +64,7 @@ interface StartProjectDraft {
   risks: string;
   acceptedTerms: boolean;
   acceptedUpdates: boolean;
+  acceptedPlatformFee: boolean;
 }
 
 const withoutFiles = (form: ProjectCreatePayload): StoredProjectForm => {
@@ -92,15 +96,16 @@ const StartProject = () => {
   const [risks, setRisks] = useState(restoredDraft?.risks ?? "");
   const [acceptedTerms, setAcceptedTerms] = useState(restoredDraft?.acceptedTerms ?? false);
   const [acceptedUpdates, setAcceptedUpdates] = useState(restoredDraft?.acceptedUpdates ?? false);
+  const [acceptedPlatformFee, setAcceptedPlatformFee] = useState(restoredDraft?.acceptedPlatformFee ?? false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [demoTools, setDemoTools] = useState<ProjectDemoTools | null>(null);
   const [selectedDemoId, setSelectedDemoId] = useState("");
   const navigate = useNavigate();
   const hasFiles = [form.cover_image, form.business_plan, form.financial_projections, form.ownership_proof].some((value) => value instanceof File);
   const isDirty = hasFiles || JSON.stringify({
-    form: withoutFiles(form), currentStep, fundingBreakdown, risks, acceptedTerms, acceptedUpdates,
+    form: withoutFiles(form), currentStep, fundingBreakdown, risks, acceptedTerms, acceptedUpdates, acceptedPlatformFee,
   }) !== JSON.stringify({
-    form: withoutFiles(initialForm), currentStep: 0, fundingBreakdown: "", risks: "", acceptedTerms: false, acceptedUpdates: false,
+    form: withoutFiles(initialForm), currentStep: 0, fundingBreakdown: "", risks: "", acceptedTerms: false, acceptedUpdates: false, acceptedPlatformFee: false,
   });
 
   useEffect(() => {
@@ -109,10 +114,10 @@ const StartProject = () => {
       return;
     }
     const draft: StartProjectDraft = {
-      form: withoutFiles(form), currentStep, fundingBreakdown, risks, acceptedTerms, acceptedUpdates,
+      form: withoutFiles(form), currentStep, fundingBreakdown, risks, acceptedTerms, acceptedUpdates, acceptedPlatformFee,
     };
     sessionStorage.setItem(START_PROJECT_DRAFT_KEY, JSON.stringify(draft));
-  }, [acceptedTerms, acceptedUpdates, currentStep, form, fundingBreakdown, isDirty, risks]);
+  }, [acceptedPlatformFee, acceptedTerms, acceptedUpdates, currentStep, form, fundingBreakdown, isDirty, risks]);
 
   useEffect(() => {
     const warnBeforeUnload = (event: BeforeUnloadEvent) => {
@@ -122,7 +127,7 @@ const StartProject = () => {
     };
     window.addEventListener("beforeunload", warnBeforeUnload);
     return () => window.removeEventListener("beforeunload", warnBeforeUnload);
-  }, [isDirty]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isDirty]);
 
   const categoriesQuery = useQuery({
     queryKey: ["project-categories"],
@@ -199,6 +204,7 @@ const StartProject = () => {
     if (currentStep === 6) {
       if (!acceptedTerms) errors.terms = t("validation.termsRequired");
       if (!acceptedUpdates) errors.transparency = t("validation.updatesCommitmentRequired");
+      if (!acceptedPlatformFee) errors.platform_fee = t("validation.platformFeeRequired");
     }
     setFieldErrors(errors);
     return Object.keys(errors).length === 0;
@@ -217,14 +223,39 @@ const StartProject = () => {
     }
   };
 
-  const fillDemoData = () => {
+  const fillDemoData = async () => {
     if (!demoTools) return;
     const preset = demoTools.projectDemoPresets.find((item) => item.id === selectedDemoId)
       ?? demoTools.projectDemoPresets[0];
     if (!preset) return;
     const categories = categoriesQuery.data ?? [];
     const filled = demoTools.applyProjectDemoPreset(form, preset, categories);
-    setForm(filled.form);
+    const documents = createProjectDemoDocuments(preset);
+    setForm({
+      ...filled.form,
+      business_plan: documents.businessPlan,
+      financial_projections: documents.financialProjections,
+      ownership_proof: documents.ownershipProof,
+    });
+    setFieldErrors((current) => {
+      const next = { ...current };
+      ["business_plan", "financial_projections", "ownership_proof"].forEach((field) => delete next[field]);
+      return next;
+    });
+    try {
+      const files = await loadProjectDemoFiles(preset);
+      setForm((current) => ({
+        ...current,
+        cover_image: files.coverImage,
+      }));
+      setFieldErrors((current) => {
+        const next = { ...current };
+        delete next.cover_image;
+        return next;
+      });
+    } catch {
+      toast.error(t("projects.demoFilesFailed", { defaultValue: "Demo text was filled, but the sample files could not be loaded." }));
+    }
     setFundingBreakdown(filled.fundingBreakdown);
     setRisks(filled.risks);
     if (categories.length === 0) toast.info(t("projects.demoNeedsCategory"));
@@ -279,7 +310,7 @@ const StartProject = () => {
                 {demoTools?.projectDemoPresets.map((preset) => <option key={preset.id} value={preset.id}>{preset.label}</option>)}
               </select>
             </label>
-            <Button type="button" size="sm" variant="outline" disabled={!demoTools} onClick={fillDemoData}>
+            <Button type="button" size="sm" variant="outline" disabled={!demoTools} onClick={() => void fillDemoData()}>
               <Sparkles className="h-4 w-4" /> {t("projects.fillDemoData")}
             </Button>
             {!categoriesQuery.isLoading && !categoriesQuery.data?.length && (
@@ -361,12 +392,7 @@ const StartProject = () => {
                   <Input id="expected_roi" type="number" className="mt-1.5" value={form.expected_roi} onChange={(event) => updateForm("expected_roi", event.target.value)} />
                   {fieldErrors.expected_roi && <p className="mt-1 text-xs text-destructive">{fieldErrors.expected_roi}</p>}
                 </div>
-                <div>
-                  <Label htmlFor="funding_period_days">{t("projects.duration")}</Label>
-                  <Input id="funding_period_days" type="number" placeholder="e.g., 30" className="mt-1.5" value={form.funding_period_days} onChange={(event) => updateForm("funding_period_days", event.target.value)} />
-                  <p className="mt-1 text-xs text-muted-foreground">{t("projects.durationHelp")}</p>
-                  {fieldErrors.funding_period_days && <p className="mt-1 text-xs text-destructive">{fieldErrors.funding_period_days}</p>}
-                </div>
+                <PlatformFeeDisclosure goalAmount={form.goal_amount} expectedRoi={form.expected_roi || 0} />
                 <div>
                   <Label htmlFor="funding_breakdown">{t("projects.breakdown")}</Label>
                   <Textarea id="funding_breakdown" placeholder={t("projects.breakdownPlaceholder")} className="mt-1.5" rows={4} value={fundingBreakdown} onChange={(event) => setFundingBreakdown(event.target.value)} />
@@ -398,6 +424,8 @@ const StartProject = () => {
                   <Label htmlFor="cover_image">{t("projects.coverImage")}</Label>
                   <Input id="cover_image" type="file" accept="image/*" className="mt-1.5" onChange={(event) => updateForm("cover_image", event.target.files?.[0] ?? null)} />
                   <p className="mt-1 text-xs text-muted-foreground">{t("projects.imageHelp")}</p>
+                  {form.cover_image instanceof File && <p className="mt-1 text-xs font-medium text-primary">{form.cover_image.name}</p>}
+                  <DemoFilePreview file={form.cover_image} alt={form.title || t("projects.coverImage")} />
                   {fieldErrors.cover_image && <p className="mt-1 text-xs text-destructive">{fieldErrors.cover_image}</p>}
                 </div>
                 <div>
@@ -432,7 +460,13 @@ const StartProject = () => {
               <div className="rounded-lg border border-border bg-background p-5 text-sm text-muted-foreground">
                 <p>{t("projects.reviewNotice")}</p>
               </div>
+              <PlatformFeeDisclosure goalAmount={form.goal_amount} expectedRoi={form.expected_roi || 0} />
               <div className="space-y-3">
+                <div className="flex items-start gap-2 rounded-lg border border-primary/20 bg-primary/5 p-3">
+                  <input type="checkbox" id="platform-fee" className="mt-1 rounded border-border" checked={acceptedPlatformFee} onChange={(event) => setAcceptedPlatformFee(event.target.checked)} />
+                  <label htmlFor="platform-fee" className="text-sm font-medium text-foreground">{t("projects.platformFee.acknowledgment")}</label>
+                </div>
+                {fieldErrors.platform_fee && <p className="text-xs text-destructive">{fieldErrors.platform_fee}</p>}
                 <div className="flex items-start gap-2">
                   <input type="checkbox" id="terms" className="mt-1 rounded border-border" checked={acceptedTerms} onChange={(event) => setAcceptedTerms(event.target.checked)} />
                   <label htmlFor="terms" className="text-sm text-muted-foreground">{t("projects.termsConfirm")}</label>

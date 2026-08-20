@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import api from "@/services/api";
@@ -16,7 +16,7 @@ const record = {
   id: "repayment-1", investment: "investment-1", investor_name: "Mona Investor",
   project_id: "project-1", project_title: "Olive Cooperative", amount: "25.00",
   scheduled_date: "2030-01-01", actual_payment_date: null, status: "due" as const,
-  payment_method: "bank_transfer" as const, transaction_id: "", notes: "",
+  recipient: "investor" as const, payment_method: "bank_transfer" as const, transaction_id: "", notes: "", funding_transfer: null,
 };
 
 const obligation = {
@@ -70,16 +70,14 @@ describe("repayment service and dashboard", () => {
     expect(screen.getByText("Due")).toBeInTheDocument();
     await waitFor(() => expect(screen.getAllByText("$25.00").length).toBeGreaterThan(0));
     expect(screen.getByText("Repayment plan progress")).toBeInTheDocument();
-    expect(screen.getByText(/Expected ROI: 5%/)).toBeInTheDocument();
     expect(screen.getByText(/not the ROI rate/)).toBeInTheDocument();
-    expect(screen.getByText("$500.00")).toBeInTheDocument();
     expect(screen.getAllByText("$525.00").length).toBeGreaterThan(0);
-    expect(screen.getByText("3 investments in this project")).toBeInTheDocument();
     expect(screen.getByText("0%")).toBeInTheDocument();
+    expect(screen.queryByText("3 investments in this project")).not.toBeInTheDocument();
     expect(screen.queryByText("Mona Investor")).not.toBeInTheDocument();
   });
 
-  it("shows investor identity in the entrepreneur obligation view", async () => {
+  it("shows investor identity on each entrepreneur repayment without aggregate obligation cards", async () => {
     state.userType = "entrepreneur";
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     vi.mocked(api.get).mockImplementation(async (path) => path === "repayments/summary/"
@@ -87,6 +85,54 @@ describe("repayment service and dashboard", () => {
       : { count: 1, next: null, previous: null, results: [record] });
     render(<MemoryRouter><QueryClientProvider client={queryClient}><RepaymentsPage /></QueryClientProvider></MemoryRouter>);
     expect((await screen.findAllByText("Mona Investor")).length).toBeGreaterThan(0);
-    expect(screen.getByText("Project repayment obligations")).toBeInTheDocument();
+    expect(screen.queryByText("Project repayment obligations")).not.toBeInTheDocument();
+    expect(screen.queryByText("3 investments in this project")).not.toBeInTheDocument();
+  });
+
+  it("shows the administrator note on rejected repayment funding to the entrepreneur", async () => {
+    state.userType = "entrepreneur";
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const rejectedRecord = {
+      ...record,
+      funding_transfer: {
+        id: "transfer-1",
+        status: "rejected" as const,
+        inbound_reference: "BANK-IN-1",
+        outbound_reference: "",
+        review_notes: "The transferred amount does not match this installment.",
+        reviewed_at: "2030-01-02T10:00:00Z",
+      },
+    };
+    vi.mocked(api.get).mockImplementation(async (path) => path === "repayments/summary/"
+      ? { obligation_total: "25.00", scheduled_total: "25.00", paid_total: "0.00", remaining_total: "25.00", unscheduled_total: "0.00", obligations: [], next_repayment_date: null, counts: {} }
+      : { count: 1, next: null, previous: null, results: [rejectedRecord] });
+
+    render(<MemoryRouter><QueryClientProvider client={queryClient}><RepaymentsPage /></QueryClientProvider></MemoryRouter>);
+
+    expect(await screen.findByText("Administrator note")).toBeInTheDocument();
+    expect(screen.getByText("The transferred amount does not match this installment.")).toBeInTheDocument();
+  });
+
+  it("lets an entrepreneur fund a repayment without KYC or optional evidence", async () => {
+    state.userType = "entrepreneur";
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    vi.mocked(api.get).mockImplementation(async (path) => path === "repayments/summary/"
+      ? { obligation_total: "25.00", scheduled_total: "25.00", paid_total: "0.00", remaining_total: "25.00", unscheduled_total: "0.00", obligations: [], next_repayment_date: null, counts: {} }
+      : { count: 1, next: null, previous: null, results: [record] });
+
+    render(<MemoryRouter><QueryClientProvider client={queryClient}><RepaymentsPage /></QueryClientProvider></MemoryRouter>);
+
+    const fundButton = await screen.findByRole("button", { name: "Fund repayment" });
+    expect(fundButton).toBeEnabled();
+    fireEvent.click(fundButton);
+    fireEvent.click(screen.getByRole("button", { name: "Fill Demo Data" }));
+
+    expect((screen.getByLabelText("Inbound bank reference") as HTMLInputElement).value).toMatch(/^DEMO-REPAY-/);
+    expect(screen.getByLabelText("Source-of-funds notes (optional)")).toHaveValue("Demo operating revenue allocated to this approved investor repayment installment.");
+    expect(screen.getByText(/I confirm that I am authorized/).previousElementSibling).toBeChecked();
+    expect(screen.getByRole("button", { name: "Submit for reconciliation" })).toBeEnabled();
+    expect(screen.getByText("Bank receipt (optional — PDF or image)")).toBeInTheDocument();
+    expect(screen.getByText("demo-repayment-receipt.pdf")).toBeInTheDocument();
+    expect(screen.getByText("Source-of-funds notes (optional)")).toBeInTheDocument();
   });
 });

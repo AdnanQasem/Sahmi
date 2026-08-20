@@ -34,11 +34,14 @@ const project = {
   days_left: 30,
   funding_percent: 0,
   repayment_status: "on_track",
+  business_plan: "https://api.example.test/media/business-plan.pdf",
+  financial_projections: "https://api.example.test/media/financial-projections.pdf",
+  ownership_proof: "https://api.example.test/media/ownership-proof.pdf",
   created_at: "2026-08-14T10:00:00Z",
   pending_edit_request: {
     id: "edit-1",
     payload: {},
-    files: {},
+    files: { financial_projections: "https://api.example.test/media/proposed-financial-projections.pdf" },
     images: [],
     submitted_by: "owner-1",
     created_at: "2026-08-14T10:00:00Z",
@@ -73,7 +76,18 @@ describe("editing request review details", () => {
     expect(screen.getByText(/Feb 15, 2027/)).toBeInTheDocument();
     expect(screen.getByText("How is progress checked?")).toBeInTheDocument();
     expect(screen.getByText("The admin reviews milestone evidence.")).toBeInTheDocument();
-    expect(screen.queryByText(/\"question\"/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/"question"/)).not.toBeInTheDocument();
+    expect(screen.getByText("Required project documents")).toBeInTheDocument();
+    expect(screen.getByText("Business plan")).toBeInTheDocument();
+    expect(screen.getByText("Financial projections")).toBeInTheDocument();
+    expect(screen.getByText("Ownership or registration evidence")).toBeInTheDocument();
+    const currentLinks = screen.getAllByRole("link", { name: "View current" });
+    expect(currentLinks).toHaveLength(3);
+    expect(currentLinks[0]).toHaveAttribute("href", "https://api.example.test/media/business-plan.pdf");
+    expect(screen.getByRole("link", { name: "View proposed replacement" })).toHaveAttribute(
+      "href",
+      "https://api.example.test/media/proposed-financial-projections.pdf",
+    );
   });
 
   it("filters picture reviews by project and review status", () => {

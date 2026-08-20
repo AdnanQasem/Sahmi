@@ -99,10 +99,12 @@ export interface AdminMilestonePayload {
 
 export interface AdminRepayment {
   id: string;
+  plan?: string | null;
   investment: string;
   investor_detail?: AdminUserOption;
   project_detail?: AdminProjectOption;
   amount: string;
+  recipient: "investor" | "platform";
   scheduled_date: string;
   actual_payment_date: string | null;
   status: "pending" | "due" | "paid" | "overdue" | "cancelled";

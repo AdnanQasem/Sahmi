@@ -3,7 +3,7 @@ import i18n from "@/i18n";
 import { formatCurrency as formatLocaleCurrency, formatDate, formatPercent } from "@/i18n/format";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarClock, CircleCheckBig, Edit3, HandCoins, Landmark, Search, Trash2, TriangleAlert, XCircle } from "lucide-react";
+import { CalendarClock, CircleCheckBig, ClipboardCheck, Edit3, HandCoins, Landmark, Search, Trash2, TriangleAlert, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import DashboardLayout from "../DashboardLayout";
 import AdminDeleteDialog from "@/components/admin/AdminDeleteDialog";
@@ -11,6 +11,7 @@ import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import AdminPagination from "@/components/admin/AdminPagination";
 import AdminRepaymentDialog from "@/components/admin/AdminRepaymentDialog";
 import StatusBadge from "@/components/dashboard/StatusBadge";
+import DemoFillButton from "@/components/demo/DemoFillButton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -37,7 +38,8 @@ import adminFinanceService, {
   type AdminRepayment,
   type AdminRepaymentPayload,
 } from "@/services/adminFinanceService";
-import repaymentService from "@/services/repaymentService";
+import repaymentService, { type RepaymentPlan } from "@/services/repaymentService";
+import { createDemoPayoutReference, formDemoData } from "@/demo/formDemoData";
 
 const PAGE_SIZE = 12;
 
@@ -50,7 +52,9 @@ const paymentLabel = (method: string) =>
 
 const repaymentIdentity = (repayment: AdminRepayment) => {
   return {
-    investor:
+    investor: repayment.recipient === "platform"
+      ? i18n.t("repaymentPlanSubmission.platformRecipient")
+      :
       repayment.investor_detail?.full_name ||
       repayment.investor_detail?.email ||
       i18n.t("admin.unknownInvestor"),
@@ -72,6 +76,8 @@ const AdminRepaymentsPage = () => {
   const [transferNotes, setTransferNotes] = useState("");
   const [outboundReference, setOutboundReference] = useState("");
   const [cancelling, setCancelling] = useState<AdminRepayment | null>(null);
+  const [reviewingPlan, setReviewingPlan] = useState<RepaymentPlan | null>(null);
+  const [planReviewNotes, setPlanReviewNotes] = useState("");
 
   const repaymentsQuery = useQuery({
     queryKey: ["admin", "repayments", page, search, status, paymentMethod],
@@ -100,6 +106,10 @@ const AdminRepaymentsPage = () => {
     queryKey: ["admin", "repayment-transfers"],
     queryFn: () => repaymentService.listTransfers(),
   });
+  const plansQuery = useQuery({
+    queryKey: ["admin", "repayment-plans"],
+    queryFn: () => repaymentService.listPlans({ ordering: "-submitted_at" }),
+  });
   const scheduledTotal = Number(summaryQuery.data?.scheduled_total || 0);
   const paidTotal = Number(summaryQuery.data?.paid_total || 0);
   const obligationTotal = Number(summaryQuery.data?.obligation_total || scheduledTotal);
@@ -111,6 +121,7 @@ const AdminRepaymentsPage = () => {
     void queryClient.invalidateQueries({ queryKey: ["admin", "investment-options"] });
     void queryClient.invalidateQueries({ queryKey: ["repayments", "summary"] });
     void queryClient.invalidateQueries({ queryKey: ["admin", "repayment-transfers"] });
+    void queryClient.invalidateQueries({ queryKey: ["admin", "repayment-plans"] });
   };
 
   const saveMutation = useMutation({
@@ -143,6 +154,21 @@ const AdminRepaymentsPage = () => {
       refresh();
     },
     onError: (error) => toast.error(getErrorMessage(error, t("admin.deleteFailed", { item: t("admin.repaymentItem") }))),
+  });
+
+  const planReviewMutation = useMutation({
+    mutationFn: ({ plan, action }: { plan: RepaymentPlan; action: "approve" | "revision" | "reject" }) => {
+      if (action === "approve") return repaymentService.approvePlan(plan.id, planReviewNotes.trim());
+      if (action === "revision") return repaymentService.requestPlanRevision(plan.id, planReviewNotes.trim());
+      return repaymentService.rejectPlan(plan.id, planReviewNotes.trim());
+    },
+    onSuccess: () => {
+      toast.success(t("repaymentPlanReview.updated"));
+      setReviewingPlan(null);
+      setPlanReviewNotes("");
+      refresh();
+    },
+    onError: (error) => toast.error(getErrorMessage(error, t("repaymentPlanReview.updateFailed"))),
   });
 
   const transferMutation = useMutation({
@@ -195,6 +221,15 @@ const AdminRepaymentsPage = () => {
           title={t("admin.repaymentsTitle")}
           description={t("admin.repaymentsText")}
         />
+
+        <section className="rounded-2xl border border-border bg-card shadow-sm">
+          <div className="border-b p-5"><h2 className="font-semibold">{t("repaymentPlanReview.title")}</h2><p className="mt-1 text-sm text-muted-foreground">{t("repaymentPlanReview.help")}</p></div>
+          {plansQuery.isLoading ? <div className="p-5"><Skeleton className="h-28" /></div> : !plansQuery.data?.results.length ? <div className="p-10 text-center text-muted-foreground"><ClipboardCheck className="mx-auto mb-3 h-9 w-9 opacity-50" />{t("repaymentPlanReview.empty")}</div> : <div className="divide-y">{plansQuery.data.results.map((plan) => <article key={plan.id} className="grid gap-4 p-5 lg:grid-cols-[minmax(0,1fr)_auto_auto] lg:items-center">
+            <div><p className="font-semibold">{plan.investor_name}</p><p className="text-sm text-muted-foreground">{plan.project_title}</p><p className="mt-1 text-xs text-muted-foreground">{t("repaymentPlanReview.installmentCount", { count: plan.installments.length })}</p></div>
+            <div><p className="font-bold text-primary">{currency(plan.obligation_total)}</p><StatusBadge status={plan.status} label={t(`repaymentPlanSubmission.status.${plan.status}`)} /></div>
+            <Button variant="outline" disabled={["approved", "rejected", "revision_required"].includes(plan.status)} onClick={() => { setReviewingPlan(plan); setPlanReviewNotes(plan.review_notes || ""); }}><ClipboardCheck className="h-4 w-4" />{t("repaymentPlanReview.review")}</Button>
+          </article>)}</div>}
+        </section>
 
         <div className="grid gap-4 sm:grid-cols-3">
           {([
@@ -328,11 +363,11 @@ const AdminRepaymentsPage = () => {
                               {!['paid', 'cancelled'].includes(repayment.status) && <Button variant="ghost" size="icon" onClick={() => setCancelling(repayment)}>
                                 <XCircle className="h-4 w-4" /><span className="sr-only">{t("repaymentDashboard.cancelRepayment")}</span>
                               </Button>}
-                              {!['paid', 'cancelled'].includes(repayment.status) && <Button variant="ghost" size="icon" onClick={() => openEdit(repayment)}>
+                              {!repayment.plan && !['paid', 'cancelled'].includes(repayment.status) && <Button variant="ghost" size="icon" onClick={() => openEdit(repayment)}>
                                 <Edit3 className="h-4 w-4" />
                                 <span className="sr-only">{t("admin.editRepayment")}</span>
                               </Button>}
-                              {repayment.status !== 'paid' && <Button
+                              {!repayment.plan && repayment.status !== 'paid' && <Button
                                 variant="ghost"
                                 size="icon"
                                 className="text-destructive hover:text-destructive"
@@ -377,10 +412,10 @@ const AdminRepaymentsPage = () => {
                         <div className="flex gap-1">
                           {transferControl(repayment, true)}
                           {!['paid', 'cancelled'].includes(repayment.status) && <Button variant="outline" size="icon" onClick={() => setCancelling(repayment)}><XCircle className="h-4 w-4" /><span className="sr-only">{t("repaymentDashboard.cancelRepayment")}</span></Button>}
-                          {!['paid', 'cancelled'].includes(repayment.status) && <Button variant="outline" size="sm" onClick={() => openEdit(repayment)}>
+                          {!repayment.plan && !['paid', 'cancelled'].includes(repayment.status) && <Button variant="outline" size="sm" onClick={() => openEdit(repayment)}>
                             <Edit3 className="h-4 w-4" />{t("common.edit")}</Button>
                           }
-                          {repayment.status !== 'paid' && <Button
+                          {!repayment.plan && repayment.status !== 'paid' && <Button
                             variant="outline"
                             size="icon"
                             className="text-destructive"
@@ -437,13 +472,31 @@ const AdminRepaymentsPage = () => {
             <div><p className="text-xs text-muted-foreground">{t("repaymentFunding.sourceOfFunds")}</p><p className="mt-1 whitespace-pre-wrap">{activeTransfer.source_of_funds_declaration}</p></div>
             {activeTransfer.receipt_url && <a className="font-semibold text-primary underline sm:col-span-2" href={activeTransfer.receipt_url} target="_blank" rel="noreferrer">{t("repaymentFunding.viewReceipt")}</a>}
           </div>}
+          {transferDialog && <DemoFillButton
+            disabled={transferMutation.isPending}
+            onClick={() => {
+              if (transferDialog.funding_transfer?.status === "verified") {
+                setOutboundReference(createDemoPayoutReference());
+              } else {
+                setTransferNotes(formDemoData.repayment.verificationNotes);
+              }
+            }}
+          />}
           {transferDialog?.funding_transfer?.status === "verified" ? <label className="space-y-2 text-sm"><span>{t("repaymentFunding.outboundReference")}</span><Input value={outboundReference} onChange={(event) => setOutboundReference(event.target.value)} /></label> : <label className="space-y-2 text-sm"><span>{t("repaymentFunding.reviewNotes")}</span><Textarea rows={4} minLength={10} value={transferNotes} onChange={(event) => setTransferNotes(event.target.value)} /></label>}
           <DialogFooter>
             <Button variant="outline" disabled={transferMutation.isPending} onClick={() => setTransferDialog(null)}>{t("common.cancel")}</Button>
             {transferDialog?.funding_transfer?.status === "under_review" && <Button variant="destructive" disabled={transferNotes.trim().length < 10 || transferMutation.isPending} onClick={() => transferMutation.mutate({ repayment: transferDialog, action: "reject" })}>{t("funds.reject")}</Button>}
-            {transferDialog?.funding_transfer?.status === "under_review" && <Button disabled={transferNotes.trim().length < 10 || transferMutation.isPending} onClick={() => transferMutation.mutate({ repayment: transferDialog, action: "verify" })}>{t("repaymentFunding.verify")}</Button>}
+            {transferDialog?.funding_transfer?.status === "under_review" && <Button disabled={transferNotes.trim().length < 10 || transferMutation.isPending} onClick={() => transferMutation.mutate({ repayment: transferDialog, action: "verify" })}>{t(transferDialog.recipient === "platform" ? "repaymentFunding.verifyPlatform" : "repaymentFunding.verify")}</Button>}
             {transferDialog?.funding_transfer?.status === "verified" && <Button disabled={!outboundReference.trim() || transferMutation.isPending} onClick={() => transferMutation.mutate({ repayment: transferDialog, action: "disburse" })}>{t("repaymentFunding.disburse")}</Button>}
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!reviewingPlan} onOpenChange={(open) => { if (!open && !planReviewMutation.isPending) { setReviewingPlan(null); setPlanReviewNotes(""); } }}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader><DialogTitle>{t("repaymentPlanReview.dialogTitle")}</DialogTitle><DialogDescription>{t("repaymentPlanReview.dialogHelp")}</DialogDescription></DialogHeader>
+          {reviewingPlan && <div className="space-y-4"><div className="rounded-xl bg-muted/40 p-4"><p className="font-semibold">{reviewingPlan.investor_name} · {reviewingPlan.project_title}</p><p className="mt-1 text-sm text-muted-foreground">{t("repaymentPlanSubmission.planTotal", { amount: currency(reviewingPlan.obligation_total) })}</p><p className="mt-1 text-sm font-bold text-primary">{t("repaymentPlanSubmission.planTotalWithFee", { amount: currency(reviewingPlan.total_with_platform_fee) })}</p></div><div className="space-y-2">{reviewingPlan.installments.map((item) => <div key={item.id} className={`flex justify-between rounded-lg border px-3 py-2 text-sm ${item.recipient === "platform" ? "border-primary/30 bg-primary/5" : ""}`}><span>{item.recipient === "platform" ? `${t("repaymentPlanSubmission.platformRecipient")} · ` : ""}{date(item.scheduled_date)}</span><span className="font-semibold">{currency(item.amount)}</span></div>)}</div><label className="block space-y-2 text-sm"><span>{t("repaymentPlanReview.notes")}</span><Textarea rows={4} value={planReviewNotes} onChange={(event) => setPlanReviewNotes(event.target.value)} /></label></div>}
+          <DialogFooter className="gap-2"><Button variant="outline" disabled={planReviewMutation.isPending} onClick={() => setReviewingPlan(null)}>{t("common.cancel")}</Button><Button variant="destructive" disabled={planReviewNotes.trim().length < 5 || planReviewMutation.isPending} onClick={() => reviewingPlan && planReviewMutation.mutate({ plan: reviewingPlan, action: "reject" })}>{t("repaymentPlanReview.reject")}</Button><Button variant="outline" disabled={planReviewNotes.trim().length < 5 || planReviewMutation.isPending} onClick={() => reviewingPlan && planReviewMutation.mutate({ plan: reviewingPlan, action: "revision" })}>{t("repaymentPlanReview.requestChanges")}</Button><Button disabled={planReviewMutation.isPending} onClick={() => reviewingPlan && planReviewMutation.mutate({ plan: reviewingPlan, action: "approve" })}>{t("repaymentPlanReview.approve")}</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 

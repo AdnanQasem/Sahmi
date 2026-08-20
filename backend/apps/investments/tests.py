@@ -9,7 +9,7 @@ from django.utils import timezone
 from apps.notifications.models import Notification
 from apps.projects.models import Project, ProjectCategory
 
-from .models import Investment, Milestone, ProjectFundingAccount, Repayment, WithdrawalRequest
+from .models import Investment, Milestone, ProjectFundingAccount, Repayment, RepaymentTransfer, WithdrawalRequest
 
 
 class RepaymentWorkflowTests(TestCase):
@@ -83,6 +83,13 @@ class RepaymentWorkflowTests(TestCase):
         self.assertEqual(excessive.status_code, status.HTTP_400_BAD_REQUEST)
         second = self._schedule("50.00", "2030-02-01")
         self.assertEqual(second.status_code, status.HTTP_201_CREATED, second.data)
+        platform_fee = Repayment.objects.create(
+            investment=self.investment,
+            amount=Decimal("3.00"),
+            recipient=Repayment.Recipient.PLATFORM,
+            scheduled_date="2030-02-01",
+            payment_method=Investment.PaymentMethod.BANK_TRANSFER,
+        )
 
         paid = self.client.post(
             f"/api/v1/admin/repayments/{first.data['id']}/mark-paid/",
@@ -113,8 +120,33 @@ class RepaymentWorkflowTests(TestCase):
         )
         self.project.refresh_from_db()
         self.assertEqual(self.project.total_repaid, Decimal("110.00"))
+        self.assertEqual(self.project.repayment_status, Project.RepaymentStatus.ON_TRACK)
+        self.assertIsNone(self.project.deleted_at)
+
+        platform_paid = self.client.post(
+            f"/api/v1/admin/repayments/{platform_fee.id}/mark-paid/",
+            {"actual_payment_date": timezone.localdate().isoformat(), "transaction_id": "SAHMI-003"},
+            format="json",
+        )
+        self.assertEqual(platform_paid.status_code, status.HTTP_200_OK, platform_paid.data)
+        self.project.refresh_from_db()
         self.assertEqual(self.project.repayment_status, Project.RepaymentStatus.COMPLETED)
         self.assertIsNone(self.project.next_repayment_date)
+        self.assertIsNotNone(self.project.deleted_at)
+
+        self.client.force_authenticate(self.owner)
+        self.assertEqual(
+            self.client.get(f"/api/v1/projects/{self.project.slug}/").status_code,
+            status.HTTP_404_NOT_FOUND,
+        )
+        owner_projects = self.client.get("/api/v1/projects/my/")
+        self.assertFalse(any(item["id"] == str(self.project.id) for item in owner_projects.data["results"]))
+
+        self.client.force_authenticate(self.admin)
+        self.assertEqual(
+            self.client.get(f"/api/v1/projects/{self.project.slug}/").status_code,
+            status.HTTP_200_OK,
+        )
 
     def test_admin_creates_a_complete_repayment_plan_atomically(self):
         from rest_framework import status
@@ -134,15 +166,17 @@ class RepaymentWorkflowTests(TestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
-        self.assertEqual(len(response.data), 3)
+        self.assertEqual(len(response.data), 4)
         self.assertEqual(
-            [record["scheduled_date"] for record in response.data],
+            [record["scheduled_date"] for record in response.data if record["recipient"] == "investor"],
             ["2030-01-31", "2030-02-28", "2030-03-31"],
         )
         self.assertEqual(
-            sum(Decimal(str(record["amount"])) for record in response.data),
+            sum(Decimal(str(record["amount"])) for record in response.data if record["recipient"] == "investor"),
             Decimal("110.00"),
         )
+        platform_record = next(record for record in response.data if record["recipient"] == "platform")
+        self.assertEqual(Decimal(str(platform_record["amount"])), Decimal("3.00"))
         self.project.refresh_from_db()
         self.assertEqual(self.project.next_repayment_date.isoformat(), "2030-01-31")
 
@@ -156,7 +190,194 @@ class RepaymentWorkflowTests(TestCase):
             format="json",
         )
         self.assertEqual(duplicate.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(Repayment.objects.filter(investment=self.investment).count(), 3)
+        self.assertEqual(Repayment.objects.filter(investment=self.investment).count(), 4)
+
+    def test_entrepreneur_submits_plan_admin_requests_changes_then_approves(self):
+        from rest_framework import status
+
+        self.client.force_authenticate(self.owner)
+        submitted = self.client.post(
+            "/api/v1/repayment-plans/",
+            {
+                "investment": str(self.investment.id),
+                "notes": "Initial schedule for this investor account.",
+                "installments": [
+                    {"amount": "50.00", "scheduled_date": "2030-04-15", "payment_method": "bank_transfer"},
+                    {"amount": "60.00", "scheduled_date": "2030-05-15", "payment_method": "bank_transfer"},
+                    {"amount": "3.00", "recipient": "platform", "scheduled_date": "2030-05-15", "payment_method": "bank_transfer"},
+                ],
+            },
+            format="json",
+        )
+        self.assertEqual(submitted.status_code, status.HTTP_201_CREATED, submitted.data)
+        self.assertEqual(submitted.data["status"], "submitted")
+        plan_id = submitted.data["id"]
+        self.assertEqual(self.client.get("/api/v1/repayments/").data["count"], 0)
+
+        application_admin = get_user_model().objects.create_user(
+            username="plan-reviewer", email="plan-reviewer@example.com",
+            full_name="Plan Reviewer", password="password", user_type="admin",
+            is_staff=True, is_superuser=False,
+        )
+        self.client.force_authenticate(application_admin)
+        revision = self.client.post(
+            f"/api/v1/repayment-plans/{plan_id}/request-revision/",
+            {"review_notes": "Move the first payment date and explain the timing."},
+            format="json",
+        )
+        self.assertEqual(revision.status_code, status.HTTP_200_OK, revision.data)
+        self.assertEqual(revision.data["status"], "revision_required")
+
+        self.client.force_authenticate(self.owner)
+        corrected = self.client.put(
+            f"/api/v1/repayment-plans/{plan_id}/",
+            {
+                "investment": str(self.investment.id),
+                "notes": "Dates corrected following the administrator's notes.",
+                "installments": [
+                    {"amount": "50.00", "scheduled_date": "2030-04-30", "payment_method": "bank_transfer"},
+                    {"amount": "60.00", "scheduled_date": "2030-05-31", "payment_method": "bank_transfer"},
+                    {"amount": "3.00", "recipient": "platform", "scheduled_date": "2030-05-31", "payment_method": "bank_transfer"},
+                ],
+            },
+            format="json",
+        )
+        self.assertEqual(corrected.status_code, status.HTTP_200_OK, corrected.data)
+        self.assertEqual(corrected.data["status"], "submitted")
+        self.assertEqual(corrected.data["review_notes"], "")
+
+        self.client.force_authenticate(application_admin)
+        approved = self.client.post(
+            f"/api/v1/repayment-plans/{plan_id}/approve/",
+            {"review_notes": "Amounts and dates verified."},
+            format="json",
+        )
+        self.assertEqual(approved.status_code, status.HTTP_200_OK, approved.data)
+        self.assertEqual(approved.data["status"], "approved")
+
+        self.client.force_authenticate(self.investor)
+        repayments = self.client.get("/api/v1/repayments/")
+        self.assertEqual(repayments.data["count"], 2)
+        self.assertTrue(all(str(item["investment"]) == str(self.investment.id) for item in repayments.data["results"]))
+
+    def test_repayment_plan_is_exact_and_separate_for_each_investor_account(self):
+        from rest_framework import status
+
+        second = Investment.objects.create(
+            investor=self.other_investor,
+            project=self.project,
+            amount=Decimal("50.00"),
+            expected_return=Decimal("5.00"),
+            status=Investment.Status.COMPLETED,
+        )
+        self.client.force_authenticate(self.owner)
+        invalid = self.client.post(
+            "/api/v1/repayment-plans/",
+            {
+                "investment": str(self.investment.id),
+                "installments": [
+                    {"amount": "100.00", "scheduled_date": "2030-01-15", "payment_method": "bank_transfer"},
+                    {"amount": "3.00", "recipient": "platform", "scheduled_date": "2030-01-15", "payment_method": "bank_transfer"},
+                ],
+            },
+            format="json",
+        )
+        self.assertEqual(invalid.status_code, status.HTTP_400_BAD_REQUEST)
+        first_plan = self.client.post(
+            "/api/v1/repayment-plans/",
+            {
+                "investment": str(self.investment.id),
+                "installments": [
+                    {"amount": "110.00", "scheduled_date": "2030-01-15", "payment_method": "bank_transfer"},
+                    {"amount": "3.00", "recipient": "platform", "scheduled_date": "2030-01-15", "payment_method": "bank_transfer"},
+                ],
+            },
+            format="json",
+        )
+        second_plan = self.client.post(
+            "/api/v1/repayment-plans/",
+            {
+                "investment": str(second.id),
+                "installments": [
+                    {"amount": "55.00", "scheduled_date": "2030-01-15", "payment_method": "bank_transfer"},
+                    {"amount": "1.50", "recipient": "platform", "scheduled_date": "2030-01-15", "payment_method": "bank_transfer"},
+                ],
+            },
+            format="json",
+        )
+        self.assertEqual(first_plan.status_code, status.HTTP_201_CREATED, first_plan.data)
+        self.assertEqual(second_plan.status_code, status.HTTP_201_CREATED, second_plan.data)
+        self.assertNotEqual(first_plan.data["investor_id"], second_plan.data["investor_id"])
+        self.assertNotEqual(first_plan.data["investment"], second_plan.data["investment"])
+
+    def test_platform_fee_is_scheduled_separately_and_completes_on_verification(self):
+        from rest_framework import status
+
+        self.client.force_authenticate(self.owner)
+        submitted = self.client.post(
+            "/api/v1/repayment-plans/",
+            {
+                "investment": str(self.investment.id),
+                "installments": [
+                    {"amount": "110.00", "recipient": "investor", "scheduled_date": "2030-06-01", "payment_method": "bank_transfer"},
+                    {"amount": "3.00", "recipient": "platform", "scheduled_date": "2030-06-01", "payment_method": "bank_transfer"},
+                ],
+            },
+            format="json",
+        )
+        self.assertEqual(submitted.status_code, status.HTTP_201_CREATED, submitted.data)
+        self.assertEqual(Decimal(submitted.data["platform_fee"]), Decimal("3.00"))
+        self.assertEqual(Decimal(submitted.data["total_with_platform_fee"]), Decimal("113.00"))
+
+        self.client.force_authenticate(self.admin)
+        approved = self.client.post(
+            f"/api/v1/repayment-plans/{submitted.data['id']}/approve/",
+            {"review_notes": "Investor and Sahmi dates verified."},
+            format="json",
+        )
+        self.assertEqual(approved.status_code, status.HTTP_200_OK, approved.data)
+        platform_repayment = Repayment.objects.get(
+            plan_id=submitted.data["id"],
+            recipient=Repayment.Recipient.PLATFORM,
+        )
+
+        self.client.force_authenticate(self.investor)
+        investor_records = self.client.get("/api/v1/repayments/")
+        self.assertEqual(investor_records.data["count"], 1)
+        self.assertEqual(investor_records.data["results"][0]["recipient"], "investor")
+
+        self.client.force_authenticate(self.owner)
+        funded = self.client.post(
+            "/api/v1/repayment-transfers/",
+            {
+                "repayment": str(platform_repayment.id),
+                "inbound_reference": "SAHMI-IN-003",
+                "inbound_transfer_date": timezone.localdate().isoformat(),
+                "agreement_accepted": True,
+            },
+            format="multipart",
+        )
+        self.assertEqual(funded.status_code, status.HTTP_201_CREATED, funded.data)
+
+        self.client.force_authenticate(self.admin)
+        reviewed = self.client.post(
+            f"/api/v1/repayment-transfers/{funded.data['id']}/review/",
+            {},
+            format="json",
+        )
+        self.assertEqual(reviewed.status_code, status.HTTP_200_OK, reviewed.data)
+        verified = self.client.post(
+            f"/api/v1/repayment-transfers/{funded.data['id']}/verify/",
+            {"review_notes": "Matched Sahmi platform payment against the bank statement."},
+            format="json",
+        )
+        self.assertEqual(verified.status_code, status.HTTP_200_OK, verified.data)
+        self.assertEqual(verified.data["status"], RepaymentTransfer.Status.DISBURSED)
+        platform_repayment.refresh_from_db()
+        self.investment.refresh_from_db()
+        self.assertEqual(platform_repayment.status, Repayment.Status.PAID)
+        self.assertEqual(platform_repayment.transaction_id, "SAHMI-IN-003")
+        self.assertEqual(self.investment.actual_return, Decimal("0.00"))
 
     def test_roles_are_read_only_and_object_scoped(self):
         from rest_framework import status
@@ -273,8 +494,11 @@ class RepaymentWorkflowTests(TestCase):
         self.assertEqual(repayment.status, Repayment.Status.PAID)
         self.assertEqual(repayment.transaction_id, "BANK-OUT-0001")
         self.assertEqual(repayment.investment.actual_return, Decimal("110.00"))
+        self.project.refresh_from_db()
+        self.assertEqual(self.project.repayment_status, Project.RepaymentStatus.ON_TRACK)
+        self.assertIsNone(self.project.deleted_at)
 
-    def test_non_kyc_entrepreneur_cannot_submit_repayment_funding(self):
+    def test_non_kyc_entrepreneur_can_submit_repayment_funding_without_optional_evidence(self):
         from rest_framework import status
 
         self.client.force_authenticate(self.admin)
@@ -286,14 +510,57 @@ class RepaymentWorkflowTests(TestCase):
                 "repayment": repayment.data["id"],
                 "inbound_reference": "BANK-IN-NO-KYC",
                 "inbound_transfer_date": timezone.localdate().isoformat(),
-                "receipt": SimpleUploadedFile("receipt.pdf", b"%PDF-1.7\nreceipt", content_type="application/pdf"),
-                "source_of_funds_declaration": "Operating revenue from the completed project.",
                 "agreement_accepted": True,
             },
             format="multipart",
         )
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("KYC verification", str(response.data))
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        self.assertIsNone(response.data["receipt_url"])
+        self.assertEqual(response.data["source_of_funds_declaration"], "")
+
+    def test_rejected_repayment_funding_note_is_visible_to_owner_but_not_investor(self):
+        from rest_framework import status
+
+        self.client.force_authenticate(self.admin)
+        repayment = self._schedule("110.00")
+        self.client.force_authenticate(self.owner)
+        submitted = self.client.post(
+            "/api/v1/repayment-transfers/",
+            {
+                "repayment": repayment.data["id"],
+                "inbound_reference": "BANK-IN-REJECTED",
+                "inbound_transfer_date": timezone.localdate().isoformat(),
+                "agreement_accepted": True,
+            },
+            format="multipart",
+        )
+        self.assertEqual(submitted.status_code, status.HTTP_201_CREATED, submitted.data)
+
+        self.client.force_authenticate(self.admin)
+        reviewed = self.client.post(f"/api/v1/repayment-transfers/{submitted.data['id']}/review/", {}, format="json")
+        self.assertEqual(reviewed.status_code, status.HTTP_200_OK, reviewed.data)
+        with self.captureOnCommitCallbacks(execute=True):
+            rejected = self.client.post(
+                f"/api/v1/repayment-transfers/{submitted.data['id']}/reject/",
+                {"review_notes": "The bank reference cannot be found on the account statement."},
+                format="json",
+            )
+        self.assertEqual(rejected.status_code, status.HTTP_200_OK, rejected.data)
+
+        self.client.force_authenticate(self.owner)
+        owner_record = self.client.get("/api/v1/repayments/").data["results"][0]
+        self.assertEqual(
+            owner_record["funding_transfer"]["review_notes"],
+            "The bank reference cannot be found on the account statement.",
+        )
+        self.assertIn(
+            "The bank reference cannot be found on the account statement.",
+            Notification.objects.filter(recipient=self.owner).latest("created_at").body,
+        )
+
+        self.client.force_authenticate(self.investor)
+        investor_record = self.client.get("/api/v1/repayments/").data["results"][0]
+        self.assertNotIn("review_notes", investor_record["funding_transfer"])
 
 
 class InvestmentConfirmationSignalTests(TestCase):

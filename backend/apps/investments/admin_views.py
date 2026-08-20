@@ -13,7 +13,7 @@ from apps.core.admin_mixins import ApplicationAdminCreateGuardMixin
 
 from apps.notifications.models import Notification
 from apps.notifications.services import notify_on_commit
-from apps.projects.models import Project
+from apps.projects.models import Project, SAHMI_PLATFORM_FEE_RATE
 
 from .admin_serializers import (
     AdminInvestmentSerializer,
@@ -22,7 +22,7 @@ from .admin_serializers import (
     AdminRepaymentSerializer,
     validate_repayment_eligibility,
 )
-from .models import Investment, Milestone, ProjectFundingAccount, Repayment
+from .models import Investment, Milestone, ProjectFundingAccount, Repayment, RepaymentPlan
 from .services import (
     FUNDED_INVESTMENT_STATUSES,
     refresh_open_repayment_statuses,
@@ -235,7 +235,9 @@ class AdminRepaymentViewSet(ApplicationAdminCreateGuardMixin, viewsets.ModelView
 
     def get_queryset(self):
         refresh_open_repayment_statuses()
-        return super().get_queryset()
+        return super().get_queryset().filter(
+            Q(plan__isnull=True) | Q(plan__status=RepaymentPlan.Status.APPROVED)
+        )
 
     def _notify_repayment(self, repayment, title):
         recipients = {
@@ -287,7 +289,9 @@ class AdminRepaymentViewSet(ApplicationAdminCreateGuardMixin, viewsets.ModelView
         ).get(pk=values["investment"].pk)
         validate_repayment_eligibility(investment, values["first_scheduled_date"])
 
-        scheduled_total = investment.repayments.exclude(
+        scheduled_total = investment.repayments.filter(
+            recipient=Repayment.Recipient.INVESTOR,
+        ).exclude(
             status=Repayment.Status.CANCELLED
         ).aggregate(total=Sum("amount"))["total"] or Decimal("0.00")
         remaining = investment.amount + investment.expected_return - scheduled_total
@@ -321,7 +325,10 @@ class AdminRepaymentViewSet(ApplicationAdminCreateGuardMixin, viewsets.ModelView
             for index in range(count)
         ]
         duplicate_dates = set(
-            investment.repayments.filter(scheduled_date__in=dates).values_list(
+            investment.repayments.filter(
+                scheduled_date__in=dates,
+                recipient=Repayment.Recipient.INVESTOR,
+            ).values_list(
                 "scheduled_date", flat=True
             )
         )
@@ -345,6 +352,16 @@ class AdminRepaymentViewSet(ApplicationAdminCreateGuardMixin, viewsets.ModelView
             )
             for index, scheduled_date in enumerate(dates)
         ])
+        platform_fee = (investment.amount * SAHMI_PLATFORM_FEE_RATE).quantize(Decimal("0.01"))
+        repayments.append(Repayment.objects.create(
+            investment=investment,
+            amount=platform_fee,
+            recipient=Repayment.Recipient.PLATFORM,
+            scheduled_date=dates[-1],
+            status=repayment_status_for_date(dates[-1]),
+            payment_method=Investment.PaymentMethod.BANK_TRANSFER,
+            notes="Fixed 3% Sahmi platform repayment.",
+        ))
         sync_repayment_totals(investment.project_id)
 
         from apps.audit.services import log as audit_log
@@ -417,6 +434,10 @@ class AdminRepaymentViewSet(ApplicationAdminCreateGuardMixin, viewsets.ModelView
     @transaction.atomic
     def perform_destroy(self, instance):
         locked = self.get_queryset().select_for_update().get(pk=instance.pk)
+        if locked.plan_id:
+            raise ValidationError({
+                "status": "Installments from an approved entrepreneur plan cannot be deleted directly."
+            })
         if locked.status == Repayment.Status.PAID:
             raise ValidationError({
                 "status": "Paid repayment history cannot be deleted."

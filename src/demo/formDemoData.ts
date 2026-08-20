@@ -25,6 +25,8 @@ export const formDemoData = {
     amount: "100.00",
     notes: "Scheduled internal repayment record created for workflow demonstration.",
     paidNotes: "External payment evidence reviewed; this entry records the settlement internally only.",
+    fundingNotes: "Demo operating revenue allocated to this approved investor repayment installment.",
+    verificationNotes: "Demo bank statement matched the repayment amount, sender, transfer date, and inbound reference.",
   },
   review: "The submitted information was reviewed against the project requirements and supporting documents.",
   contact: {
@@ -54,4 +56,11 @@ export const createDemoRepaymentReference = () => {
   const random = globalThis.crypto?.randomUUID?.().replaceAll("-", "").slice(0, 8)
     ?? Math.random().toString(36).slice(2, 10);
   return `DEMO-REPAY-${timestamp}-${random.toUpperCase()}`;
+};
+
+export const createDemoPayoutReference = () => {
+  const timestamp = new Date().toISOString().replace(/\D/g, "").slice(0, 17);
+  const random = globalThis.crypto?.randomUUID?.().replaceAll("-", "").slice(0, 8)
+    ?? Math.random().toString(36).slice(2, 10);
+  return `DEMO-PAYOUT-${timestamp}-${random.toUpperCase()}`;
 };

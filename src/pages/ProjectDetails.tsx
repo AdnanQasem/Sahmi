@@ -26,6 +26,8 @@ import ProjectCostTable from "@/components/projects/ProjectCostTable";
 import ProjectTimeline from "@/components/projects/ProjectTimeline";
 import ProjectUpdateChange from "@/components/projects/ProjectUpdateChange";
 import ProjectRepaymentProcess from "@/components/projects/ProjectRepaymentProcess";
+import AdminReviewFeedback from "@/components/projects/AdminReviewFeedback";
+import RequiredProjectDocuments from "@/components/projects/RequiredProjectDocuments";
 import { toProjectCard } from "@/lib/mappers";
 import { calculateFundingPercent, fundingProgressBarWidth, fundingProgressColor } from "@/lib/fundingProgress";
 import investmentsService from "@/services/investmentsService";
@@ -350,7 +352,9 @@ const ProjectDetails = () => {
               )}
               <Badge
                 variant={project.status === "completed" ? "success" : "outline"}
-                className={["fully_funded", "implementation", "completed"].includes(project.status) ? "border-success/30 text-success" : undefined}
+                className={["fully_funded", "implementation", "completed"].includes(project.status)
+                  ? `border-success/30 ${project.status === "completed" ? "text-white" : "text-success"}`
+                  : undefined}
               >
                 {["fully_funded", "implementation", "completed"].includes(project.status)
                   ? postFundingStatusLabel
@@ -395,6 +399,22 @@ const ProjectDetails = () => {
                   </AlertDialogContent>
                 </AlertDialog>
               </div>
+            )}
+
+            {canManageProject && (
+              <AdminReviewFeedback feedback={project.admin_review_feedback} className="mb-6" />
+            )}
+
+            {(user?.is_staff || user?.user_type === "admin") && (
+              <RequiredProjectDocuments
+                className="mb-6"
+                documents={{
+                  business_plan: project.business_plan,
+                  financial_projections: project.financial_projections,
+                  ownership_proof: project.ownership_proof,
+                }}
+                proposedDocuments={project.pending_edit_request?.files}
+              />
             )}
 
             <Tabs defaultValue="overview" className="w-full">

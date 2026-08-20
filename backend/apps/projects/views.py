@@ -82,9 +82,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
         return ProjectSerializer
 
     def get_queryset(self):
-        queryset = super().get_queryset().filter(deleted_at__isnull=True)
+        queryset = super().get_queryset()
         if self.request.user.is_authenticated and self.request.user.is_staff:
             return queryset
+        queryset = queryset.filter(deleted_at__isnull=True)
         if self.action == "list":
             return queryset.filter(status__in=self.public_statuses, is_verified=True)
         if self.action in {"retrieve", "translation", "repayments"}:
@@ -378,7 +379,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
             recipient=project.entrepreneur,
             notification_type=Notification.NotificationType.PROJECT_REJECTED,
             title="Project rejected",
-            body=f"Your project “{project.title}” was rejected. Please review the verifier notes.",
+            body=(f"Your project “{project.title}” needs changes. "
+                  f"Administrator note: {project.verification_notes}"),
             actor=request.user,
             target_type="project",
             target_id=str(project.id),
@@ -422,9 +424,14 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["get"], permission_classes=[permissions.IsAuthenticated])
     def my(self, request):
-        queryset = super().get_queryset().filter(deleted_at__isnull=True)
-        if not request.user.is_staff:
-            queryset = queryset.filter(entrepreneur=request.user)
+        queryset = super().get_queryset()
+        if request.user.is_staff:
+            pass
+        else:
+            queryset = queryset.filter(
+                entrepreneur=request.user,
+                deleted_at__isnull=True,
+            )
         page = self.paginate_queryset(queryset)
         if page is not None:
             serializer = ProjectSerializer(page, many=True, context={"request": request})
@@ -472,8 +479,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
         repayments = project.investments.filter(status="completed").values_list(
             "repayments", flat=True
         )
-        from apps.investments.models import Repayment
-        records = Repayment.objects.filter(pk__in=repayments)
+        from django.db.models import Q
+        from apps.investments.models import Repayment, RepaymentPlan
+        records = Repayment.objects.filter(pk__in=repayments).filter(
+            Q(plan__isnull=True) | Q(plan__status=RepaymentPlan.Status.APPROVED)
+        )
         if request.user.is_staff:
             pass
         elif request.user.id == project.entrepreneur_id:
@@ -482,7 +492,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
             if not project.investments.filter(investor=request.user).exists():
                 from rest_framework.exceptions import PermissionDenied
                 raise PermissionDenied("You do not have access to this repayment schedule.")
-            records = records.filter(investment__investor=request.user)
+            records = records.filter(
+                investment__investor=request.user,
+                recipient=Repayment.Recipient.INVESTOR,
+            )
         else:
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied("You do not have access to this repayment schedule.")

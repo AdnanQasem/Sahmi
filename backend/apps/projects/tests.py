@@ -12,6 +12,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from apps.investments.models import Milestone
+from apps.notifications.models import Notification
 
 from .models import Project, ProjectCategory, ProjectEditRequest
 from .serializers import ProjectSerializer
@@ -105,6 +106,10 @@ class ProjectCostTableTests(ProjectAPITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        self.assertEqual(Decimal(response.data["platform_fee_rate"]), Decimal("3.00"))
+        self.assertEqual(Decimal(response.data["estimated_platform_fee"]), Decimal("300.00"))
+        self.assertEqual(Decimal(response.data["estimated_investor_repayment"]), Decimal("11000.00"))
+        self.assertEqual(Decimal(response.data["estimated_total_repayment"]), Decimal("11300.00"))
         self.assertEqual(response.data["cost_items"][0]["name"], "1")
         self.assertEqual(response.data["cost_items"][0]["quantity"], "2")
         self.assertEqual(response.data["cost_items"][0]["unit_cost"], "4000.00")
@@ -631,11 +636,12 @@ class ProjectModerationTests(ProjectAPITestCase):
         self.assertIsNotNone(self.project.verified_at)
         self.assertEqual(self.project.verification_notes, "Documents checked")
 
-        reject_response = self.client.post(
-            reverse("project-reject", args=[self.project.slug]),
-            {"verification_notes": "  Financial evidence is incomplete  "},
-            format="json",
-        )
+        with self.captureOnCommitCallbacks(execute=True):
+            reject_response = self.client.post(
+                reverse("project-reject", args=[self.project.slug]),
+                {"verification_notes": "  Financial evidence is incomplete  "},
+                format="json",
+            )
 
         self.assertEqual(reject_response.status_code, status.HTTP_200_OK)
         self.project.refresh_from_db()
@@ -646,6 +652,14 @@ class ProjectModerationTests(ProjectAPITestCase):
         self.assertEqual(
             self.project.verification_notes,
             "Financial evidence is incomplete",
+        )
+        self.assertEqual(
+            reject_response.data["admin_review_feedback"][0]["notes"],
+            "Financial evidence is incomplete",
+        )
+        self.assertIn(
+            "Financial evidence is incomplete",
+            Notification.objects.filter(recipient=self.entrepreneur).latest("created_at").body,
         )
 
     def test_set_status_supports_operational_states(self):
@@ -760,11 +774,12 @@ class ProjectEditApprovalTests(ProjectAPITestCase):
             payload={"title": "Rejected title"},
         )
         self.client.force_authenticate(self.staff)
-        response = self.client.post(
-            reverse("admin-project-reject-edit", args=[self.project.id]),
-            {"verification_notes": "Please revise the title."},
-            format="json",
-        )
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(
+                reverse("admin-project-reject-edit", args=[self.project.id]),
+                {"verification_notes": "Please revise the title."},
+                format="json",
+            )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
         self.project.refresh_from_db()
@@ -772,6 +787,14 @@ class ProjectEditApprovalTests(ProjectAPITestCase):
         self.assertEqual(
             self.project.edit_requests.get().status,
             ProjectEditRequest.Status.REJECTED,
+        )
+        self.assertEqual(response.data["admin_review_feedback"][0]["notes"], "Please revise the title.")
+        self.client.force_authenticate(self.entrepreneur)
+        owner_view = self.client.get(reverse("project-detail", args=[self.project.slug]))
+        self.assertEqual(owner_view.data["admin_review_feedback"][0]["notes"], "Please revise the title.")
+        self.assertIn(
+            "Please revise the title.",
+            Notification.objects.filter(recipient=self.entrepreneur).latest("created_at").body,
         )
 
     def test_category_diff_uses_names_and_ignores_the_same_selection(self):
@@ -927,6 +950,26 @@ class ProjectEditApprovalTests(ProjectAPITestCase):
         self.assertEqual(image["status"], "approved")
         self.assertIn("Sharp image", image["review_notes"])
         self.assertEqual(image["reviewed_by"], self.staff.full_name)
+
+        with self.captureOnCommitCallbacks(execute=True):
+            revision = self.client.post(
+                reverse("admin-project-review-edit-image", args=[self.project.id]),
+                {
+                    "image_key": "cover_image",
+                    "status": "needs_revision",
+                    "review_notes": "Upload a brighter image that clearly shows the project site.",
+                },
+                format="json",
+            )
+        self.assertEqual(revision.status_code, status.HTTP_200_OK, revision.data)
+        self.assertEqual(
+            revision.data["admin_review_feedback"][0]["notes"],
+            "Upload a brighter image that clearly shows the project site.",
+        )
+        self.assertIn(
+            "Upload a brighter image that clearly shows the project site.",
+            Notification.objects.filter(recipient=self.entrepreneur).latest("created_at").body,
+        )
 
         self.client.force_authenticate(self.entrepreneur)
         forbidden = self.client.post(

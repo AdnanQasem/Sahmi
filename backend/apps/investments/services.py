@@ -4,12 +4,12 @@ from decimal import Decimal
 
 from django.conf import settings
 from django.db import transaction
-from django.db.models import Max, Min, Sum
+from django.db.models import Max, Min, Q, Sum
 from django.utils import timezone
 
-from apps.projects.models import Project
+from apps.projects.models import Project, SAHMI_PLATFORM_FEE_RATE
 
-from .models import Investment, Milestone, ProjectFundingAccount, Repayment
+from .models import Investment, Milestone, ProjectFundingAccount, Repayment, RepaymentPlan
 
 
 FUNDED_INVESTMENT_STATUSES = (
@@ -37,11 +37,15 @@ def sync_repayment_totals(project_id):
         Investment.objects.select_for_update().filter(project_id=project_id)
     )
     investment_ids = [investment.id for investment in investments]
-    repayments = Repayment.objects.filter(investment_id__in=investment_ids)
+    repayments = Repayment.objects.filter(investment_id__in=investment_ids).filter(
+        Q(plan__isnull=True) | Q(plan__status=RepaymentPlan.Status.APPROVED)
+    )
 
+    investor_repayments = repayments.filter(recipient=Repayment.Recipient.INVESTOR)
+    platform_repayments = repayments.filter(recipient=Repayment.Recipient.PLATFORM)
     paid_by_investment = {
         row["investment_id"]: row
-        for row in repayments.filter(status=Repayment.Status.PAID)
+        for row in investor_repayments.filter(status=Repayment.Status.PAID)
         .values("investment_id")
         .annotate(total=Sum("amount"), last_paid=Max("actual_payment_date"))
     }
@@ -57,7 +61,9 @@ def sync_repayment_totals(project_id):
             return_received_at=received_at,
         )
 
-    active = repayments.exclude(status=Repayment.Status.CANCELLED)
+    all_active = repayments.exclude(status=Repayment.Status.CANCELLED)
+    active = investor_repayments.exclude(status=Repayment.Status.CANCELLED)
+    platform_active = platform_repayments.exclude(status=Repayment.Status.CANCELLED)
     obligation_total = sum(
         (
             investment.amount + investment.expected_return
@@ -70,33 +76,91 @@ def sync_repayment_totals(project_id):
         total=Sum("amount")
     )["total"] or Decimal("0.00")
     scheduled_total = active.aggregate(total=Sum("amount"))["total"] or Decimal("0.00")
-    next_date = active.exclude(status=Repayment.Status.PAID).aggregate(
+    platform_fee_obligation = sum(
+        (
+            (investment.amount * SAHMI_PLATFORM_FEE_RATE).quantize(Decimal("0.01"))
+            for investment in investments
+            if investment.status == Investment.Status.COMPLETED
+        ),
+        Decimal("0.00"),
+    )
+    platform_fee_paid = platform_active.filter(status=Repayment.Status.PAID).aggregate(
+        total=Sum("amount")
+    )["total"] or Decimal("0.00")
+    platform_fee_scheduled = platform_active.aggregate(total=Sum("amount"))["total"] or Decimal("0.00")
+    next_date = all_active.exclude(status=Repayment.Status.PAID).aggregate(
         value=Min("scheduled_date")
     )["value"]
     has_unpaid = active.exclude(status=Repayment.Status.PAID).exists()
     has_overdue = active.filter(status=Repayment.Status.OVERDUE).exists()
+    has_unpaid_platform_fee = platform_active.exclude(status=Repayment.Status.PAID).exists()
+    has_overdue_platform_fee = platform_active.filter(status=Repayment.Status.OVERDUE).exists()
     obligation_fully_scheduled = obligation_total > 0 and scheduled_total >= obligation_total
     obligation_fully_paid = obligation_total > 0 and paid_total >= obligation_total
+    platform_fee_fully_scheduled = (
+        platform_fee_obligation > 0
+        and platform_fee_scheduled >= platform_fee_obligation
+    )
+    platform_fee_fully_paid = (
+        platform_fee_obligation > 0
+        and platform_fee_paid >= platform_fee_obligation
+    )
     plan_status = (
         Project.RepaymentStatus.COMPLETED
-        if obligation_fully_scheduled and obligation_fully_paid and not has_unpaid
+        if (
+            obligation_fully_scheduled
+            and obligation_fully_paid
+            and not has_unpaid
+            and platform_fee_fully_scheduled
+            and platform_fee_fully_paid
+            and not has_unpaid_platform_fee
+        )
         else Project.RepaymentStatus.DELAYED
-        if has_overdue
+        if has_overdue or has_overdue_platform_fee
         else Project.RepaymentStatus.ON_TRACK
     )
-    Project.objects.filter(pk=project_id).update(
-        total_repaid=paid_total,
-        next_repayment_date=next_date,
-        repayment_status=plan_status,
+    archive_project = (
+        project.status == Project.Status.CLOSED
+        and plan_status == Project.RepaymentStatus.COMPLETED
+        and project.deleted_at is None
     )
+    project_updates = {
+        "total_repaid": paid_total,
+        "next_repayment_date": next_date,
+        "repayment_status": plan_status,
+    }
+    if archive_project:
+        archived_at = timezone.now()
+        project_updates["deleted_at"] = archived_at
+        project_updates["updated_at"] = archived_at
+    Project.objects.filter(pk=project_id).update(
+        **project_updates,
+    )
+    if archive_project:
+        from apps.audit.services import log_on_commit
+
+        log_on_commit(
+            action="project.repayments_completed_archived",
+            target_type="project",
+            target_id=str(project_id),
+            metadata={
+                "paid_total": str(paid_total),
+                "obligation_total": str(obligation_total),
+            },
+        )
     return {
         "obligation_total": obligation_total,
         "scheduled_total": scheduled_total,
         "paid_total": paid_total,
         "remaining_total": max(obligation_total - paid_total, Decimal("0.00")),
         "unscheduled_total": max(obligation_total - scheduled_total, Decimal("0.00")),
+        "platform_fee_total": platform_fee_obligation,
+        "platform_fee_scheduled": platform_fee_scheduled,
+        "platform_fee_paid": platform_fee_paid,
+        "platform_fee_remaining": max(platform_fee_obligation - platform_fee_paid, Decimal("0.00")),
         "next_repayment_date": next_date,
         "status": plan_status,
+        "project_archived": archive_project,
     }
 
 
@@ -105,7 +169,9 @@ def refresh_open_repayment_statuses():
     """Advance open installments to Pending, Due, or Overdue by local date."""
     today = timezone.localdate()
     changed_projects = set()
-    for repayment in Repayment.objects.select_for_update().exclude(
+    for repayment in Repayment.objects.select_for_update().filter(
+        Q(plan__isnull=True) | Q(plan__status=RepaymentPlan.Status.APPROVED)
+    ).exclude(
         status__in=[Repayment.Status.PAID, Repayment.Status.CANCELLED]
     ).select_related("investment"):
         next_status = repayment_status_for_date(repayment.scheduled_date, today)

@@ -10,6 +10,8 @@ import { Label } from "@/components/ui/label";
 import { getErrorMessage } from "@/services/api";
 import DemoFillButton from "@/components/demo/DemoFillButton";
 import { formDemoData } from "@/demo/formDemoData";
+import { createSupportingDocumentDemo, loadDemoProjectImage } from "@/demo/demoFiles";
+import DemoFilePreview from "@/components/demo/DemoFilePreview";
 import adminProjectsService, {
   type AdminProjectDocument,
   type AdminProjectImage,
@@ -17,6 +19,7 @@ import adminProjectsService, {
 
 interface AdminProjectAssetsPanelProps {
   projectId: string;
+  projectTitle?: string;
   images: AdminProjectImage[];
   documents: AdminProjectDocument[];
 }
@@ -145,6 +148,7 @@ const DocumentRow = ({
 
 const AdminProjectAssetsPanel = ({
   projectId,
+  projectTitle,
   images,
   documents,
 }: AdminProjectAssetsPanelProps) => {
@@ -258,11 +262,12 @@ const AdminProjectAssetsPanel = ({
               type="file"
               accept="image/*"
               onChange={(event) => setImageFile(event.target.files?.[0] || null)}
-              required
             />
+            {imageFile && <p className="text-xs font-medium text-primary">{imageFile.name}</p>}
+            <DemoFilePreview file={imageFile} alt={imageAlt || projectTitle || t("adminForm.galleryImage")} className="h-28 w-full rounded-lg object-cover" />
           </div>
           <div className="space-y-2">
-            <div className="flex items-center justify-between gap-2"><Label htmlFor="new-gallery-alt">{t("adminForm.altText")}</Label><DemoFillButton onClick={() => setImageAlt(formDemoData.imageAlt)} /></div>
+            <div className="flex items-center justify-between gap-2"><Label htmlFor="new-gallery-alt">{t("adminForm.altText")}</Label><DemoFillButton onClick={() => void loadDemoProjectImage(projectTitle, "gallery").then((file) => { setImageFile(file); setImageAlt(formDemoData.imageAlt); })} /></div>
             <Input
               id="new-gallery-alt"
               maxLength={160}
@@ -315,11 +320,11 @@ const AdminProjectAssetsPanel = ({
               id="new-supporting-document"
               type="file"
               onChange={(event) => setDocumentFile(event.target.files?.[0] || null)}
-              required
             />
+            {documentFile && <p className="text-xs font-medium text-primary">{documentFile.name}</p>}
           </div>
           <div className="space-y-2">
-            <div className="flex items-center justify-between gap-2"><Label htmlFor="new-document-title">{t("adminForm.title")}</Label><DemoFillButton onClick={() => setDocumentTitle(formDemoData.documentTitle)} /></div>
+            <div className="flex items-center justify-between gap-2"><Label htmlFor="new-document-title">{t("adminForm.title")}</Label><DemoFillButton onClick={() => { setDocumentTitle(formDemoData.documentTitle); setDocumentFile(createSupportingDocumentDemo(projectTitle)); }} /></div>
             <Input
               id="new-document-title"
               maxLength={120}

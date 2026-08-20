@@ -281,9 +281,7 @@ class ApplicationAdminCreationBoundaryTests(AdminAPIBase):
                 self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN, response.data)
 
         response = self.client.post(
-            reverse("admin-repayment-create-plan"),
-            {},
-            format="json",
+            reverse("admin-repayment-create-plan"), {}, format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN, response.data)
         self.assertEqual(

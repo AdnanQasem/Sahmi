@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { formatCurrency, formatDate, formatPercent } from "@/i18n/format";
 import projectsService, { type Project, type ProjectCostItem, type ProjectFaq, type ProjectMilestone } from "@/services/projectsService";
+import RequiredProjectDocuments from "@/components/projects/RequiredProjectDocuments";
 
 interface Props { project: Project; isEditReview?: boolean; }
 
@@ -131,9 +132,6 @@ const AdminProjectReviewDetails = ({ project, isEditReview = false }: Props) => 
     ["investor_count", t("projects.investors"), project.investor_count],
     ["video_url", t("projects.video"), project.video_url],
     ["cover_image", t("projects.coverImage"), project.cover_image],
-    ["business_plan", t("projects.businessPlan"), project.business_plan],
-    ["financial_projections", t("projects.financialProjections"), project.financial_projections],
-    ["ownership_proof", t("projects.ownershipProof"), project.ownership_proof],
   ];
   const categoryChange = changes.category;
   const costChange = changes.cost_items;
@@ -155,6 +153,15 @@ const AdminProjectReviewDetails = ({ project, isEditReview = false }: Props) => 
         {change ? <div className="mt-2 space-y-2 text-sm"><div><span className="text-xs text-muted-foreground">{t("adminForm.currentValue")}</span><pre className="mt-1 whitespace-pre-wrap break-words font-sans text-foreground/70 line-through">{displayValue(change.before)}</pre></div><div><span className="text-xs text-muted-foreground">{t("adminForm.proposedValue")}</span><pre className="mt-1 whitespace-pre-wrap break-words font-sans font-medium">{displayValue(change.after)}</pre></div></div> : <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-words font-sans text-sm">{displayValue(value)}</pre>}
       </div>;
     })}</div>
+
+    <RequiredProjectDocuments
+      documents={{
+        business_plan: project.business_plan,
+        financial_projections: project.financial_projections,
+        ownership_proof: project.ownership_proof,
+      }}
+      proposedDocuments={project.pending_edit_request?.files}
+    />
 
     <section className={`rounded-xl border p-4 ${faqChange ? "border-warning bg-warning/5" : "bg-muted/10"}`}>
       <div className="mb-3 flex items-center justify-between">

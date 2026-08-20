@@ -17,6 +17,7 @@ import { dashboardPollingInterval, dashboardPollingOptions } from "@/lib/dashboa
 import MessageAttachment from "@/components/messages/MessageAttachment";
 import DemoFillButton from "@/components/demo/DemoFillButton";
 import { formDemoData } from "@/demo/formDemoData";
+import { createSupportingDocumentDemo } from "@/demo/demoFiles";
 
 const MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024;
 const ATTACHMENT_ACCEPT = ".png,.jpg,.jpeg,.gif,.webp,.pdf,.txt,.csv,.doc,.docx,.xls,.xlsx,.ppt,.pptx";
@@ -183,7 +184,7 @@ const MessagesPage = () => {
                 <Input aria-label={t("messages.messageLabel")} value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); handleSend(); } }} placeholder={t("messages.placeholder")} disabled={send.isPending} />
                 <Button aria-label={t("messages.send")} onClick={handleSend} disabled={(!draft.trim() && !attachment) || send.isPending}>{send.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}</Button>
               </div>
-              <DemoFillButton className="mt-2" onClick={() => setDraft(formDemoData.message)} disabled={send.isPending} />
+              <DemoFillButton className="mt-2" onClick={() => { setDraft(formDemoData.message); setAttachment(createSupportingDocumentDemo()); }} disabled={send.isPending} />
               <p className="mt-2 text-xs text-muted-foreground">{t("messages.attachmentHelp")}</p>
             </div>
           </>}

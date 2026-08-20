@@ -1,12 +1,12 @@
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
-from django.db.models import Sum
+from django.db.models import Q, Sum
 from rest_framework import serializers
 
 from apps.projects.models import Project
 
-from .models import Investment, Milestone, Repayment, RepaymentTransfer
+from .models import Investment, Milestone, Repayment, RepaymentPlan, RepaymentTransfer
 
 
 User = get_user_model()
@@ -81,7 +81,10 @@ class AdminInvestmentSerializer(serializers.ModelSerializer):
         return obj.amount + obj.expected_return
 
     def get_scheduled_repayment_total(self, obj):
-        return obj.repayments.exclude(status=Repayment.Status.CANCELLED).aggregate(
+        return obj.repayments.filter(
+            Q(plan__isnull=True) | Q(plan__status=RepaymentPlan.Status.APPROVED),
+            recipient=Repayment.Recipient.INVESTOR,
+        ).exclude(status=Repayment.Status.CANCELLED).aggregate(
             total=Sum("amount")
         )["total"] or Decimal("0.00")
 
@@ -299,8 +302,14 @@ class AdminRepaymentPlanSerializer(serializers.Serializer):
     def validate(self, attrs):
         attrs = super().validate(attrs)
         investment = attrs["investment"]
+        if hasattr(investment, "repayment_plan"):
+            raise serializers.ValidationError({
+                "investment": "This investment already has an entrepreneur-submitted repayment plan."
+            })
         validate_repayment_eligibility(investment, attrs["first_scheduled_date"])
-        scheduled_total = investment.repayments.exclude(
+        scheduled_total = investment.repayments.filter(
+            recipient=Repayment.Recipient.INVESTOR,
+        ).exclude(
             status=Repayment.Status.CANCELLED
         ).aggregate(total=Sum("amount"))["total"] or Decimal("0.00")
         remaining = investment.amount + investment.expected_return - scheduled_total
@@ -339,10 +348,12 @@ class AdminRepaymentSerializer(serializers.ModelSerializer):
         model = Repayment
         fields = [
             "id",
+            "plan",
             "investment",
             "investor_detail",
             "project_detail",
             "amount",
+            "recipient",
             "scheduled_date",
             "actual_payment_date",
             "status",
@@ -355,6 +366,8 @@ class AdminRepaymentSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = [
             "id",
+            "plan",
+            "recipient",
             "investor_detail",
             "project_detail",
             "status",
@@ -396,10 +409,19 @@ class AdminRepaymentSerializer(serializers.ModelSerializer):
         if not investment:
             return attrs
 
+        if self.instance is None and hasattr(investment, "repayment_plan"):
+            raise serializers.ValidationError({
+                "investment": "This investment already has an entrepreneur-submitted repayment plan."
+            })
+
         validate_repayment_eligibility(investment, scheduled_date)
         if self.instance and investment.pk != self.instance.investment_id:
             raise serializers.ValidationError({
                 "investment": "A repayment cannot be moved to another investment."
+            })
+        if self.instance and self.instance.plan_id:
+            raise serializers.ValidationError({
+                "status": "Installments from an approved entrepreneur plan cannot be edited directly."
             })
         if self.instance and self.instance.status in {
             Repayment.Status.PAID,
@@ -411,6 +433,7 @@ class AdminRepaymentSerializer(serializers.ModelSerializer):
         duplicate = Repayment.objects.filter(
             investment=investment,
             scheduled_date=scheduled_date,
+            recipient=getattr(self.instance, "recipient", Repayment.Recipient.INVESTOR),
         )
         if self.instance:
             duplicate = duplicate.exclude(pk=self.instance.pk)
@@ -418,7 +441,10 @@ class AdminRepaymentSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({
                 "scheduled_date": "A repayment already exists for this investment and date."
             })
-        scheduled = Repayment.objects.filter(investment=investment).exclude(
+        scheduled = Repayment.objects.filter(
+            investment=investment,
+            recipient=Repayment.Recipient.INVESTOR,
+        ).exclude(
             status=Repayment.Status.CANCELLED
         )
         if self.instance:

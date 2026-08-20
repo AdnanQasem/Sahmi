@@ -27,8 +27,8 @@ const Navbar = () => {
   return <header className="sticky top-0 z-50 border-b border-border bg-card/80 backdrop-blur-lg">
     <div dir="ltr" className="container flex h-16 items-center justify-between gap-3">
       <Link to="/" className="flex items-center gap-2"><SahmiLogo size="md" variant="full" /></Link>
-      <nav className="hidden items-center gap-1 md:flex" aria-label={t("nav.menu")}>{links}</nav>
-      <div dir="ltr" className="hidden items-center gap-2 md:flex">
+      <nav className="hidden items-center gap-1 lg:flex" aria-label={t("nav.menu")}>{links}</nav>
+      <div dir="ltr" className="hidden items-center gap-2 lg:flex">
         <LanguageSwitcher compact />
         {isAuthenticated ? <>
           <Button variant="ghost" size="sm" asChild><Link to="/dashboard">{t("nav.dashboard")}</Link></Button>
@@ -41,9 +41,9 @@ const Navbar = () => {
           <Button size="sm" asChild><Link to="/register">{t("nav.register")}</Link></Button>
         </>}
       </div>
-      <button type="button" className="rounded-lg p-2 text-foreground hover:bg-muted md:hidden" onClick={() => setOpen(!open)} aria-expanded={open} aria-controls="mobile-navigation" aria-label={t("nav.menu")}>{open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}</button>
+      <button type="button" className="rounded-lg p-2 text-foreground hover:bg-muted lg:hidden" onClick={() => setOpen(!open)} aria-expanded={open} aria-controls="mobile-navigation" aria-label={t("nav.menu")}>{open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}</button>
     </div>
-    {open && <div id="mobile-navigation" className="border-t border-border bg-card md:hidden"><nav dir="ltr" className="container flex flex-col gap-1 py-4" aria-label={t("nav.menu")}>
+    {open && <div id="mobile-navigation" className="border-t border-border bg-card lg:hidden"><nav dir="ltr" className="container flex flex-col gap-1 py-4" aria-label={t("nav.menu")}>
       {links}<LanguageSwitcher className="mt-2 mr-auto" />
       <div className="mt-3 flex flex-col gap-2 border-t border-border pt-3">
         {isAuthenticated ? <><Button variant="outline" size="sm" asChild><Link to="/dashboard" onClick={() => setOpen(false)}>{t("nav.dashboard")}</Link></Button><LogoutConfirmationDialog onLoggedOut={() => setOpen(false)}><Button variant="outline" size="sm">{t("nav.logout")}</Button></LogoutConfirmationDialog>{canCreateProject && <Button size="sm" asChild><Link to="/start-project" onClick={() => setOpen(false)}>{t("projects.start")}</Link></Button>}</> : <><Button variant="outline" size="sm" asChild><Link to="/login" onClick={() => setOpen(false)}>{t("nav.login")}</Link></Button><Button size="sm" asChild><Link to="/register" onClick={() => setOpen(false)}>{t("nav.register")}</Link></Button></>}

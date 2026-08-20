@@ -110,6 +110,17 @@ class AdminProjectViewSet(ApplicationAdminCreateGuardMixin, viewsets.ModelViewSe
                 "updated_at",
             ]
         )
+        notes = serializer.validated_data["verification_notes"]
+        notify_on_commit(
+            recipient=project.entrepreneur,
+            notification_type=Notification.NotificationType.PROJECT_VERIFIED,
+            title="Project verified",
+            body=(f"Your project “{project.title}” was verified."
+                  + (f" Administrator note: {notes}" if notes else "")),
+            actor=request.user,
+            target_type="project",
+            target_id=str(project.id),
+        )
         return Response(self.get_serializer(project).data)
 
     @action(detail=True, methods=["post"])
@@ -131,6 +142,16 @@ class AdminProjectViewSet(ApplicationAdminCreateGuardMixin, viewsets.ModelViewSe
                 "verification_notes",
                 "updated_at",
             ]
+        )
+        notes = serializer.validated_data["verification_notes"]
+        notify_on_commit(
+            recipient=project.entrepreneur,
+            notification_type=Notification.NotificationType.PROJECT_REJECTED,
+            title="Project changes required",
+            body=f"Your project “{project.title}” needs changes. Administrator note: {notes}",
+            actor=request.user,
+            target_type="project",
+            target_id=str(project.id),
         )
         return Response(self.get_serializer(project).data)
 
@@ -229,6 +250,7 @@ class AdminProjectViewSet(ApplicationAdminCreateGuardMixin, viewsets.ModelViewSe
         }
         pending.image_reviews = image_reviews
         pending.save(update_fields=["image_reviews", "updated_at"])
+        getattr(project, "_prefetched_objects_cache", {}).pop("edit_requests", None)
 
         from apps.audit.services import log as audit_log
         audit_log(
@@ -239,6 +261,17 @@ class AdminProjectViewSet(ApplicationAdminCreateGuardMixin, viewsets.ModelViewSe
             metadata={"project_id": str(project.id), "image_key": image_key, "before": before, "after": image_reviews[image_key]},
             request=request,
         )
+        if review_status in {"needs_revision", "rejected"}:
+            notify_on_commit(
+                recipient=project.entrepreneur,
+                notification_type=Notification.NotificationType.PROJECT_REJECTED,
+                title="Project image changes required",
+                body=(f"An image in your pending edits for “{project.title}” needs attention. "
+                      f"Administrator note: {review_notes}"),
+                actor=request.user,
+                target_type="project_edit",
+                target_id=str(pending.id),
+            )
         return Response(self.get_serializer(project).data)
 
     @action(detail=True, methods=["post"], url_path="approve-edit")
@@ -270,6 +303,7 @@ class AdminProjectViewSet(ApplicationAdminCreateGuardMixin, viewsets.ModelViewSe
         pending.reviewed_by = request.user
         pending.reviewed_at = timezone.now()
         pending.save(update_fields=["status", "review_notes", "reviewed_by", "reviewed_at", "updated_at"])
+        getattr(project, "_prefetched_objects_cache", {}).pop("edit_requests", None)
         notify_on_commit(
             recipient=project.entrepreneur,
             notification_type=Notification.NotificationType.PROJECT_VERIFIED,
@@ -296,11 +330,13 @@ class AdminProjectViewSet(ApplicationAdminCreateGuardMixin, viewsets.ModelViewSe
         pending.reviewed_by = request.user
         pending.reviewed_at = timezone.now()
         pending.save(update_fields=["status", "review_notes", "reviewed_by", "reviewed_at", "updated_at"])
+        getattr(project, "_prefetched_objects_cache", {}).pop("edit_requests", None)
         notify_on_commit(
             recipient=project.entrepreneur,
             notification_type=Notification.NotificationType.PROJECT_REJECTED,
             title="Project edits need revision",
-            body=f"Your proposed edits to “{project.title}” were not approved. Review the administrator notes.",
+            body=(f"Your proposed edits to “{project.title}” need changes. "
+                  f"Administrator note: {notes}"),
             actor=request.user,
             target_type="project",
             target_id=str(project.id),

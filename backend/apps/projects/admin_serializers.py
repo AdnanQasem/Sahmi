@@ -179,6 +179,7 @@ class AdminProjectSerializer(ProjectSerializer):
             "pending_edit_request",
             "implementation_complete",
             "updates",
+            "admin_review_feedback",
             "deleted_at",
             "created_at",
             "updated_at",
@@ -206,6 +207,7 @@ class AdminProjectSerializer(ProjectSerializer):
             "pending_edit_request",
             "implementation_complete",
             "updates",
+            "admin_review_feedback",
             "created_at",
             "updated_at",
         ]

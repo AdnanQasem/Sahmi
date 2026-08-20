@@ -22,6 +22,7 @@ import DashboardLayout from "./DashboardLayout";
 import StatCard from "@/components/dashboard/StatCard";
 import SectionHeader from "@/components/dashboard/SectionHeader";
 import FundingProgressBar from "@/components/dashboard/FundingProgressBar";
+import AdminReviewFeedback from "@/components/projects/AdminReviewFeedback";
 import StatusBadge from "@/components/dashboard/StatusBadge";
 import EmptyState from "@/components/dashboard/EmptyState";
 import { useAuth } from "@/hooks/useAuth";
@@ -462,6 +463,7 @@ const EntrepreneurDashboard = () => {
                             <span>{t("dashboard.pendingReview")}</span>
                           </motion.div>
                         )}
+                        <AdminReviewFeedback feedback={project.admin_review_feedback} className="mt-3" />
                       </div>
 
                       <div className="flex shrink-0 items-center gap-2 opacity-60 group-hover:opacity-100 transition-opacity duration-300">
