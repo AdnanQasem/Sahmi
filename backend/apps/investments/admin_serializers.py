@@ -1,7 +1,7 @@
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
-from django.db.models import Q, Sum
+from django.db.models import Max, Q, Sum
 from rest_framework import serializers
 
 from apps.projects.models import Project
@@ -46,8 +46,8 @@ class AdminInvestmentSerializer(serializers.ModelSerializer):
             "project",
             "project_detail",
             "amount",
-            "quantity",
             "investment_date",
+            "received_at",
             "status",
             "pending_expires_at",
             "transaction_id",
@@ -110,13 +110,23 @@ class AdminInvestmentSerializer(serializers.ModelSerializer):
             Investment.Status.COMPLETED, Investment.Status.REFUNDED
         }:
             raise serializers.ValidationError({"status": "This status is controlled by the funding release workflow."})
-        if self.instance and self.instance.status != Investment.Status.PENDING:
+        if self.instance:
             immutable = {
-                field for field in ("investor", "project", "amount", "quantity")
+                field for field in (
+                    "investor",
+                    "project",
+                    "amount",
+                    "expected_return",
+                    "actual_return",
+                    "payment_method",
+                )
                 if field in attrs and attrs[field] != getattr(self.instance, field)
             }
             if immutable:
-                raise serializers.ValidationError({field: "Confirmed investment funding fields cannot be edited." for field in immutable})
+                raise serializers.ValidationError({
+                    field: "This investment field is read-only after creation."
+                    for field in immutable
+                })
         if project and amount and investment_status in {
             Investment.Status.PENDING,
             Investment.Status.CONFIRMED,
@@ -160,7 +170,15 @@ class AdminMilestoneSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "project_detail", "funding_released", "created_at", "updated_at"]
+        read_only_fields = [
+            "id", "project_detail", "funding_released", "order", "created_at", "updated_at",
+        ]
+
+    def create(self, validated_data):
+        project = validated_data["project"]
+        highest_order = project.milestones.aggregate(value=Max("order"))["value"] or 0
+        validated_data["order"] = highest_order + 1
+        return super().create(validated_data)
 
     def validate(self, attrs):
         attrs = super().validate(attrs)

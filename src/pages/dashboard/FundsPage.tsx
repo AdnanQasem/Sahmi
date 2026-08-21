@@ -1,6 +1,21 @@
-﻿import { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, Clock, HandCoins, Loader2, LockKeyhole, RotateCcw, Send, WalletCards, XCircle } from "lucide-react";
+import {
+  ArrowDown,
+  BellRing,
+  Building2,
+  CheckCircle2,
+  Clock,
+  HandCoins,
+  Layers,
+  Loader2,
+  LockKeyhole,
+  RotateCcw,
+  Send,
+  Sparkles,
+  WalletCards,
+  XCircle,
+} from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import DashboardLayout from "./DashboardLayout";
@@ -192,7 +207,23 @@ const FundsPage = () => {
       {isAdmin ? <div className="grid gap-4 sm:grid-cols-3">
         <div className="rounded-2xl border border-border/60 bg-card p-5 shadow-sm"><div className="flex items-center justify-between gap-3 text-sm font-medium text-muted-foreground"><span>{t("funds.escrowBalance")}</span><span className="rounded-xl bg-primary/10 p-2.5 text-primary"><LockKeyhole className="h-5 w-5"/></span></div><p className="mt-5 text-3xl font-semibold tracking-tight text-foreground">{formatCurrency(totals.available)}</p></div>
         <div className="rounded-2xl border border-border/60 bg-card p-5 shadow-sm"><div className="flex items-center justify-between gap-3 text-sm font-medium text-muted-foreground"><span>{t("funds.totalDisbursed")}</span><span className="rounded-xl bg-success/10 p-2.5 text-success"><HandCoins className="h-5 w-5"/></span></div><p className="mt-5 text-3xl font-semibold tracking-tight text-foreground">{formatCurrency(totals.released)}</p></div>
-        <div className="rounded-2xl border border-border/60 bg-card p-5 shadow-sm"><div className="flex items-center justify-between gap-3 text-sm font-medium text-muted-foreground"><span>{t("funds.pendingRequests")}</span><span className="rounded-xl bg-warning/10 p-2.5 text-warning"><Clock className="h-5 w-5"/></span></div><p className="mt-5 text-3xl font-semibold tracking-tight text-foreground">{pendingReviewCount}</p></div>
+        <div className={`rounded-2xl border p-5 shadow-sm transition-all ${pendingReviewCount > 0 ? "border-warning/50 bg-gradient-to-br from-card via-card to-warning/10 ring-2 ring-warning/20 shadow-warning/5" : "border-border/60 bg-card"}`}>
+          <div className="flex items-center justify-between gap-3 text-sm font-medium text-muted-foreground">
+            <span>{t("funds.pendingRequests")}</span>
+            <span className={`rounded-xl p-2.5 ${pendingReviewCount > 0 ? "bg-warning text-warning-foreground font-bold shadow-xs animate-pulse" : "bg-warning/10 text-warning"}`}>
+              <Clock className="h-5 w-5"/>
+            </span>
+          </div>
+          <div className="mt-5 flex items-baseline justify-between gap-2">
+            <p className="text-3xl font-semibold tracking-tight text-foreground">{pendingReviewCount}</p>
+            {pendingReviewCount > 0 && (
+              <a href="#admin-review-queue" className="text-xs font-semibold text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1">
+                <span>{t("funds.reviewNow", { defaultValue: "Review Queue" })}</span>
+                <ArrowDown className="h-3 w-3" />
+              </a>
+            )}
+          </div>
+        </div>
       </div> : <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-2xl border bg-card p-5"><div className="flex items-center gap-2 text-muted-foreground"><WalletCards className="h-5 w-5"/>{t("funds.finalizedFunding")}</div><p className="mt-2 text-3xl font-bold text-primary">{formatCurrency(totals.totalFunding)}</p></div>
         <div className="rounded-2xl border bg-card p-5"><div className="flex items-center gap-2 text-muted-foreground"><LockKeyhole className="h-5 w-5"/>{t("funds.availableBalance")}</div><p className="mt-2 text-3xl font-bold text-foreground">{formatCurrency(totals.available)}</p></div>
@@ -208,11 +239,209 @@ const FundsPage = () => {
 
       {isAdmin && <section className="rounded-2xl border bg-card p-5"><h2 className="text-xl font-semibold">{t("funds.awaitingFinalization")}</h2><div className="mt-4 space-y-3">{projects.filter((project) => project.status === "fully_funded").map((project) => <div key={project.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4"><div><p className="font-semibold">{project.title}</p><p className="text-sm text-muted-foreground">{formatCurrency(Number(project.funded_amount))} / {formatCurrency(Number(project.goal_amount))}</p></div><Button disabled={finalize.isPending} onClick={() => finalize.mutate(project.id)}>{finalize.isPending ? <Loader2 className="me-2 h-4 w-4 animate-spin"/> : <CheckCircle2 className="me-2 h-4 w-4"/>}{t("funds.finalize")}</Button></div>)}{!projects.some((project) => project.status === "fully_funded") && <p className="py-4 text-sm text-muted-foreground">{t("funds.noneAwaiting")}</p>}</div></section>}
 
-      {isAdmin && pendingReviewCount > 0 && <section className="overflow-hidden rounded-2xl border border-warning/25 bg-card shadow-sm">
-        <div className="flex items-center justify-between gap-4 border-b border-warning/20 bg-warning/5 px-5 py-4 sm:px-6"><div><h2 className="text-lg font-semibold">{t("funds.adminReviewQueue")}</h2><p className="mt-1 text-sm text-muted-foreground">{t("funds.adminReviewQueueHelp")}</p></div><Badge className="rounded-full" variant="outline">{pendingReviewCount}</Badge></div>
-        <div className="grid gap-4 p-5 sm:p-6 lg:grid-cols-2">
-          <div className="space-y-3"><h3 className="text-sm font-semibold text-muted-foreground">{t("funds.withdrawalApprovals")}</h3>{pendingWithdrawalReviews.map((request) => <div key={request.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/60 bg-background p-4"><div><p className="font-semibold">{request.project_title}</p><p className="mt-1 text-sm text-muted-foreground">{request.milestone_title} · {formatCurrency(Number(request.amount))}</p></div><Button size="sm" variant={request.status === "under_review" ? "default" : "outline"} disabled={action.isPending} onClick={() => { if (request.status === "requested") action.mutate({ type: "review", request }); else if (request.status === "under_review") { setActiveReviewRequest(request); setReviewNotes(request.review_notes ?? ""); } else action.mutate({ type: "release", request }); }}>{request.status === "approved" ? <HandCoins className="me-1 h-4 w-4"/> : <Clock className="me-1 h-4 w-4"/>}{t(request.status === "approved" ? "funds.release" : request.status === "under_review" ? "funds.continueReview" : "funds.review")}</Button></div>)}{pendingWithdrawalReviews.length === 0 && <p className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">{t("funds.noPendingWithdrawals")}</p>}</div>
-          <div className="space-y-3"><h3 className="text-sm font-semibold text-muted-foreground">{t("funds.completionApprovals")}</h3>{pendingCompletionReviews.map(({ project, milestone }) => <div key={milestone.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/60 bg-background p-4"><div><p className="font-semibold">{project.title}</p><p className="mt-1 text-sm text-muted-foreground">{milestone.title}</p></div><Button size="sm" variant={milestone.completion_status === "under_review" ? "default" : "outline"} disabled={completionAction.isPending} onClick={() => { if (milestone.completion_status === "submitted") completionAction.mutate({ type: "review", milestone }); else { setActiveCompletionReview(milestone); setCompletionReviewNotes(milestone.completion_review_notes ?? ""); } }}><Clock className="me-1 h-4 w-4"/>{t(milestone.completion_status === "under_review" ? "funds.continueCompletionReview" : "funds.reviewCompletion")}</Button></div>)}{pendingCompletionReviews.length === 0 && <p className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">{t("funds.noPendingCompletions")}</p>}</div>
+      {isAdmin && pendingReviewCount > 0 && <section
+        id="admin-review-queue"
+        role="region"
+        aria-labelledby="admin-review-queue-title"
+        className="scroll-mt-24 overflow-hidden rounded-2xl border border-warning/30 bg-card shadow-sm"
+      >
+        <div className="border-b border-border/70 bg-muted/20 p-5 sm:p-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3.5">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-warning/20 bg-warning/10 text-warning">
+              <BellRing className="h-5 w-5" />
+            </div>
+            <div>
+              <div className="mb-1 flex flex-wrap items-center gap-2">
+                <span className="rounded-full border border-warning/25 bg-warning/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-warning">
+                  {t("funds.actionRequired")}
+                </span>
+                <span className="inline-flex min-w-6 items-center justify-center rounded-full bg-warning px-2 py-0.5 text-[11px] font-bold text-warning-foreground">
+                  {pendingReviewCount}
+                </span>
+              </div>
+              <div className="flex items-center gap-2.5">
+                <h2 id="admin-review-queue-title" className="text-xl font-semibold tracking-tight text-foreground">
+                  {t("funds.adminReviewQueue")}
+                </h2>
+              </div>
+              <p className="mt-1 max-w-2xl text-xs text-muted-foreground sm:text-sm">
+                {t("funds.adminReviewQueueHelp")}
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 text-xs sm:min-w-[21rem]">
+            <span className="inline-flex items-center gap-2 rounded-xl border border-border/70 bg-card px-3 py-2.5 font-medium text-foreground shadow-sm">
+              <HandCoins className="h-4 w-4 text-primary" />
+              <span><bdi className="font-bold">{pendingWithdrawalReviews.length}</bdi> {t("funds.withdrawalApprovals")}</span>
+            </span>
+            <span className="inline-flex items-center gap-2 rounded-xl border border-border/70 bg-card px-3 py-2.5 font-medium text-foreground shadow-sm">
+              <CheckCircle2 className="h-4 w-4 text-success" />
+              <span><bdi className="font-bold">{pendingCompletionReviews.length}</bdi> {t("funds.completionApprovals")}</span>
+            </span>
+          </div>
+          </div>
+        </div>
+
+        <div className="grid gap-4 bg-muted/20 p-4 sm:p-6 lg:grid-cols-2">
+          <div className="space-y-3.5 rounded-2xl border border-primary/15 bg-card/90 p-3 sm:p-4">
+            <div className="flex items-center justify-between pb-1">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-foreground flex items-center gap-2">
+                <HandCoins className="h-4 w-4 text-primary" />
+                <span>{t("funds.withdrawalApprovals")}</span>
+              </h3>
+              <Badge variant="outline" className="text-[11px] font-semibold">
+                {pendingWithdrawalReviews.length}
+              </Badge>
+            </div>
+
+            <div className="space-y-3">
+              {pendingWithdrawalReviews.map((request) => (
+                <div
+                  key={request.id}
+                  className="group relative overflow-hidden rounded-2xl border border-border/80 border-s-4 border-s-primary bg-background p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md sm:p-5"
+                >
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0 flex-1 space-y-1.5">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-bold text-foreground text-sm sm:text-base group-hover:text-primary transition-colors">
+                          {request.project_title}
+                        </p>
+                        <Badge variant={request.status === "approved" ? "success" : "outline"} className="text-[10px] uppercase font-bold">
+                          {t(`funds.status.${request.status}`)}
+                        </Badge>
+                      </div>
+
+                      <p className="text-xs sm:text-sm text-muted-foreground flex items-center gap-1.5">
+                        <Layers className="h-3.5 w-3.5 text-muted-foreground/70 shrink-0" />
+                        <span className="font-medium text-foreground/80">{request.milestone_title}</span>
+                      </p>
+
+                      <div className="pt-1 flex items-center gap-2">
+                        <span className="inline-flex items-center rounded-lg bg-primary/10 px-2.5 py-1 text-sm font-bold text-primary border border-primary/20 tabular-nums">
+                          {formatCurrency(Number(request.amount))}
+                        </span>
+                        <span className="text-[11px] text-muted-foreground">
+                          {formatDate(request.created_at, { dateStyle: "medium" }, i18n.language)}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="shrink-0 pt-1">
+                      <Button
+                        size="sm"
+                        variant={request.status === "under_review" ? "default" : "outline"}
+                        className="w-full sm:w-auto font-semibold shadow-xs gap-1.5"
+                        disabled={action.isPending}
+                        onClick={() => {
+                          if (request.status === "requested") action.mutate({ type: "review", request });
+                          else if (request.status === "under_review") {
+                            setActiveReviewRequest(request);
+                            setReviewNotes(request.review_notes ?? "");
+                          } else action.mutate({ type: "release", request });
+                        }}
+                      >
+                        {request.status === "approved" ? (
+                          <HandCoins className="me-1 h-4 w-4" />
+                        ) : (
+                          <Clock className="me-1 h-4 w-4" />
+                        )}
+                        {t(
+                          request.status === "approved"
+                            ? "funds.release"
+                            : request.status === "under_review"
+                            ? "funds.continueReview"
+                            : "funds.review",
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              {pendingWithdrawalReviews.length === 0 && (
+                <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border/80 bg-muted/20 p-8 text-center">
+                  <CheckCircle2 className="h-8 w-8 text-emerald-500/70 mb-2" />
+                  <p className="text-sm font-medium text-foreground">{t("funds.noPendingWithdrawals")}</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-3.5 rounded-2xl border border-success/20 bg-card/90 p-3 sm:p-4">
+            <div className="flex items-center justify-between pb-1">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-foreground flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                <span>{t("funds.completionApprovals")}</span>
+              </h3>
+              <Badge variant="outline" className="text-[11px] font-semibold">
+                {pendingCompletionReviews.length}
+              </Badge>
+            </div>
+
+            <div className="space-y-3">
+              {pendingCompletionReviews.map(({ project, milestone }) => (
+                <div
+                  key={milestone.id}
+                  className="group relative overflow-hidden rounded-2xl border border-border/80 border-s-4 border-s-success bg-background p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-success/40 hover:shadow-md sm:p-5"
+                >
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0 flex-1 space-y-1.5">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-bold text-foreground text-sm sm:text-base group-hover:text-primary transition-colors">
+                          {project.title}
+                        </p>
+                        <Badge variant={milestone.completion_status === "under_review" ? "default" : "outline"} className="text-[10px] uppercase font-bold">
+                          {t(`funds.completionStatus.${milestone.completion_status ?? "submitted"}`)}
+                        </Badge>
+                      </div>
+
+                      <p className="text-xs sm:text-sm text-muted-foreground flex items-center gap-1.5">
+                        <Sparkles className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                        <span className="font-medium text-foreground/80">{milestone.title}</span>
+                      </p>
+
+                      <p className="text-[11px] text-muted-foreground line-clamp-1">
+                        {milestone.completion_summary || t("funds.evidenceProvided", { defaultValue: "Deliverables submitted for review" })}
+                      </p>
+                    </div>
+
+                    <div className="shrink-0 pt-1">
+                      <Button
+                        size="sm"
+                        variant={milestone.completion_status === "under_review" ? "default" : "outline"}
+                        className="w-full sm:w-auto font-semibold shadow-xs gap-1.5"
+                        disabled={completionAction.isPending}
+                        onClick={() => {
+                          if (milestone.completion_status === "submitted") {
+                            completionAction.mutate({ type: "review", milestone });
+                          } else {
+                            setActiveCompletionReview(milestone);
+                            setCompletionReviewNotes(milestone.completion_review_notes ?? "");
+                          }
+                        }}
+                      >
+                        <Clock className="me-1 h-4 w-4" />
+                        {t(
+                          milestone.completion_status === "under_review"
+                            ? "funds.continueCompletionReview"
+                            : "funds.reviewCompletion",
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              {pendingCompletionReviews.length === 0 && (
+                <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border/80 bg-muted/20 p-8 text-center">
+                  <CheckCircle2 className="h-8 w-8 text-emerald-500/70 mb-2" />
+                  <p className="text-sm font-medium text-foreground">{t("funds.noPendingCompletions")}</p>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </section>}
 

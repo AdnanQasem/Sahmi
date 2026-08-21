@@ -10,6 +10,7 @@ from apps.core.admin_mixins import ApplicationAdminCreateGuardMixin
 
 from apps.notifications.models import Notification
 from apps.notifications.services import notify_on_commit
+from .deletion import hard_delete_project
 from .admin_serializers import (
     AdminProjectCategorySerializer,
     AdminProjectDocumentSerializer,
@@ -89,6 +90,9 @@ class AdminProjectViewSet(ApplicationAdminCreateGuardMixin, viewsets.ModelViewSe
     ]
     ordering = ["-created_at"]
     creation_denied_message = "Application administrators cannot create projects."
+
+    def perform_destroy(self, instance):
+        hard_delete_project(instance)
 
     @action(detail=True, methods=["post"])
     def verify(self, request, pk=None):

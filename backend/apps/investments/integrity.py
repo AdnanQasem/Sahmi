@@ -2,6 +2,7 @@ from decimal import Decimal
 
 from django.db import transaction
 from django.db.models import Sum
+from django.utils import timezone
 
 from apps.projects.models import Project
 
@@ -26,19 +27,23 @@ def reconcile_project_finances(project_id):
     funded_amount = funded_investments.aggregate(total=Sum("amount"))["total"] or ZERO
     investor_count = funded_investments.values("investor_id").distinct().count()
     next_status = project.status
+    project_updates = {}
     if project.status == Project.Status.ACTIVE and funded_amount >= project.goal_amount:
         next_status = Project.Status.SUCCESSFUL
+        project_updates.update(deleted_at=None, updated_at=timezone.now())
     elif (
         project.status == Project.Status.SUCCESSFUL
         and not project.funding_finalized_at
         and funded_amount < project.goal_amount
     ):
         next_status = Project.Status.ACTIVE
+        project_updates.update(deleted_at=None, updated_at=timezone.now())
 
     Project.objects.filter(pk=project.pk).update(
         funded_amount=funded_amount,
         investor_count=investor_count,
         status=next_status,
+        **project_updates,
     )
     if funded_amount < project.goal_amount:
         project.milestones.filter(status=Milestone.Status.IN_PROGRESS).update(
@@ -84,6 +89,12 @@ def audit_funding_integrity():
             issues.append(f"{project.title}: investor count is {project.investor_count}, expected {investor_count}")
         if project.status == Project.Status.ACTIVE and funded_amount >= project.goal_amount:
             issues.append(f"{project.title}: funding goal reached but status is fundraising")
+        if (
+            funded_investments.exists()
+            and project.deleted_at is not None
+            and project.repayment_status != Project.RepaymentStatus.COMPLETED
+        ):
+            issues.append(f"{project.title}: project was soft deleted before repayment completed")
         if (
             funded_amount < project.goal_amount
             and project.milestones.filter(status=Milestone.Status.IN_PROGRESS).exists()

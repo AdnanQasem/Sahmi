@@ -17,8 +17,10 @@ export interface RepaymentPlanInstallment {
 
 export interface RepaymentPlan {
   id: string;
-  investment: string;
-  investor_id: string;
+  recipient: "investor" | "platform";
+  investment: string | null;
+  project: string;
+  investor_id: string | null;
   investor_name: string;
   project_id: string;
   project_title: string;
@@ -38,7 +40,8 @@ export interface RepaymentPlan {
 
 export interface EligibleRepaymentInvestment {
   id: string;
-  investor_id: string;
+  recipient: "investor" | "platform";
+  investor_id: string | null;
   investor_name: string;
   project_id: string;
   project_title: string;
@@ -140,9 +143,9 @@ const repaymentService = {
     asPage<RepaymentPlan>(await api.get("repayment-plans/", { params: { page_size: 100, ...params } })),
   listEligibleInvestments: async (): Promise<EligibleRepaymentInvestment[]> =>
     await api.get("repayment-plans/eligible-investments/"),
-  submitPlan: async (payload: { investment: string; notes?: string; installments: RepaymentPlanInstallment[] }): Promise<RepaymentPlan> =>
+  submitPlan: async (payload: { recipient: "investor" | "platform"; investment?: string | null; project: string; notes?: string; installments: RepaymentPlanInstallment[] }): Promise<RepaymentPlan> =>
     await api.post("repayment-plans/", payload),
-  resubmitPlan: async (id: string, payload: { investment: string; notes?: string; installments: RepaymentPlanInstallment[] }): Promise<RepaymentPlan> =>
+  resubmitPlan: async (id: string, payload: { recipient: "investor" | "platform"; investment?: string | null; project: string; notes?: string; installments: RepaymentPlanInstallment[] }): Promise<RepaymentPlan> =>
     await api.put(`repayment-plans/${id}/`, payload),
   startPlanReview: async (id: string): Promise<RepaymentPlan> =>
     await api.post(`repayment-plans/${id}/start-review/`, {}),

@@ -137,10 +137,9 @@ const RepaymentsPage = () => {
         <section className="space-y-4">
           <div><h2 className="text-xl font-semibold">{t("repaymentPlanSubmission.plansTitle")}</h2><p className="mt-1 text-sm text-muted-foreground">{t(isEntrepreneur ? "repaymentPlanSubmission.ownerPlansHelp" : "repaymentPlanSubmission.investorPlansHelp")}</p></div>
           {plansQuery.isLoading ? <Skeleton className="h-40" /> : plans.length === 0 ? <div className="rounded-2xl border border-dashed p-8 text-center text-muted-foreground"><ClipboardList className="mx-auto mb-3 h-9 w-9 opacity-50" />{t("repaymentPlanSubmission.noPlans")}</div> : <div className="grid gap-4 lg:grid-cols-2">{plans.map((plan) => <article key={plan.id} className="rounded-2xl border bg-card p-5 shadow-sm">
-            <div className="flex items-start justify-between gap-3"><div><p className="font-semibold">{plan.project_title}</p>{isEntrepreneur && <p className="text-sm text-muted-foreground">{plan.investor_name}</p>}</div><StatusBadge status={plan.status} label={t(`repaymentPlanSubmission.status.${plan.status}`)} /></div>
+            <div className="flex items-start justify-between gap-3"><div><p className="font-semibold">{plan.project_title}</p>{isEntrepreneur && <p className="text-sm text-muted-foreground">{plan.recipient === "platform" ? t("repaymentPlanSubmission.platformFeeTitle") : plan.investor_name}</p>}</div><StatusBadge status={plan.status} label={t(`repaymentPlanSubmission.status.${plan.status}`)} /></div>
             <div className="mt-4 space-y-2">{(plan.installments || []).map((item) => <div key={item.id || `${item.recipient}-${item.scheduled_date}-${item.amount}`} className={`flex items-center justify-between rounded-lg px-3 py-2 text-sm ${item.recipient === "platform" ? "border border-primary/25 bg-primary/5" : "bg-muted/40"}`}><span>{item.recipient === "platform" ? `${t("repaymentPlanSubmission.platformRecipient")} · ` : ""}{formatDate(item.scheduled_date + "T00:00:00", { dateStyle: "medium" })}</span><span className="font-semibold">{formatCurrency(item.amount)}</span></div>)}</div>
-            <p className="mt-3 text-sm font-semibold">{t("repaymentPlanSubmission.planTotal", { amount: formatCurrency(plan.obligation_total) })}</p>
-            <p className="mt-1 text-sm font-bold text-primary">{t("repaymentPlanSubmission.planTotalWithFee", { amount: formatCurrency(plan.total_with_platform_fee) })}</p>
+            <p className="mt-3 text-sm font-semibold">{t(plan.recipient === "platform" ? "repaymentPlanSubmission.sahmiPlanTotal" : "repaymentPlanSubmission.planTotal", { amount: formatCurrency(plan.obligation_total) })}</p>
             {plan.review_notes && <div className="mt-3 rounded-lg border border-warning/30 bg-warning/5 p-3 text-sm"><p className="font-semibold">{t("repaymentPlanSubmission.adminNotes")}</p><p className="mt-1 whitespace-pre-wrap text-muted-foreground">{plan.review_notes}</p></div>}
             {isEntrepreneur && ["revision_required", "rejected"].includes(plan.status) && <Button className="mt-4" variant="outline" size="sm" onClick={() => { setEditingPlan(plan); setPlanDialogOpen(true); }}><Pencil className="h-4 w-4" />{t("repaymentPlanSubmission.fixAndResubmit")}</Button>}
           </article>)}</div>}
@@ -161,18 +160,23 @@ const RepaymentsPage = () => {
       </div>
 
       <Dialog open={!!fundingRepayment} onOpenChange={(open) => !open && !submitFunding.isPending && setFundingRepayment(null)}>
-        <DialogContent className="sm:max-w-xl">
-          <DialogHeader><DialogTitle>{t("repaymentFunding.title")}</DialogTitle><DialogDescription>{t("repaymentFunding.description")}</DialogDescription></DialogHeader>
-          {fundingRepayment && <div className="space-y-4">
+        <DialogContent className="max-h-[calc(100dvh-1rem)] w-[calc(100%-1rem)] grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden rounded-2xl p-0 sm:max-h-[90dvh] sm:max-w-xl">
+          <DialogHeader className="border-b border-border px-4 py-4 pe-11 text-start sm:px-5">
+            <DialogTitle>{t("repaymentFunding.title")}</DialogTitle>
+            <DialogDescription>{t("repaymentFunding.description")}</DialogDescription>
+          </DialogHeader>
+          {fundingRepayment && <div className="min-h-0 space-y-3 overflow-y-auto px-4 py-4 sm:px-5">
             <DemoFillButton onClick={fillFundingDemo} disabled={submitFunding.isPending} />
-            <div className="rounded-xl border bg-muted/30 p-4"><p className="text-sm text-muted-foreground">{fundingRepayment.project_title}{fundingRepayment.recipient === "platform" ? ` · ${t("repaymentPlanSubmission.platformRecipient")}` : ""}</p><p className="mt-1 text-2xl font-bold text-primary">{formatCurrency(Number(fundingRepayment.amount))}</p><p className="mt-1 text-xs text-muted-foreground">{t("repaymentFunding.exactAmount")}</p></div>
-            <label className="block space-y-2 text-sm"><span>{t("repaymentFunding.inboundReference")}</span><Input value={transferReference} onChange={(event) => setTransferReference(event.target.value)} /></label>
-            <label className="block space-y-2 text-sm"><span>{t("repaymentFunding.transferDate")}</span><Input type="date" max={new Date().toISOString().slice(0, 10)} value={transferDate} onChange={(event) => setTransferDate(event.target.value)} /></label>
+            <div className="rounded-xl border bg-muted/30 p-3"><p className="text-sm text-muted-foreground">{fundingRepayment.project_title}{fundingRepayment.recipient === "platform" ? ` · ${t("repaymentPlanSubmission.platformRecipient")}` : ""}</p><div className="mt-1 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1"><p className="text-xl font-bold text-primary">{formatCurrency(Number(fundingRepayment.amount))}</p><p className="text-xs text-muted-foreground">{t("repaymentFunding.exactAmount")}</p></div></div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="block space-y-1.5 text-sm"><span>{t("repaymentFunding.inboundReference")}</span><Input value={transferReference} onChange={(event) => setTransferReference(event.target.value)} /></label>
+              <label className="block space-y-1.5 text-sm"><span>{t("repaymentFunding.transferDate")}</span><Input type="date" max={new Date().toISOString().slice(0, 10)} value={transferDate} onChange={(event) => setTransferDate(event.target.value)} /></label>
+            </div>
             <label className="block space-y-2 text-sm"><span>{t("repaymentFunding.receiptOptional")}</span><Input type="file" accept=".pdf,image/png,image/jpeg,image/webp" onChange={(event) => setTransferReceipt(event.target.files?.[0] ?? null)} />{transferReceipt && <span className="block text-xs font-medium text-primary">{transferReceipt.name}</span>}</label>
-            <label className="block space-y-2 text-sm"><span>{t("repaymentFunding.sourceOfFundsOptional")}</span><Textarea rows={3} value={sourceDeclaration} onChange={(event) => setSourceDeclaration(event.target.value)} /></label>
-            <label className="flex items-start gap-3 rounded-xl border p-4 text-sm"><input className="mt-1" type="checkbox" checked={agreementAccepted} onChange={(event) => setAgreementAccepted(event.target.checked)} /><span>{t("repaymentFunding.agreementAcceptance")}</span></label>
+            <label className="block space-y-1.5 text-sm"><span>{t("repaymentFunding.sourceOfFundsOptional")}</span><Textarea rows={2} value={sourceDeclaration} onChange={(event) => setSourceDeclaration(event.target.value)} /></label>
+            <label className="flex items-start gap-3 rounded-xl border p-3 text-sm"><input className="mt-1" type="checkbox" checked={agreementAccepted} onChange={(event) => setAgreementAccepted(event.target.checked)} /><span>{t("repaymentFunding.agreementAcceptance")}</span></label>
           </div>}
-          <DialogFooter><Button variant="outline" disabled={submitFunding.isPending} onClick={() => setFundingRepayment(null)}>{t("common.cancel")}</Button><Button disabled={!fundingRepayment || !transferReference.trim() || !transferDate || !agreementAccepted || submitFunding.isPending} onClick={() => submitFunding.mutate()}>{submitFunding.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Landmark className="h-4 w-4" />}{t("repaymentFunding.submit")}</Button></DialogFooter>
+          <DialogFooter className="gap-2 border-t border-border bg-background px-4 py-3 sm:px-5"><Button variant="outline" disabled={submitFunding.isPending} onClick={() => setFundingRepayment(null)}>{t("common.cancel")}</Button><Button disabled={!fundingRepayment || !transferReference.trim() || !transferDate || !agreementAccepted || submitFunding.isPending} onClick={() => submitFunding.mutate()}>{submitFunding.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Landmark className="h-4 w-4" />}{t("repaymentFunding.submit")}</Button></DialogFooter>
         </DialogContent>
       </Dialog>
       {isEntrepreneur && <RepaymentPlanSubmissionDialog

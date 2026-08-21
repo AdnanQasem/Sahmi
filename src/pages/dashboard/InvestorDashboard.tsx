@@ -88,7 +88,13 @@ const buildAllocation = (investments: Investment[]) => {
   }));
 };
 
-const CustomTooltip = ({ active, payload, label }: any) => {
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: Array<{ value: number }>;
+  label?: string;
+}
+
+const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
   if (active && payload && payload.length) {
     return (
       <div className="rounded-xl border border-border bg-card px-4 py-3 shadow-lg">
@@ -212,11 +218,11 @@ const InvestorDashboard = () => {
             </ResponsiveContainer>
           </div>
 
-          <div className="lg:col-span-2 rounded-2xl border border-border bg-card p-6 shadow-sm">
+          <div className="min-w-0 rounded-2xl border border-border bg-card p-6 shadow-sm lg:col-span-2">
             <SectionHeader title={t("dashboard.portfolioAllocation")} subtitle={t("dashboard.byProjectCategory")} />
             {allocation.length ? (
-              <div className="flex flex-col sm:flex-row items-center gap-6">
-                <div className="relative w-full sm:w-48 h-48">
+              <div className="flex min-w-0 flex-col items-center gap-6 2xl:flex-row">
+                <div className="relative h-48 w-48 shrink-0">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie 
@@ -239,8 +245,8 @@ const InvestorDashboard = () => {
                           if (active && payload && payload.length) {
                             const data = payload[0].payload;
                             return (
-                              <div className="rounded-lg border border-border bg-card px-3 py-2 shadow-lg">
-                                <p className="text-xs font-medium text-muted-foreground">{data.name}</p>
+                              <div className="max-w-56 rounded-lg border border-border bg-card px-3 py-2 shadow-lg">
+                                <p className="break-words text-xs font-medium text-muted-foreground">{data.name}</p>
                                 <p className="text-sm font-bold text-foreground">{data.value}%</p>
                               </div>
                             );
@@ -257,25 +263,25 @@ const InvestorDashboard = () => {
                     </div>
                   </div>
                 </div>
-                <div className="flex-1 w-full">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="min-w-0 w-full flex-1">
+                  <div className="grid min-w-0 grid-cols-1 gap-3">
                     {allocation.map((item) => (
                       <motion.div 
                         key={item.name}
                         whileHover={{ x: 4 }}
-                        className="flex items-center justify-between gap-3 rounded-lg border border-border/50 bg-muted/30 px-3 py-2.5 transition-all hover:border-primary/30 hover:bg-muted/50"
+                        className="flex min-w-0 items-center justify-between gap-3 rounded-lg border border-border/50 bg-muted/30 px-3 py-2.5 transition-all hover:border-primary/30 hover:bg-muted/50"
                       >
-                        <div className="flex items-center gap-2.5">
+                        <div className="flex min-w-0 flex-1 items-center gap-2.5">
                           <span 
-                            className="h-2.5 w-2.5 rounded-full shadow-sm" 
+                            className="h-2.5 w-2.5 shrink-0 rounded-full shadow-sm"
                             style={{ 
                               background: item.color,
                               boxShadow: `0 0 8px ${item.color}40`
                             }} 
                           />
-                          <span className="text-xs font-medium text-foreground">{item.name}</span>
+                          <span className="min-w-0 break-words text-start text-xs font-medium leading-5 text-foreground">{item.name}</span>
                         </div>
-                        <span className="text-xs font-bold text-foreground">{item.value}%</span>
+                        <span className="shrink-0 text-xs font-bold text-foreground">{item.value}%</span>
                       </motion.div>
                     ))}
                   </div>

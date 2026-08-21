@@ -8,6 +8,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core import mail
 from django.test import override_settings
 from django.urls import reverse
+from django.utils.dateparse import parse_datetime
 from rest_framework import status
 from rest_framework.test import APITestCase
 
@@ -509,7 +510,6 @@ class AdminFinanceAPITests(AdminAPIBase):
                 "investor": str(self.investor.pk),
                 "project": str(self.project.pk),
                 "amount": "500.00",
-                "quantity": 2,
                 "status": Investment.Status.PENDING,
                 "transaction_id": "ADMIN-TXN-1",
                 "payment_method": Investment.PaymentMethod.CARD,
@@ -523,6 +523,47 @@ class AdminFinanceAPITests(AdminAPIBase):
         investment_id = investment_response.data["id"]
         self.assertEqual(investment_response.data["investor_detail"]["email"], self.investor.email)
         self.assertEqual(investment_response.data["project_detail"]["slug"], self.project.slug)
+
+        other_project = Project.objects.create(
+            entrepreneur=self.owner,
+            title="Other Project",
+            slug="other-project",
+            description="Other project",
+            short_description="Other",
+            category=self.category,
+            location="Nablus",
+            goal_amount=Decimal("5000.00"),
+            minimum_investment=Decimal("100.00"),
+            expected_roi=Decimal("8.00"),
+        )
+        immutable_response = self.client.patch(
+            reverse("admin-investment-detail", args=[investment_id]),
+            {
+                "investor": str(self.outsider.pk),
+                "project": str(other_project.pk),
+                "amount": "600.00",
+                "expected_return": "80.00",
+                "actual_return": "30.00",
+                "payment_method": Investment.PaymentMethod.PAYPAL,
+            },
+            format="json",
+        )
+        self.assertEqual(immutable_response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            set(immutable_response.data),
+            {"investor", "project", "amount", "expected_return", "actual_return", "payment_method"},
+        )
+
+        received_response = self.client.patch(
+            reverse("admin-investment-detail", args=[investment_id]),
+            {"received_at": "2027-01-15T10:30:00Z"},
+            format="json",
+        )
+        self.assertEqual(received_response.status_code, status.HTTP_200_OK, received_response.data)
+        self.assertEqual(
+            parse_datetime(received_response.data["received_at"]),
+            parse_datetime("2027-01-15T10:30:00Z"),
+        )
 
         Investment.objects.filter(pk=investment_id).update(status=Investment.Status.CONFIRMED)
         Project.objects.filter(pk=self.project.pk).update(

@@ -174,7 +174,7 @@ const navItems: NavItem[] = [
 
 const navLabelKeys: Record<string, string> = {
   Overview: "dashboard.overview", Users: "dashboard.users", Projects: "nav.projects",
-  Categories: "projects.category", Investments: "admin.investments", Milestones: "settings.milestones",
+  Categories: "dashboard.categories", Investments: "admin.investments", Milestones: "settings.milestones",
   Repayments: "repaymentDashboard.title", "Watched Projects": "dashboard.watched", Transactions: "dashboard.transactions",
   Project: "dashboard.project", Analytics: "dashboard.analytics", Investors: "dashboard.investors",
   Messages: "dashboard.messages", Settings: "dashboard.settings", Funds: "funds.nav", Logs: "auditLogs.nav",

@@ -80,10 +80,14 @@ it("keeps an admin focused in a dialog throughout a withdrawal review", async ()
     </QueryClientProvider>,
   );
 
+  const queue = await screen.findByRole("region", { name: "Approvals needing review" });
+  expect(within(queue).getByText("Action required")).toBeInTheDocument();
+  expect(within(queue).getAllByText("Withdrawal approvals", { exact: false })).toHaveLength(2);
+
   fireEvent.click(await screen.findByRole("button", { name: "Start review" }));
   await waitFor(() => expect(services.startReview).toHaveBeenCalledWith("withdrawal-1"));
 
-  let dialog = screen.getByRole("dialog");
+  const dialog = screen.getByRole("dialog");
   expect(within(dialog).getByText("Review withdrawal request")).toBeInTheDocument();
   expect(within(dialog).getByText("Olive Harvest", { exact: false })).toBeInTheDocument();
   expect(within(dialog).getByText("Supplier quotation and site preparation evidence.")).toBeInTheDocument();

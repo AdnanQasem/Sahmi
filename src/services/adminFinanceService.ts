@@ -35,8 +35,8 @@ export interface AdminInvestment {
   project: string;
   project_detail?: AdminProjectOption;
   amount: string;
-  quantity: number;
   investment_date: string;
+  received_at: string | null;
   status: "pending" | "confirmed" | "completed" | "failed" | "cancelled" | "refunded";
   pending_expires_at: string | null;
   transaction_id: string;
@@ -56,12 +56,12 @@ export interface AdminInvestmentPayload {
   investor: string;
   project: string;
   amount: string;
-  quantity: number;
   status: AdminInvestment["status"];
   transaction_id?: string;
   payment_method: AdminInvestment["payment_method"];
   expected_return?: string;
   actual_return?: string;
+  received_at?: string | null;
   return_received_at?: string | null;
   notes?: string;
 }
@@ -94,7 +94,6 @@ export interface AdminMilestonePayload {
   deliverables?: string;
   percentage_of_project: string;
   funding_released?: string;
-  order: number;
 }
 
 export interface AdminRepayment {

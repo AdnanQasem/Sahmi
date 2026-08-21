@@ -538,10 +538,17 @@ def sync_project_totals(project_or_id):
         update_values.update(
             funding_reached_at=reached_at,
             pending_payment_deadline=reached_at + timezone.timedelta(hours=24),
+            deleted_at=None,
+            updated_at=reached_at,
         )
     elif project.status == Project.Status.SUCCESSFUL and project.is_verified and not project.funding_finalized_at and snapshot["funded_amount"] < project.goal_amount:
         next_status = Project.Status.ACTIVE
-        update_values.update(funding_reached_at=None, pending_payment_deadline=None)
+        update_values.update(
+            funding_reached_at=None,
+            pending_payment_deadline=None,
+            deleted_at=None,
+            updated_at=timezone.now(),
+        )
     Project.objects.filter(pk=project.pk).update(
         funded_amount=snapshot["funded_amount"],
         investor_count=snapshot["investor_count"],

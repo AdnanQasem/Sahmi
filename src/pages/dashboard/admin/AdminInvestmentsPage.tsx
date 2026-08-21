@@ -186,7 +186,7 @@ const AdminInvestmentsPage = () => {
     mutationFn: (investment: AdminInvestment) =>
       adminFinanceService.deleteInvestment(investment.id),
     onSuccess: (_, investment) => {
-      toast.success(t("admin.investmentDeleted", { investor: investorName(investment) }));
+      toast.success(t("admin.investmentDeleted", { name: investorName(investment) }));
       setDeleting(null);
       if (records.length === 1 && page > 1) setPage((current) => current - 1);
       refresh();
@@ -431,7 +431,7 @@ const AdminInvestmentsPage = () => {
                         {t("admin.investorProject")}
                       </TableHead>
                       <TableHead className="py-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                        {t("common.amount")} & {t("admin.quantityShort")}
+                        {t("common.amount")}
                       </TableHead>
                       <TableHead className="py-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">
                         {t("common.status")}
@@ -440,7 +440,7 @@ const AdminInvestmentsPage = () => {
                         {t("admin.payment")}
                       </TableHead>
                       <TableHead className="py-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                        {t("common.date")}
+                        {t("adminForm.investmentReceivedAt")}
                       </TableHead>
                       <TableHead className="w-24 py-4 text-right text-xs font-bold uppercase tracking-wider text-muted-foreground">
                         {t("admin.actions")}
@@ -482,9 +482,6 @@ const AdminInvestmentsPage = () => {
                                 <p className="font-bold text-foreground tabular-nums">
                                   {currency(investment.amount)}
                                 </p>
-                                <p className="text-xs text-muted-foreground">
-                                  {t("admin.quantityShort")} <bdi dir="ltr" className="font-medium text-foreground">{investment.quantity}</bdi> {t("common.shares", { defaultValue: "shares" })}
-                                </p>
                               </div>
                             </TableCell>
                             <TableCell className="py-4">
@@ -496,7 +493,7 @@ const AdminInvestmentsPage = () => {
                             <TableCell className="py-4 text-xs text-muted-foreground">
                               <div className="flex items-center gap-1.5">
                                 <Calendar className="h-3.5 w-3.5 opacity-60" />
-                                {dateTime(investment.investment_date)}
+                                {investment.received_at ? dateTime(investment.received_at) : t("common.empty")}
                               </div>
                             </TableCell>
                             <TableCell className="py-4">
@@ -571,17 +568,11 @@ const AdminInvestmentsPage = () => {
                         <StatusBadge status={investment.status} />
                       </div>
 
-                      <div className="mt-5 grid grid-cols-2 gap-3 rounded-xl bg-muted/40 p-3.5 text-xs">
+                      <div className="mt-5 rounded-xl bg-muted/40 p-3.5 text-xs">
                         <div>
                           <p className="text-muted-foreground">{t("common.amount")}</p>
                           <p className="mt-1 text-base font-bold text-foreground tabular-nums">
                             {currency(investment.amount)}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-muted-foreground">{t("admin.quantityShort")}</p>
-                          <p className="mt-1 text-sm font-semibold text-foreground">
-                            <bdi dir="ltr">{investment.quantity}</bdi> {t("common.shares", { defaultValue: "shares" })}
                           </p>
                         </div>
                       </div>
@@ -590,7 +581,7 @@ const AdminInvestmentsPage = () => {
                         <PaymentBadge method={investment.payment_method} />
                         <span className="text-muted-foreground flex items-center gap-1">
                           <Calendar className="h-3 w-3" />
-                          {dateTime(investment.investment_date)}
+                          {investment.received_at ? dateTime(investment.received_at) : t("common.empty")}
                         </span>
                       </div>
 

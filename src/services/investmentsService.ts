@@ -4,7 +4,6 @@ import { PaginatedResponse, Project } from "./projectsService";
 export interface InvestmentPayload {
   project: string;
   amount: string;
-  quantity?: number;
   payment_method: "card" | "bank_transfer" | "paypal";
   transaction_id?: string;
   notes?: string;
@@ -16,7 +15,6 @@ export interface Investment {
   project: string;
   project_detail?: Project;
   amount: string;
-  quantity: number;
   investment_date: string;
   status: "pending" | "confirmed" | "completed" | "failed" | "cancelled" | "refunded";
   pending_expires_at: string | null;

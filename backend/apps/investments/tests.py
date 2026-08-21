@@ -9,7 +9,7 @@ from django.utils import timezone
 from apps.notifications.models import Notification
 from apps.projects.models import Project, ProjectCategory
 
-from .models import Investment, Milestone, ProjectFundingAccount, Repayment, RepaymentTransfer, WithdrawalRequest
+from .models import Investment, Milestone, ProjectFundingAccount, Repayment, RepaymentPlan, RepaymentTransfer, WithdrawalRequest
 
 
 class RepaymentWorkflowTests(TestCase):
@@ -134,13 +134,23 @@ class RepaymentWorkflowTests(TestCase):
         self.assertIsNone(self.project.next_repayment_date)
         self.assertIsNotNone(self.project.deleted_at)
 
-        self.client.force_authenticate(self.owner)
+        self.client.force_authenticate(self.investor)
         self.assertEqual(
             self.client.get(f"/api/v1/projects/{self.project.slug}/").status_code,
             status.HTTP_404_NOT_FOUND,
         )
+        investor_projects = self.client.get("/api/v1/projects/")
+        self.assertFalse(
+            any(item["id"] == str(self.project.id) for item in investor_projects.data["results"])
+        )
+
+        self.client.force_authenticate(self.owner)
+        self.assertEqual(
+            self.client.get(f"/api/v1/projects/{self.project.slug}/").status_code,
+            status.HTTP_200_OK,
+        )
         owner_projects = self.client.get("/api/v1/projects/my/")
-        self.assertFalse(any(item["id"] == str(self.project.id) for item in owner_projects.data["results"]))
+        self.assertTrue(any(item["id"] == str(self.project.id) for item in owner_projects.data["results"]))
 
         self.client.force_authenticate(self.admin)
         self.assertEqual(
@@ -166,7 +176,7 @@ class RepaymentWorkflowTests(TestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
-        self.assertEqual(len(response.data), 4)
+        self.assertEqual(len(response.data), 3)
         self.assertEqual(
             [record["scheduled_date"] for record in response.data if record["recipient"] == "investor"],
             ["2030-01-31", "2030-02-28", "2030-03-31"],
@@ -175,8 +185,7 @@ class RepaymentWorkflowTests(TestCase):
             sum(Decimal(str(record["amount"])) for record in response.data if record["recipient"] == "investor"),
             Decimal("110.00"),
         )
-        platform_record = next(record for record in response.data if record["recipient"] == "platform")
-        self.assertEqual(Decimal(str(platform_record["amount"])), Decimal("3.00"))
+        self.assertFalse(any(record["recipient"] == "platform" for record in response.data))
         self.project.refresh_from_db()
         self.assertEqual(self.project.next_repayment_date.isoformat(), "2030-01-31")
 
@@ -190,7 +199,7 @@ class RepaymentWorkflowTests(TestCase):
             format="json",
         )
         self.assertEqual(duplicate.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(Repayment.objects.filter(investment=self.investment).count(), 4)
+        self.assertEqual(Repayment.objects.filter(investment=self.investment).count(), 3)
 
     def test_entrepreneur_submits_plan_admin_requests_changes_then_approves(self):
         from rest_framework import status
@@ -204,7 +213,6 @@ class RepaymentWorkflowTests(TestCase):
                 "installments": [
                     {"amount": "50.00", "scheduled_date": "2030-04-15", "payment_method": "bank_transfer"},
                     {"amount": "60.00", "scheduled_date": "2030-05-15", "payment_method": "bank_transfer"},
-                    {"amount": "3.00", "recipient": "platform", "scheduled_date": "2030-05-15", "payment_method": "bank_transfer"},
                 ],
             },
             format="json",
@@ -237,7 +245,6 @@ class RepaymentWorkflowTests(TestCase):
                 "installments": [
                     {"amount": "50.00", "scheduled_date": "2030-04-30", "payment_method": "bank_transfer"},
                     {"amount": "60.00", "scheduled_date": "2030-05-31", "payment_method": "bank_transfer"},
-                    {"amount": "3.00", "recipient": "platform", "scheduled_date": "2030-05-31", "payment_method": "bank_transfer"},
                 ],
             },
             format="json",
@@ -277,7 +284,6 @@ class RepaymentWorkflowTests(TestCase):
                 "investment": str(self.investment.id),
                 "installments": [
                     {"amount": "100.00", "scheduled_date": "2030-01-15", "payment_method": "bank_transfer"},
-                    {"amount": "3.00", "recipient": "platform", "scheduled_date": "2030-01-15", "payment_method": "bank_transfer"},
                 ],
             },
             format="json",
@@ -289,7 +295,6 @@ class RepaymentWorkflowTests(TestCase):
                 "investment": str(self.investment.id),
                 "installments": [
                     {"amount": "110.00", "scheduled_date": "2030-01-15", "payment_method": "bank_transfer"},
-                    {"amount": "3.00", "recipient": "platform", "scheduled_date": "2030-01-15", "payment_method": "bank_transfer"},
                 ],
             },
             format="json",
@@ -300,7 +305,6 @@ class RepaymentWorkflowTests(TestCase):
                 "investment": str(second.id),
                 "installments": [
                     {"amount": "55.00", "scheduled_date": "2030-01-15", "payment_method": "bank_transfer"},
-                    {"amount": "1.50", "recipient": "platform", "scheduled_date": "2030-01-15", "payment_method": "bank_transfer"},
                 ],
             },
             format="json",
@@ -314,20 +318,35 @@ class RepaymentWorkflowTests(TestCase):
         from rest_framework import status
 
         self.client.force_authenticate(self.owner)
+        eligible = self.client.get("/api/v1/repayment-plans/eligible-investments/")
+        self.assertEqual(eligible.status_code, status.HTTP_200_OK, eligible.data)
+        self.assertEqual(
+            {item["recipient"] for item in eligible.data},
+            {RepaymentPlan.Recipient.INVESTOR, RepaymentPlan.Recipient.PLATFORM},
+        )
+        platform_target = next(
+            item for item in eligible.data
+            if item["recipient"] == RepaymentPlan.Recipient.PLATFORM
+        )
+        self.assertEqual(Decimal(platform_target["obligation_total"]), Decimal("3.00"))
+
         submitted = self.client.post(
             "/api/v1/repayment-plans/",
             {
-                "investment": str(self.investment.id),
+                "recipient": "platform",
+                "investment": None,
+                "project": str(self.project.id),
                 "installments": [
-                    {"amount": "110.00", "recipient": "investor", "scheduled_date": "2030-06-01", "payment_method": "bank_transfer"},
                     {"amount": "3.00", "recipient": "platform", "scheduled_date": "2030-06-01", "payment_method": "bank_transfer"},
                 ],
             },
             format="json",
         )
         self.assertEqual(submitted.status_code, status.HTTP_201_CREATED, submitted.data)
+        self.assertEqual(submitted.data["recipient"], "platform")
+        self.assertIsNone(submitted.data["investment"])
         self.assertEqual(Decimal(submitted.data["platform_fee"]), Decimal("3.00"))
-        self.assertEqual(Decimal(submitted.data["total_with_platform_fee"]), Decimal("113.00"))
+        self.assertEqual(Decimal(submitted.data["obligation_total"]), Decimal("3.00"))
 
         self.client.force_authenticate(self.admin)
         approved = self.client.post(
@@ -343,8 +362,7 @@ class RepaymentWorkflowTests(TestCase):
 
         self.client.force_authenticate(self.investor)
         investor_records = self.client.get("/api/v1/repayments/")
-        self.assertEqual(investor_records.data["count"], 1)
-        self.assertEqual(investor_records.data["results"][0]["recipient"], "investor")
+        self.assertEqual(investor_records.data["count"], 0)
 
         self.client.force_authenticate(self.owner)
         funded = self.client.post(
@@ -517,6 +535,21 @@ class RepaymentWorkflowTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
         self.assertIsNone(response.data["receipt_url"])
         self.assertEqual(response.data["source_of_funds_declaration"], "")
+
+        repeated = self.client.post(
+            "/api/v1/repayment-transfers/",
+            {
+                "repayment": repayment.data["id"],
+                "inbound_reference": "BANK-IN-ACCIDENTAL-RETRY",
+                "inbound_transfer_date": timezone.localdate().isoformat(),
+                "agreement_accepted": True,
+            },
+            format="multipart",
+        )
+        self.assertEqual(repeated.status_code, status.HTTP_200_OK, repeated.data)
+        self.assertEqual(repeated.data["id"], response.data["id"])
+        self.assertEqual(repeated.data["inbound_reference"], "BANK-IN-NO-KYC")
+        self.assertEqual(RepaymentTransfer.objects.filter(repayment_id=repayment.data["id"]).count(), 1)
 
     def test_rejected_repayment_funding_note_is_visible_to_owner_but_not_investor(self):
         from rest_framework import status
@@ -835,7 +868,7 @@ class InvestmentSecurityAndTotalsTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("Exceeding value", str(response.data))
 
-    def test_exact_goal_marks_project_completed_and_keeps_it_public(self):
+    def test_exact_goal_keeps_project_visible_during_its_lifecycle(self):
         from rest_framework import status
 
         Investment.objects.filter(pk=self.investment.pk).update(amount=Decimal("900"))
@@ -858,12 +891,60 @@ class InvestmentSecurityAndTotalsTests(TestCase):
         self.first.refresh_from_db()
         self.assertEqual(self.first.funded_amount, Decimal("1000"))
         self.assertEqual(self.first.status, Project.Status.SUCCESSFUL)
+        self.assertIsNone(self.first.deleted_at)
 
         self.client.force_authenticate(user=None)
         detail = self.client.get(f"/api/v1/projects/{self.first.slug}/")
         listing = self.client.get("/api/v1/projects/")
         self.assertEqual(detail.status_code, status.HTTP_200_OK)
         self.assertIn(str(self.first.id), {str(item["id"]) for item in listing.data["results"]})
+
+        self.client.force_authenticate(self.investor)
+        self.assertEqual(
+            self.client.get(f"/api/v1/projects/{self.first.slug}/").status_code,
+            status.HTTP_200_OK,
+        )
+
+        self.client.force_authenticate(self.owner)
+        owner_detail = self.client.get(f"/api/v1/projects/{self.first.slug}/")
+        owner_listing = self.client.get("/api/v1/projects/")
+        owner_projects = self.client.get("/api/v1/projects/my/")
+        self.assertEqual(owner_detail.status_code, status.HTTP_200_OK)
+        self.assertIn(str(self.first.id), {str(item["id"]) for item in owner_listing.data["results"]})
+        self.assertIn(str(self.first.id), {str(item["id"]) for item in owner_projects.data["results"]})
+
+        self.client.force_authenticate(self.staff)
+        self.assertEqual(
+            self.client.get(f"/api/v1/projects/{self.first.slug}/").status_code,
+            status.HTTP_200_OK,
+        )
+
+    def test_only_participating_investor_can_see_legacy_archive_before_repayment(self):
+        from rest_framework import status
+
+        self.first.status = Project.Status.CLOSED
+        self.first.deleted_at = timezone.now()
+        self.first.repayment_status = Project.RepaymentStatus.ON_TRACK
+        self.first.save(update_fields=["status", "deleted_at", "repayment_status", "updated_at"])
+
+        self.client.force_authenticate(self.investor)
+        detail = self.client.get(f"/api/v1/projects/{self.first.slug}/")
+        listing = self.client.get("/api/v1/projects/")
+        self.assertEqual(detail.status_code, status.HTTP_200_OK)
+        self.assertIn(str(self.first.id), {str(item["id"]) for item in listing.data["results"]})
+
+        outsider = get_user_model().objects.create_user(
+            username="non-participating-investor",
+            email="non-participating@example.com",
+            full_name="Non Participating Investor",
+            password="password",
+            user_type=get_user_model().UserType.INVESTOR,
+        )
+        self.client.force_authenticate(outsider)
+        self.assertEqual(
+            self.client.get(f"/api/v1/projects/{self.first.slug}/").status_code,
+            status.HTTP_404_NOT_FOUND,
+        )
 
     def test_implementation_cannot_progress_before_full_funding(self):
         from rest_framework import status
@@ -905,6 +986,44 @@ class InvestmentSecurityAndTotalsTests(TestCase):
         )
         self.assertEqual(funding_release.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("cannot be released", str(funding_release.data))
+
+    def test_admin_milestone_order_is_automatic_and_cannot_be_overwritten(self):
+        from rest_framework import status
+
+        Milestone.objects.create(
+            project=self.first,
+            title="Existing milestone",
+            description="Existing milestone description.",
+            target_date="2027-01-01",
+            percentage_of_project=Decimal("50.00"),
+            order=3,
+        )
+        self.client.force_authenticate(self.staff)
+        created = self.client.post(
+            "/api/v1/admin/milestones/",
+            {
+                "project": str(self.first.id),
+                "title": "Automatically ordered milestone",
+                "description": "The server determines its sequence.",
+                "target_date": "2027-02-01",
+                "status": Milestone.Status.PENDING,
+                "deliverables": "A completed deliverable",
+                "percentage_of_project": "50.00",
+                "order": 99,
+            },
+            format="json",
+        )
+
+        self.assertEqual(created.status_code, status.HTTP_201_CREATED, created.data)
+        self.assertEqual(created.data["order"], 4)
+
+        updated = self.client.patch(
+            f"/api/v1/admin/milestones/{created.data['id']}/",
+            {"title": "Updated title", "order": 1},
+            format="json",
+        )
+        self.assertEqual(updated.status_code, status.HTTP_200_OK, updated.data)
+        self.assertEqual(updated.data["order"], 4)
 
     def test_roi_payments_require_completed_implementation(self):
         from rest_framework import status

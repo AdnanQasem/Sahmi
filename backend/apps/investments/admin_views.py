@@ -13,7 +13,7 @@ from apps.core.admin_mixins import ApplicationAdminCreateGuardMixin
 
 from apps.notifications.models import Notification
 from apps.notifications.services import notify_on_commit
-from apps.projects.models import Project, SAHMI_PLATFORM_FEE_RATE
+from apps.projects.models import Project
 
 from .admin_serializers import (
     AdminInvestmentSerializer,
@@ -43,6 +43,7 @@ class AdminInvestmentViewSet(ApplicationAdminCreateGuardMixin, viewsets.ModelVie
         "status": ["exact"],
         "payment_method": ["exact"],
         "investment_date": ["date", "gte", "lte"],
+        "received_at": ["date", "gte", "lte", "isnull"],
         "return_received_at": ["date", "gte", "lte", "isnull"],
     }
     search_fields = [
@@ -50,7 +51,7 @@ class AdminInvestmentViewSet(ApplicationAdminCreateGuardMixin, viewsets.ModelVie
         "project__title", "project__slug",
     ]
     ordering_fields = [
-        "investment_date", "created_at", "updated_at", "amount", "quantity",
+        "investment_date", "received_at", "created_at", "updated_at", "amount",
         "status", "expected_return", "actual_return", "return_received_at",
     ]
     ordering = ["-investment_date"]
@@ -352,16 +353,6 @@ class AdminRepaymentViewSet(ApplicationAdminCreateGuardMixin, viewsets.ModelView
             )
             for index, scheduled_date in enumerate(dates)
         ])
-        platform_fee = (investment.amount * SAHMI_PLATFORM_FEE_RATE).quantize(Decimal("0.01"))
-        repayments.append(Repayment.objects.create(
-            investment=investment,
-            amount=platform_fee,
-            recipient=Repayment.Recipient.PLATFORM,
-            scheduled_date=dates[-1],
-            status=repayment_status_for_date(dates[-1]),
-            payment_method=Investment.PaymentMethod.BANK_TRANSFER,
-            notes="Fixed 3% Sahmi platform repayment.",
-        ))
         sync_repayment_totals(investment.project_id)
 
         from apps.audit.services import log as audit_log

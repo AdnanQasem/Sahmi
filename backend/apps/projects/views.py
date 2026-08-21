@@ -12,6 +12,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from .filters import ProjectFilter
+from .deletion import ensure_project_investments_refunded
 from .models import Project, ProjectCategory, ProjectEditRequest
 from .permissions import IsEntrepreneur, IsStaffOrReadOnly, ProjectPermission
 from .serializers import (
@@ -85,25 +86,50 @@ class ProjectViewSet(viewsets.ModelViewSet):
         queryset = super().get_queryset()
         if self.request.user.is_authenticated and self.request.user.is_staff:
             return queryset
-        queryset = queryset.filter(deleted_at__isnull=True)
+        owner_queryset = (
+            queryset.filter(entrepreneur=self.request.user)
+            if self.request.user.is_authenticated
+            else queryset.none()
+        )
+        participating_queryset = (
+            queryset.filter(
+                deleted_at__isnull=False,
+                investments__investor=self.request.user,
+                investments__status__in=["confirmed", "completed"],
+            ).exclude(repayment_status=Project.RepaymentStatus.COMPLETED)
+            if self.request.user.is_authenticated
+            else queryset.none()
+        )
+        active_queryset = queryset.filter(deleted_at__isnull=True)
         if self.action == "list":
-            return queryset.filter(status__in=self.public_statuses, is_verified=True)
+            public_queryset = active_queryset.filter(
+                status__in=self.public_statuses,
+                is_verified=True,
+            )
+            archived_owner_queryset = owner_queryset.filter(
+                deleted_at__isnull=False,
+                status=Project.Status.SUCCESSFUL,
+            )
+            return (
+                public_queryset | archived_owner_queryset | participating_queryset
+            ).distinct()
         if self.action in {"retrieve", "translation", "repayments"}:
             # Public visibility follows project verified/active rule; the
-            # owner of the project can always retrieve their own.
-            if self.request.user.is_authenticated:
-                owner_q = queryset.filter(entrepreneur=self.request.user)
-            else:
-                owner_q = queryset.none()
-            public_q = queryset.filter(status__in=self.public_statuses, is_verified=True)
-            return (owner_q | public_q).distinct()
+            # owner of the project can always retrieve their own, including
+            # automatically archived projects that reached their funding goal.
+            public_queryset = active_queryset.filter(
+                status__in=self.public_statuses,
+                is_verified=True,
+            )
+            return (
+                owner_queryset | public_queryset | participating_queryset
+            ).distinct()
         if self.action in {"my", "payments", "events"}:
-            return queryset  # action views enforce their own gating below
+            if self.action == "my":
+                return queryset  # The action limits this to the owner below.
+            return (owner_queryset | active_queryset).distinct()
         # update / partial_update / destroy / verify / reject / set-status:
-        reachable = queryset.none()
-        if self.request.user.is_authenticated:
-            reachable = queryset.filter(entrepreneur=self.request.user)
-        return reachable
+        return owner_queryset
 
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -314,6 +340,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             )
 
     def perform_destroy(self, instance):
+        ensure_project_investments_refunded(instance)
         instance.deleted_at = timezone.now()
         instance.save(update_fields=["deleted_at", "updated_at"])
         audit_log(
@@ -428,10 +455,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         if request.user.is_staff:
             pass
         else:
-            queryset = queryset.filter(
-                entrepreneur=request.user,
-                deleted_at__isnull=True,
-            )
+            queryset = queryset.filter(entrepreneur=request.user)
         page = self.paginate_queryset(queryset)
         if page is not None:
             serializer = ProjectSerializer(page, many=True, context={"request": request})

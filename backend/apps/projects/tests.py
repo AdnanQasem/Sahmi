@@ -11,7 +11,8 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from apps.investments.models import Milestone
+from apps.investments.models import Investment, Milestone
+from apps.audit.models import AuditLog
 from apps.notifications.models import Notification
 
 from .models import Project, ProjectCategory, ProjectEditRequest
@@ -53,6 +54,73 @@ class ProjectAPITestCase(APITestCase):
             minimum_investment=Decimal("100.00"),
             expected_roi=Decimal("12.00"),
         )
+
+
+class ProjectDeletionRefundTests(ProjectAPITestCase):
+    def setUp(self):
+        super().setUp()
+        self.investor = User.objects.create_user(
+            email="investor@example.com",
+            username="investor",
+            full_name="Investor",
+            password="password",
+            user_type=User.UserType.INVESTOR,
+        )
+        self.investment = Investment.objects.create(
+            investor=self.investor,
+            project=self.project,
+            amount=Decimal("100.00"),
+            status=Investment.Status.CONFIRMED,
+        )
+
+    def test_entrepreneur_cannot_soft_delete_until_every_investment_is_refunded(self):
+        self.client.force_authenticate(self.entrepreneur)
+
+        response = self.client.delete(
+            reverse("project-detail", args=[self.project.slug]),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
+        self.assertIn("until all of its investments have been refunded", response.data["detail"])
+        self.project.refresh_from_db()
+        self.assertIsNone(self.project.deleted_at)
+
+        self.investment.status = Investment.Status.REFUNDED
+        self.investment.save(update_fields=["status", "updated_at"])
+        response = self.client.delete(
+            reverse("project-detail", args=[self.project.slug]),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.project.refresh_from_db()
+        self.assertIsNotNone(self.project.deleted_at)
+
+    def test_admin_hard_delete_removes_project_and_non_refunded_investments(self):
+        self.client.force_authenticate(self.staff)
+        url = reverse("admin-project-detail", args=[self.project.pk])
+        project_id = self.project.pk
+        investment_id = self.investment.pk
+        AuditLog.objects.create(
+            actor=self.staff,
+            action="investment.test",
+            target_type="investment",
+            target_id=str(investment_id),
+        )
+        Notification.objects.create(
+            recipient=self.entrepreneur,
+            notification_type=Notification.NotificationType.INVESTMENT_CREATED,
+            title="Test investment",
+            target_type="project",
+            target_id=str(project_id),
+        )
+
+        response = self.client.delete(url)
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(Project.objects.filter(pk=project_id).exists())
+        self.assertFalse(Investment.objects.filter(pk=investment_id).exists())
+        self.assertFalse(AuditLog.objects.filter(target_id=str(investment_id)).exists())
+        self.assertFalse(Notification.objects.filter(target_id=str(project_id)).exists())
 
 
 class ProjectCostTableTests(ProjectAPITestCase):

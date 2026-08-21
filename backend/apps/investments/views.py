@@ -700,11 +700,11 @@ class RepaymentPlanViewSet(viewsets.ModelViewSet):
     serializer_class = RepaymentPlanSerializer
     permission_classes = [IsAuthenticated]
     http_method_names = ["get", "post", "put", "patch", "head", "options"]
-    filterset_fields = ["status", "investment", "investment__project"]
+    filterset_fields = ["status", "recipient", "investment", "project"]
     ordering_fields = ["submitted_at", "status", "updated_at"]
     queryset = RepaymentPlan.objects.select_related(
-        "investment", "investment__investor", "investment__project",
-        "investment__project__entrepreneur", "submitted_by", "reviewed_by",
+        "investment", "investment__investor", "investment__project", "project",
+        "project__entrepreneur", "submitted_by", "reviewed_by",
     ).prefetch_related("installments")
 
     def get_queryset(self):
@@ -713,9 +713,12 @@ class RepaymentPlanViewSet(viewsets.ModelViewSet):
         if user.is_staff:
             return queryset
         if user.user_type == "entrepreneur":
-            return queryset.filter(investment__project__entrepreneur=user)
+            return queryset.filter(project__entrepreneur=user)
         if user.user_type == "investor":
-            return queryset.filter(investment__investor=user)
+            return queryset.filter(
+                recipient=RepaymentPlan.Recipient.INVESTOR,
+                investment__investor=user,
+            )
         return queryset.none()
 
     def perform_create(self, serializer):
@@ -726,8 +729,8 @@ class RepaymentPlanViewSet(viewsets.ModelViewSet):
                 recipient=admin,
                 notification_type=Notification.NotificationType.REPAYMENT_UPDATED,
                 title="Repayment plan submitted",
-                body=(f"A repayment plan for {plan.investment.investor} on "
-                      f"“{plan.investment.project.title}” needs review."),
+                body=(f"A repayment plan for {self._plan_account_name(plan)} on "
+                      f"“{plan.project.title}” needs review."),
                 actor=self.request.user,
                 target_type="repayment_plan",
                 target_id=str(plan.id),
@@ -748,6 +751,12 @@ class RepaymentPlanViewSet(viewsets.ModelViewSet):
             metadata={"before": before, "after": plan.status},
             request=self.request,
         )
+
+    @staticmethod
+    def _plan_account_name(plan):
+        if plan.recipient == RepaymentPlan.Recipient.PLATFORM:
+            return "Sahmi platform"
+        return str(plan.investment.investor)
 
     def _staff_plan(self, pk):
         if not self.request.user.is_staff:
@@ -773,6 +782,7 @@ class RepaymentPlanViewSet(viewsets.ModelViewSet):
                 continue
             results.append({
                 "id": str(investment.id),
+                "recipient": RepaymentPlan.Recipient.INVESTOR,
                 "investor_id": str(investment.investor_id),
                 "investor_name": investment.investor.full_name or investment.investor.email,
                 "project_id": str(investment.project_id),
@@ -782,6 +792,34 @@ class RepaymentPlanViewSet(viewsets.ModelViewSet):
                 "obligation_total": f"{investment.amount + investment.expected_return:.2f}",
                 "platform_fee": f"{(investment.amount * SAHMI_PLATFORM_FEE_RATE).quantize(Decimal('0.01')):.2f}",
                 "total_with_platform_fee": f"{(investment.amount + investment.expected_return + (investment.amount * SAHMI_PLATFORM_FEE_RATE).quantize(Decimal('0.01'))):.2f}",
+                "earliest_repayment_date": max(completion_dates).isoformat(),
+            })
+        projects = Project.objects.filter(
+            entrepreneur=request.user,
+            status=Project.Status.CLOSED,
+            investments__status=Investment.Status.COMPLETED,
+        ).exclude(
+            repayment_plans__recipient=RepaymentPlan.Recipient.PLATFORM,
+        ).distinct().prefetch_related("milestones")
+        for project in projects:
+            completion_dates = list(project.milestones.values_list("actual_completion_date", flat=True))
+            if not completion_dates or any(value is None for value in completion_dates):
+                continue
+            if project.milestones.exclude(status=Milestone.Status.COMPLETED).exists():
+                continue
+            platform_fee = (project.funded_amount * SAHMI_PLATFORM_FEE_RATE).quantize(Decimal("0.01"))
+            results.append({
+                "id": f"platform:{project.id}",
+                "recipient": RepaymentPlan.Recipient.PLATFORM,
+                "investor_id": None,
+                "investor_name": "Sahmi platform",
+                "project_id": str(project.id),
+                "project_title": project.title,
+                "principal": f"{project.funded_amount:.2f}",
+                "expected_return": "0.00",
+                "obligation_total": f"{platform_fee:.2f}",
+                "platform_fee": f"{platform_fee:.2f}",
+                "total_with_platform_fee": f"{platform_fee:.2f}",
                 "earliest_repayment_date": max(completion_dates).isoformat(),
             })
         return Response(results)
@@ -803,13 +841,13 @@ class RepaymentPlanViewSet(viewsets.ModelViewSet):
             for installment in plan.installments.all():
                 installment.status = repayment_status_for_date(installment.scheduled_date)
                 installment.save(update_fields=["status", "updated_at"])
-            sync_repayment_totals(plan.investment.project_id)
+            sync_repayment_totals(plan.project_id)
         self._audit(plan, f"repayment_plan.{next_status}", before)
         notify_on_commit(
-            recipient=plan.investment.project.entrepreneur,
+            recipient=plan.project.entrepreneur,
             notification_type=Notification.NotificationType.REPAYMENT_UPDATED,
             title=f"Repayment plan {plan.get_status_display().lower()}",
-            body=(f"The plan for {plan.investment.investor} on “{plan.investment.project.title}” "
+            body=(f"The plan for {self._plan_account_name(plan)} on “{plan.project.title}” "
                   f"is {plan.get_status_display().lower()}."
                   + (f" Administrator note: {notes}" if notes else "")),
             actor=request.user,
@@ -867,6 +905,29 @@ class RepaymentTransferViewSet(viewsets.ModelViewSet):
         if user.user_type == "investor":
             return queryset.filter(repayment__investment__investor=user)
         return queryset.none()
+
+    @transaction.atomic
+    def create(self, request, *args, **kwargs):
+        """Treat a repeated funding submission as the same bank transfer.
+
+        This protects entrepreneurs from duplicate clicks and stale repayment
+        cards without weakening the one-transfer-per-repayment guarantee.
+        """
+        repayment_id = request.data.get("repayment")
+        repayment = None
+        if repayment_id:
+            try:
+                repayment = Repayment.objects.select_for_update().filter(pk=repayment_id).first()
+            except (TypeError, ValueError):
+                pass
+        if repayment is not None:
+            existing = self.get_queryset().filter(
+                repayment=repayment,
+                submitted_by=request.user,
+            ).first()
+            if existing is not None:
+                return Response(self.get_serializer(existing).data, status=status.HTTP_200_OK)
+        return super().create(request, *args, **kwargs)
 
     def perform_create(self, serializer):
         transfer = serializer.save()

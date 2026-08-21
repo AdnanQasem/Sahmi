@@ -19,4 +19,13 @@ describe("localization resource coverage", () => {
     expect(source).not.toMatch(/recentNotifications/);
     for (const file of majorWorkflows) expect(readFileSync(file, "utf8")).toContain("useTranslation");
   });
+
+  it("includes Arabic labels for the requested admin and funds sections", () => {
+    expect(ar.dashboard.categories).toBe("الفئات");
+    expect(ar.auditLogs.nav).toBe("السجلات");
+    expect(ar.auditLogs.actions.withdrawal_released).toBe("صُرفت دفعة السحب");
+    expect(ar.auditLogs.targetTypes.withdrawal).toBe("طلب سحب");
+    expect(ar.funds.withdrawalHistory).toBe("طلبات السحب وسجل الدفعات");
+    expect(ar.funds.withdrawalHistoryCount).toContain("طلبات السحب وسجل الدفعات");
+  });
 });

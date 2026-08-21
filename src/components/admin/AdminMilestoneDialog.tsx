@@ -27,6 +27,7 @@ import type {
 } from "@/services/adminFinanceService";
 import DemoFillButton from "@/components/demo/DemoFillButton";
 import { formDemoData } from "@/demo/formDemoData";
+import { storedContentToPlainText } from "@/lib/plainText";
 
 interface AdminMilestoneDialogProps {
   open: boolean;
@@ -47,7 +48,6 @@ const blankForm: AdminMilestonePayload = {
   deliverables: "",
   percentage_of_project: "0",
   funding_released: "0",
-  order: 0,
 };
 
 const AdminMilestoneDialog = ({
@@ -67,15 +67,14 @@ const AdminMilestoneDialog = ({
       milestone
         ? {
             project: milestone.project,
-            title: milestone.title,
-            description: milestone.description,
+            title: storedContentToPlainText(milestone.title),
+            description: storedContentToPlainText(milestone.description),
             target_date: milestone.target_date,
             actual_completion_date: milestone.actual_completion_date,
             status: milestone.status,
-            deliverables: milestone.deliverables || "",
+            deliverables: storedContentToPlainText(milestone.deliverables),
             percentage_of_project: milestone.percentage_of_project,
             funding_released: milestone.funding_released || "0",
-            order: milestone.order,
           }
         : blankForm,
     );
@@ -95,7 +94,6 @@ const AdminMilestoneDialog = ({
       description: form.description.trim(),
       actual_completion_date: form.actual_completion_date || null,
       deliverables: form.deliverables?.trim(),
-      order: Number(form.order) || 0,
     };
     delete payload.funding_released;
     onSubmit(payload);
@@ -123,7 +121,6 @@ const AdminMilestoneDialog = ({
             deliverables: formDemoData.milestone.deliverables,
             target_date: current.target_date || new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10),
             percentage_of_project: current.percentage_of_project === "0" ? "10.00" : current.percentage_of_project,
-            order: current.order || 1,
           }))}
         />
 
@@ -193,16 +190,6 @@ const AdminMilestoneDialog = ({
                   <SelectItem value="delayed">{t("status.delayed")}</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="milestone-order">{t("adminForm.displayOrder")}</Label>
-              <Input
-                id="milestone-order"
-                type="number"
-                min="0"
-                value={form.order}
-                onChange={(event) => update("order", Number(event.target.value))}
-              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="milestone-percent">{t("adminForm.projectPercentage")}</Label>

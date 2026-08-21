@@ -5,7 +5,7 @@ from .models import Investment, Milestone, Repayment
 
 @admin.register(Investment)
 class InvestmentAdmin(admin.ModelAdmin):
-    list_display = ("investor", "project", "amount", "status", "investment_date")
+    list_display = ("investor", "project", "amount", "status", "received_at", "investment_date")
     list_filter = ("status", "payment_method")
     search_fields = ("investor__email", "project__title", "transaction_id")
 

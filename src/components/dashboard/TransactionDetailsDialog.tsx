@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import type { ElementType, ReactNode } from "react";
 import i18n from "@/i18n";
-import { formatCurrency, formatDate, formatNumber, formatPercent } from "@/i18n/format";
+import { formatCurrency, formatDate, formatPercent } from "@/i18n/format";
 import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -24,7 +24,6 @@ import {
   FileText,
   Hash,
   MapPin,
-  Package,
   ReceiptText,
   TrendingUp,
   UserRound,
@@ -125,7 +124,6 @@ const TransactionDetailsDialog = ({ investment, onOpenChange }: TransactionDetai
               <DetailItem icon={CalendarClock} label={t("transactionDetails.dateTime")} value={formatDateTime(investment.investment_date)} />
               <DetailItem icon={CreditCard} label={t("transactionDetails.paymentMethod")} value={formatPaymentMethod(investment.payment_method)} />
               <DetailItem icon={Hash} label={t("transactionDetails.transactionId")} value={investment.transaction_id ? <bdi dir="ltr">{investment.transaction_id}</bdi> : t("transactionDetails.notProvided")} />
-              <DetailItem icon={Package} label={t("transactionDetails.units")} value={formatNumber(investment.quantity)} />
               <DetailItem icon={TrendingUp} label={t("transactionDetails.expectedReturn")} value={currency(expectedOf(investment))} />
               <DetailItem icon={Banknote} label={t("transactionDetails.actualReturn")} value={actualReturnValue} />
               <DetailItem

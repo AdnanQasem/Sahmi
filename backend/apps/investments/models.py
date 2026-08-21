@@ -28,8 +28,8 @@ class Investment(UUIDTimestampModel):
     investor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="investments")
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="investments")
     amount = models.DecimalField(max_digits=12, decimal_places=2)
-    quantity = models.PositiveIntegerField(default=1)
     investment_date = models.DateTimeField(auto_now_add=True)
+    received_at = models.DateTimeField(blank=True, null=True)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
     pending_expires_at = models.DateTimeField(blank=True, null=True)
     transaction_id = models.CharField(max_length=120, blank=True)
@@ -195,10 +195,28 @@ class RepaymentPlan(UUIDTimestampModel):
         APPROVED = "approved", "Approved"
         REJECTED = "rejected", "Rejected"
 
+    class Recipient(models.TextChoices):
+        INVESTOR = "investor", "Investor"
+        PLATFORM = "platform", "Sahmi platform"
+
     investment = models.OneToOneField(
         Investment,
         on_delete=models.CASCADE,
         related_name="repayment_plan",
+        blank=True,
+        null=True,
+    )
+    project = models.ForeignKey(
+        Project,
+        on_delete=models.CASCADE,
+        related_name="repayment_plans",
+        blank=True,
+        null=True,
+    )
+    recipient = models.CharField(
+        max_length=20,
+        choices=Recipient.choices,
+        default=Recipient.INVESTOR,
     )
     submitted_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -225,6 +243,13 @@ class RepaymentPlan(UUIDTimestampModel):
     class Meta:
         ordering = ["-submitted_at"]
         indexes = [models.Index(fields=["status", "submitted_at"], name="investments_status_d199f7_idx")]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["project"],
+                condition=models.Q(recipient="platform"),
+                name="one_platform_repayment_plan_per_project",
+            ),
+        ]
 
 
 class Repayment(UUIDTimestampModel):

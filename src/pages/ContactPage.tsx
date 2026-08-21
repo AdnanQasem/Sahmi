@@ -75,7 +75,7 @@ const scaleIn = {
 const teamMembers = [
   { name: "Adnan Qasem", image: "" }, { name: "Ikrayyem Alabadla", image: "" },
   { name: "Abdullah Al Otti", image: "" }, { name: "Ahmed Qudaih", image: "" },
-  { name: "Mohammed Al Madhoon", image: "" }, { name: "Moomen Jibril", image: "" },
+  { name: "Mohammed Al Madhoon", image: "" }, { name: "Moomen Jepreel", image: "" },
 ];
 
 const contactInfo = [

@@ -18,6 +18,12 @@ const PAGE_SIZE = 15;
 
 const displayAction = (action: string) => action.replace(/[._]/g, " ");
 
+const translateAuditAction = (t: ReturnType<typeof useTranslation>["t"], action: string) =>
+  t(`auditLogs.actions.${action.replace(/[.]/g, "_")}`, { defaultValue: displayAction(action) });
+
+const translateTargetType = (t: ReturnType<typeof useTranslation>["t"], targetType: string) =>
+  t(`auditLogs.targetTypes.${targetType}`, { defaultValue: targetType });
+
 const resultVariant = (result: AuditLogRecord["result"]) =>
   result === "success" ? "success" : result === "denied" ? "destructive" : "warning";
 
@@ -77,7 +83,7 @@ const AdminAuditLogsPage = () => {
               <SelectTrigger aria-label={t("auditLogs.targetType")}><SelectValue placeholder={t("auditLogs.targetType")} /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">{t("auditLogs.allTargets")}</SelectItem>
-                {targetTypes.map((value) => <SelectItem key={value} value={value}>{value}</SelectItem>)}
+                {targetTypes.map((value) => <SelectItem key={value} value={value}>{translateTargetType(t, value)}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
@@ -95,12 +101,12 @@ const AdminAuditLogsPage = () => {
                   <article key={record.id} className="grid gap-3 p-5 md:grid-cols-[minmax(0,1fr)_11rem_10rem_auto] md:items-center">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-semibold capitalize text-foreground">{displayAction(record.action)}</p>
+                        <p className="font-semibold text-foreground">{translateAuditAction(t, record.action)}</p>
                         <Badge variant={resultVariant(record.result)}>{t(`auditLogs.results.${record.result}`)}</Badge>
                       </div>
                       <p className="mt-1 truncate text-xs text-muted-foreground">
                         {record.actor_detail?.full_name || record.actor_detail?.email || t("auditLogs.systemActor")}
-                        {record.target_type ? ` · ${record.target_type}` : ""}
+                        {record.target_type ? ` · ${translateTargetType(t, record.target_type)}` : ""}
                         {record.target_id ? ` · ${record.target_id}` : ""}
                       </p>
                     </div>
@@ -122,7 +128,7 @@ const AdminAuditLogsPage = () => {
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
           {selected && <>
             <DialogHeader>
-              <DialogTitle className="capitalize">{displayAction(selected.action)}</DialogTitle>
+              <DialogTitle>{translateAuditAction(t, selected.action)}</DialogTitle>
               <DialogDescription>{t("auditLogs.detailsDescription")}</DialogDescription>
             </DialogHeader>
             <dl className="grid gap-3 text-sm sm:grid-cols-2">
@@ -131,7 +137,7 @@ const AdminAuditLogsPage = () => {
                 [t("auditLogs.actorEmail"), selected.actor_detail?.email || t("common.empty")],
                 [t("auditLogs.result"), t(`auditLogs.results.${selected.result}`)],
                 [t("auditLogs.createdAt"), formatDate(selected.created_at, { dateStyle: "full", timeStyle: "long" }, i18n.language)],
-                [t("auditLogs.targetType"), selected.target_type || t("common.empty")],
+                [t("auditLogs.targetType"), selected.target_type ? translateTargetType(t, selected.target_type) : t("common.empty")],
                 [t("auditLogs.targetId"), selected.target_id || t("common.empty")],
                 [t("auditLogs.requestId"), selected.request_id || t("common.empty")],
                 [t("auditLogs.ipAddress"), selected.ip_address || t("common.empty")],

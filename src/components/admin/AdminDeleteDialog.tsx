@@ -31,7 +31,7 @@ const AdminDeleteDialog = ({
   onConfirm,
 }: AdminDeleteDialogProps) => {
   const { t } = useTranslation();
-  const resolvedActionLabel = actionLabel ?? t("adminForm.delete");
+  const resolvedActionLabel = actionLabel ?? t("common.delete");
   return (
   <AlertDialog open={open} onOpenChange={(nextOpen) => !pending && onOpenChange(nextOpen)}>
     <AlertDialogContent className="rounded-2xl">
@@ -49,7 +49,7 @@ const AdminDeleteDialog = ({
           disabled={pending}
           onClick={onConfirm}
         >
-          {pending ? t("common.saving") : resolvedActionLabel}
+          {pending ? t("common.deleting") : resolvedActionLabel}
         </AlertDialogAction>
       </AlertDialogFooter>
     </AlertDialogContent>

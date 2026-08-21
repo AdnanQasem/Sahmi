@@ -5,7 +5,7 @@ from django.utils import timezone
 from rest_framework import serializers
 
 from apps.projects.serializers import ProjectListSerializer
-from apps.projects.models import SAHMI_PLATFORM_FEE_RATE
+from apps.projects.models import Project, SAHMI_PLATFORM_FEE_RATE
 
 from .models import (
     Investment,
@@ -34,7 +34,7 @@ class InvestmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Investment
         fields = [
-            "id", "investor", "project", "project_detail", "amount", "quantity",
+            "id", "investor", "project", "project_detail", "amount",
             "investment_date", "status", "transaction_id", "payment_method",
             "pending_expires_at",
             "expected_return", "actual_return", "return_received_at", "notes",
@@ -272,12 +272,12 @@ class RepaymentPlanInstallmentSerializer(serializers.ModelSerializer):
 
 class RepaymentPlanSerializer(serializers.ModelSerializer):
     installments = RepaymentPlanInstallmentSerializer(many=True)
-    investor_id = serializers.UUIDField(source="investment.investor_id", read_only=True)
-    investor_name = serializers.CharField(source="investment.investor.full_name", read_only=True)
-    project_id = serializers.UUIDField(source="investment.project_id", read_only=True)
-    project_title = serializers.CharField(source="investment.project.title", read_only=True)
-    principal = serializers.DecimalField(source="investment.amount", max_digits=12, decimal_places=2, read_only=True)
-    expected_return = serializers.DecimalField(source="investment.expected_return", max_digits=12, decimal_places=2, read_only=True)
+    investor_id = serializers.SerializerMethodField()
+    investor_name = serializers.SerializerMethodField()
+    project_id = serializers.SerializerMethodField()
+    project_title = serializers.SerializerMethodField()
+    principal = serializers.SerializerMethodField()
+    expected_return = serializers.SerializerMethodField()
     obligation_total = serializers.SerializerMethodField()
     platform_fee = serializers.SerializerMethodField()
     total_with_platform_fee = serializers.SerializerMethodField()
@@ -286,7 +286,7 @@ class RepaymentPlanSerializer(serializers.ModelSerializer):
     class Meta:
         model = RepaymentPlan
         fields = [
-            "id", "investment", "investor_id", "investor_name", "project_id",
+            "id", "recipient", "investment", "project", "investor_id", "investor_name", "project_id",
             "project_title", "principal", "expected_return", "obligation_total",
             "platform_fee", "total_with_platform_fee",
             "status", "notes", "review_notes", "submitted_by", "submitted_at",
@@ -298,14 +298,48 @@ class RepaymentPlanSerializer(serializers.ModelSerializer):
             "reviewed_by", "reviewed_at", "created_at", "updated_at",
         ]
 
+    def _project(self, obj):
+        return obj.project or (obj.investment.project if obj.investment_id else None)
+
+    def get_investor_id(self, obj):
+        return obj.investment.investor_id if obj.investment_id else None
+
+    def get_investor_name(self, obj):
+        if obj.recipient == RepaymentPlan.Recipient.PLATFORM:
+            return "Sahmi platform"
+        return obj.investment.investor.full_name if obj.investment_id else ""
+
+    def get_project_id(self, obj):
+        project = self._project(obj)
+        return project.id if project else None
+
+    def get_project_title(self, obj):
+        project = self._project(obj)
+        return project.title if project else ""
+
+    def get_principal(self, obj):
+        project = self._project(obj)
+        value = project.funded_amount if obj.recipient == RepaymentPlan.Recipient.PLATFORM else obj.investment.amount
+        return f"{value:.2f}"
+
+    def get_expected_return(self, obj):
+        value = Decimal("0.00") if obj.recipient == RepaymentPlan.Recipient.PLATFORM else obj.investment.expected_return
+        return f"{value:.2f}"
+
     def get_obligation_total(self, obj):
+        if obj.recipient == RepaymentPlan.Recipient.PLATFORM:
+            return self.get_platform_fee(obj)
         return f"{obj.investment.amount + obj.investment.expected_return:.2f}"
 
     def get_platform_fee(self, obj):
-        fee = (obj.investment.amount * SAHMI_PLATFORM_FEE_RATE).quantize(Decimal("0.01"))
+        project = self._project(obj)
+        principal = project.funded_amount if obj.recipient == RepaymentPlan.Recipient.PLATFORM else obj.investment.amount
+        fee = (principal * SAHMI_PLATFORM_FEE_RATE).quantize(Decimal("0.01"))
         return f"{fee:.2f}"
 
     def get_total_with_platform_fee(self, obj):
+        if obj.recipient == RepaymentPlan.Recipient.PLATFORM:
+            return self.get_platform_fee(obj)
         fee = (obj.investment.amount * SAHMI_PLATFORM_FEE_RATE).quantize(Decimal("0.01"))
         return f"{obj.investment.amount + obj.investment.expected_return + fee:.2f}"
 
@@ -315,11 +349,31 @@ class RepaymentPlanSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 "Only the project entrepreneur can submit a repayment plan."
             )
+        recipient = attrs.get("recipient", getattr(self.instance, "recipient", RepaymentPlan.Recipient.INVESTOR))
         investment = attrs.get("investment", getattr(self.instance, "investment", None))
-        if not investment or investment.project.entrepreneur_id != request.user.id:
-            raise serializers.ValidationError({
-                "investment": "Choose an investment belonging to one of your projects."
-            })
+        project = attrs.get("project", getattr(self.instance, "project", None))
+        if recipient == RepaymentPlan.Recipient.INVESTOR:
+            if not investment or investment.project.entrepreneur_id != request.user.id:
+                raise serializers.ValidationError({
+                    "investment": "Choose an investment belonging to one of your projects."
+                })
+            project = investment.project
+        else:
+            if not project or project.entrepreneur_id != request.user.id:
+                raise serializers.ValidationError({
+                    "project": "Choose one of your projects for the Sahmi repayment."
+                })
+            investment = None
+            existing = RepaymentPlan.objects.filter(
+                project=project,
+                recipient=RepaymentPlan.Recipient.PLATFORM,
+            )
+            if self.instance:
+                existing = existing.exclude(pk=self.instance.pk)
+            if existing.exists():
+                raise serializers.ValidationError({
+                    "project": "This project already has a Sahmi repayment plan."
+                })
         if self.instance and self.instance.status not in {
             RepaymentPlan.Status.REVISION_REQUIRED,
             RepaymentPlan.Status.REJECTED,
@@ -327,24 +381,20 @@ class RepaymentPlanSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({
                 "status": "Only a plan returned for correction or rejected can be resubmitted."
             })
-        if self.instance and investment.pk != self.instance.investment_id:
+        if self.instance and (
+            recipient != self.instance.recipient
+            or getattr(investment, "pk", None) != self.instance.investment_id
+            or project.pk != self.instance.project_id
+        ):
             raise serializers.ValidationError({
-                "investment": "A repayment plan cannot be moved to another investor account."
+                "investment": "A repayment plan cannot be moved to another repayment account."
             })
         installments = attrs.get("installments", [])
-        investor_installments = [
-            item for item in installments
-            if item.get("recipient", Repayment.Recipient.INVESTOR) == Repayment.Recipient.INVESTOR
-        ]
-        platform_installments = [
-            item for item in installments
-            if item.get("recipient") == Repayment.Recipient.PLATFORM
-        ]
-        if not investor_installments:
-            raise serializers.ValidationError({"installments": "Add at least one investor repayment."})
-        if len(platform_installments) != 1:
+        if not installments:
+            raise serializers.ValidationError({"installments": "Add at least one dated repayment."})
+        if any(item.get("recipient", Repayment.Recipient.INVESTOR) != recipient for item in installments):
             raise serializers.ValidationError({
-                "installments": "Add exactly one dated Sahmi platform repayment."
+                "installments": "A plan can contain repayments for only its selected account."
             })
         recipient_dates = [
             (item.get("recipient", Repayment.Recipient.INVESTOR), item["scheduled_date"])
@@ -354,28 +404,28 @@ class RepaymentPlanSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({
                 "installments": "Each repayment for the same recipient must have a different date."
             })
+        ledger_investment = investment or project.investments.filter(status=Investment.Status.COMPLETED).first()
+        if not ledger_investment:
+            raise serializers.ValidationError({"project": "This project has no completed investment."})
         from .admin_serializers import validate_repayment_eligibility
         for item in installments:
-            validate_repayment_eligibility(investment, item["scheduled_date"])
-        proposed = sum((item["amount"] for item in investor_installments), Decimal("0.00"))
-        obligation = investment.amount + investment.expected_return
+            validate_repayment_eligibility(ledger_investment, item["scheduled_date"])
+        proposed = sum((item["amount"] for item in installments), Decimal("0.00"))
+        obligation = (
+            (project.funded_amount * SAHMI_PLATFORM_FEE_RATE).quantize(Decimal("0.01"))
+            if recipient == RepaymentPlan.Recipient.PLATFORM
+            else investment.amount + investment.expected_return
+        )
         if proposed != obligation:
             raise serializers.ValidationError({
                 "installments": (
-                    f"The repayments must total exactly {obligation:.2f} for this investor; "
+                    f"The repayments must total exactly {obligation:.2f} for this account; "
                     f"the submitted total is {proposed:.2f}."
                 )
             })
-        required_platform_fee = (
-            investment.amount * SAHMI_PLATFORM_FEE_RATE
-        ).quantize(Decimal("0.01"))
-        if platform_installments[0]["amount"] != required_platform_fee:
-            raise serializers.ValidationError({
-                "installments": (
-                    f"The Sahmi platform repayment must be exactly {required_platform_fee:.2f} "
-                    "(3% of this investment)."
-                )
-            })
+        attrs["investment"] = investment
+        attrs["project"] = project
+        attrs["recipient"] = recipient
         attrs["notes"] = str(attrs.get("notes", "")).strip()
         return attrs
 
@@ -388,7 +438,11 @@ class RepaymentPlanSerializer(serializers.ModelSerializer):
             status=RepaymentPlan.Status.SUBMITTED,
         )
         Repayment.objects.bulk_create([
-            Repayment(investment=plan.investment, plan=plan, **item)
+            Repayment(
+                investment=plan.investment or plan.project.investments.filter(status=Investment.Status.COMPLETED).first(),
+                plan=plan,
+                **item,
+            )
             for item in installments
         ])
         return plan
@@ -412,7 +466,11 @@ class RepaymentPlanSerializer(serializers.ModelSerializer):
             "submitted_at", "updated_at",
         ])
         Repayment.objects.bulk_create([
-            Repayment(investment=instance.investment, plan=instance, **item)
+            Repayment(
+                investment=instance.investment or instance.project.investments.filter(status=Investment.Status.COMPLETED).first(),
+                plan=instance,
+                **item,
+            )
             for item in installments
         ])
         return instance

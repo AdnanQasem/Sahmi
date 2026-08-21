@@ -21,7 +21,6 @@ const investment = (projectStatus: "fundraising" | "implementation" | "completed
     expected_roi: "5.00",
   },
   amount: "500.00",
-  quantity: 1,
   investment_date: "2026-05-07T12:00:00Z",
   status: projectStatus === "completed" ? "completed" : "confirmed",
   pending_expires_at: null,
